@@ -11,6 +11,17 @@
             </div>
         </div>
 
+        <style>
+            /* Disable native spinner arrows for number inputs for better UX */
+            input[type="number"]::-webkit-outer-spin-button,
+            input[type="number"]::-webkit-inner-spin-button {
+                -webkit-appearance: none;
+                margin: 0;
+            }
+            input[type="number"] {
+                -moz-appearance: textfield;
+            }
+        </style>
         <div class="row mb-4">
             <div class="col-md-12">
                 <div class="card p-3 shadow-sm border-0 bg-light">
@@ -36,18 +47,18 @@
                 </div>
                 <div class="card-body p-0">
                     <div class="table-responsive">
-                        <table class="table table-hover table-bordered mb-0 align-middle" id="participantsTable" style="min-width: 1200px;">
+                        <table class="table table-hover table-bordered mb-0 align-middle" id="participantsTable" style="min-width: 1400px;">
                             <thead class="table-light text-center align-middle">
                                 <tr class="text-nowrap">
-                                    <th style="width: 12%;">氏名<br><small class="text-muted">（名簿選択）</small></th>
-                                    <th style="width: 10%;">期日</th>
-                                    <th style="width: 12%;">交通手段</th>
+                                    <th style="width: 14%;">氏名<br><small class="text-muted">（名簿選択）</small></th>
+                                    <th style="width: 9%;">期日</th>
+                                    <th style="width: 10%;">交通手段</th>
                                     <th style="width: 14%;">区間<br><small class="text-muted">（〇〇〜〇〇）</small></th>
-                                    <th style="width: 7%;">距離<br><small class="text-muted">（km）</small></th>
-                                    <th style="width: 9%;">交通費</th>
-                                    <th style="width: 9%;">宿泊費</th>
-                                    <th style="width: 9%;">雑費</th>
-                                    <th style="width: 10%;">受領日</th>
+                                    <th style="width: 6%;">距離<br><small class="text-muted">（km）</small></th>
+                                    <th style="width: 10%;">交通費</th>
+                                    <th style="width: 10%;">宿泊費</th>
+                                    <th style="width: 10%;">雑費</th>
+                                    <th style="width: 9%;">受領日</th>
                                     <th style="width: 8%;">削除<br><small class="text-muted">（行消去）</small></th>
                                 </tr>
                             </thead>
