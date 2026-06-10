@@ -1,9 +1,11 @@
 package com.miyazaki.icehockey.budgetsystem.service;
 
 import com.miyazaki.icehockey.budgetsystem.mapper.ExpenseMapper;
+import com.miyazaki.icehockey.budgetsystem.mapper.MemberMapper;
 import com.miyazaki.icehockey.budgetsystem.mapper.ProjectParticipantMapper;
 import com.miyazaki.icehockey.budgetsystem.mapper.ProjectSummaryExpenseMapper;
 import com.miyazaki.icehockey.budgetsystem.model.Expense;
+import com.miyazaki.icehockey.budgetsystem.model.Member;
 import com.miyazaki.icehockey.budgetsystem.model.ProjectParticipant;
 import com.miyazaki.icehockey.budgetsystem.model.ProjectSummaryExpense;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -24,6 +26,9 @@ public class ProjectService {
     @Autowired
     private ProjectSummaryExpenseMapper summaryExpenseMapper;
 
+    @Autowired
+    private MemberMapper memberMapper;
+
     @Transactional
     public void saveProjectData(int projectId, ProjectSummaryExpense summary, List<ProjectParticipant> participants, List<Expense> expenses) {
         // Update summary expense
@@ -36,16 +41,39 @@ public class ProjectService {
         }
 
         // Recreate participants and expenses for simplicity
-        expenseMapper.deleteByProjectParticipantId(projectId); // Wait, this needs careful joining or delete by projectId.
+        expenseMapper.deleteByProjectParticipantId(projectId);
         participantMapper.deleteByProjectId(projectId);
         
-        // Let's implement robust insert
         for (int i = 0; i < participants.size(); i++) {
             ProjectParticipant p = participants.get(i);
             p.setProjectId(projectId);
+            Expense e = expenses.get(i);
+
+            // Handle Member Name and Auto-Registration
+            String mName = p.getMemberName();
+            if (mName != null && !mName.trim().isEmpty()) {
+                Member existing = memberMapper.findByName(mName);
+                if (existing == null) {
+                    existing = new Member();
+                    existing.setName(mName);
+                    if (e != null && e.getTransportRoute() != null) {
+                        String route = e.getTransportRoute();
+                        if (route.contains("〜")) existing.setDeparturePoint(route.split("〜")[0].trim());
+                        else if (route.contains("～")) existing.setDeparturePoint(route.split("～")[0].trim());
+                    }
+                    memberMapper.insert(existing);
+                } else {
+                    if (e != null && e.getTransportRoute() != null && (existing.getDeparturePoint() == null || existing.getDeparturePoint().isEmpty())) {
+                        String route = e.getTransportRoute();
+                        if (route.contains("〜")) { existing.setDeparturePoint(route.split("〜")[0].trim()); memberMapper.update(existing); }
+                        else if (route.contains("～")) { existing.setDeparturePoint(route.split("～")[0].trim()); memberMapper.update(existing); }
+                    }
+                }
+                p.setMemberId(existing.getId());
+            }
+
             participantMapper.insert(p);
             
-            Expense e = expenses.get(i);
             e.setProjectParticipantId(p.getId());
             expenseMapper.insert(e);
         }

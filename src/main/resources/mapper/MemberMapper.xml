@@ -4,7 +4,23 @@
     <select id="findAll" resultType="com.miyazaki.icehockey.budgetsystem.model.Member">
         SELECT * FROM members ORDER BY id;
     </select>
+    
+    <select id="findByName" resultType="com.miyazaki.icehockey.budgetsystem.model.Member">
+        SELECT * FROM members WHERE name = #{name} LIMIT 1;
+    </select>
+
     <insert id="insert" useGeneratedKeys="true" keyProperty="id">
-        INSERT INTO members (name, age, grade, role) VALUES (#{name}, #{age}, #{grade}, #{role})
+        INSERT INTO members (name, age, grade, role, departure_point) 
+        VALUES (#{name}, #{age}, #{grade}, #{role}, #{departurePoint})
     </insert>
+
+    <update id="update">
+        UPDATE members 
+        SET name = #{name}, age = #{age}, grade = #{grade}, role = #{role}, departure_point = #{departurePoint}
+        WHERE id = #{id}
+    </update>
+
+    <delete id="delete">
+        DELETE FROM members WHERE id = #{id}
+    </delete>
 </mapper>

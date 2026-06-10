@@ -46,23 +46,25 @@
                         </div>
                         <div class="modal-body">
                             <div class="mb-3">
-                                <label>事業名</label>
-                                <input type="text" name="name" class="form-control" required>
+                                <label class="form-label d-block">事業区分</label>
+                                <div class="form-check form-check-inline">
+                                    <input class="form-check-input" type="radio" name="name" id="cat1" value="強化選手" required checked>
+                                    <label class="form-check-label" for="cat1">強化選手</label>
+                                </div>
+                                <div class="form-check form-check-inline">
+                                    <input class="form-check-input" type="radio" name="name" id="cat2" value="トップチーム" required>
+                                    <label class="form-check-label" for="cat2">トップチーム</label>
+                                </div>
+                                <div class="form-check form-check-inline">
+                                    <input class="form-check-input" type="radio" name="name" id="cat3" value="ふるさと" required>
+                                    <label class="form-check-label" for="cat3">ふるさと</label>
+                                </div>
                             </div>
-                            <div class="mb-3">
-                                <label>期日</label>
-                                <input type="date" name="eventDate" class="form-control" required>
-                            </div>
-                            <div class="mb-3">
-                                <label>場所(会場)</label>
-                                <input type="text" name="locationVenue" class="form-control">
-                            </div>
-                            <div class="mb-3">
-                                <label>予算種別</label>
-                                <select name="budgetTypeId" class="form-select">
-                                    <option th:each="bt : ${budgetTypes}" th:value="${bt.id}" th:text="${bt.name}"></option>
-                                </select>
-                            </div>
+                            
+                            <!-- Hidden default values to satisfy database constraints for now -->
+                            <input type="hidden" name="targetCategory" value="" />
+                            <input type="hidden" name="eventDate" th:value="${#dates.format(#dates.createNow(), 'yyyy-MM-dd')}" />
+                            <input type="hidden" name="budgetTypeId" value="1" />
                         </div>
                         <div class="modal-footer">
                             <button type="submit" class="btn btn-primary">登録して詳細へ</button>

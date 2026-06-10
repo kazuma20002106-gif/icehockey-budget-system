@@ -87,9 +87,26 @@ public class ExportController {
                 Project p = projectMapper.findById(id);
                 if(p != null) {
                     Map<String, Object> pd = new HashMap<>();
-                    pd.put("name", p.getName());
-                    pd.put("date", p.getEventDate());
-                    pd.put("venue", p.getLocationVenue());
+                    pd.put("project", p);
+                    
+                    ProjectSummaryExpense sum = summaryMapper.findByProjectId(id);
+                    pd.put("summary", sum != null ? sum : new ProjectSummaryExpense());
+                    
+                    List<ProjectParticipant> parts = participantMapper.findByProjectId(id);
+                    int transportSum = 0, accommodationSum = 0;
+                    for (ProjectParticipant part : parts) {
+                        List<Expense> exList = expenseMapper.findByProjectParticipantId(part.getId());
+                        if (!exList.isEmpty()) {
+                            Expense ex = exList.get(0);
+                            part.setExpense(ex);
+                            transportSum += ex.getTransportCost();
+                            accommodationSum += ex.getAccommodationCost();
+                        }
+                    }
+                    pd.put("participants", parts);
+                    pd.put("transportSum", transportSum);
+                    pd.put("accommodationSum", accommodationSum);
+                    
                     previewProjects.add(pd);
                 }
             }
@@ -121,6 +138,36 @@ public class ExportController {
             excelExportService.exportForm25(projectIds, response.getOutputStream());
         } else if ("2-6".equals(exportType)) {
             excelExportService.exportForm26(projectIds, response.getOutputStream());
+        }
+    }
+
+    @GetMapping("/test-cells")
+    @ResponseBody
+    public String testCells() throws Exception {
+        org.springframework.core.io.ClassPathResource resource = new org.springframework.core.io.ClassPathResource("書類.xlsx");
+        try (java.io.InputStream is = resource.getInputStream();
+             org.apache.poi.ss.usermodel.Workbook workbook = org.apache.poi.ss.usermodel.WorkbookFactory.create(is)) {
+            StringBuilder sb = new StringBuilder();
+            sb.append("--- Sheets ---\n");
+            for (int i = 0; i < workbook.getNumberOfSheets(); i++) {
+                sb.append(i).append(": ").append(workbook.getSheetName(i)).append("\n");
+            }
+            
+            org.apache.poi.ss.usermodel.Sheet sheet = workbook.getSheet("様式２－６①事業別領収書１（選手強化）");
+            if (sheet != null) {
+                sb.append("\n--- Title row for 2-6 (1) ---\n");
+                for (int c = 0; c < 20; c++) {
+                    org.apache.poi.ss.usermodel.Cell cell = sheet.getRow(1) != null ? sheet.getRow(1).getCell(c) : null;
+                    if (cell != null && cell.getCellType() == org.apache.poi.ss.usermodel.CellType.STRING) {
+                        sb.append("R1C").append(c).append("=").append(cell.getStringCellValue()).append("\n");
+                    }
+                    cell = sheet.getRow(2) != null ? sheet.getRow(2).getCell(c) : null;
+                    if (cell != null && cell.getCellType() == org.apache.poi.ss.usermodel.CellType.STRING) {
+                        sb.append("R2C").append(c).append("=").append(cell.getStringCellValue()).append("\n");
+                    }
+                }
+            }
+            return sb.toString();
         }
     }
 }

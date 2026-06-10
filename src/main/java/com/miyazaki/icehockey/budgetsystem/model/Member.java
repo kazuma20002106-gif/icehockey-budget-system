@@ -6,6 +6,7 @@ public class Member {
     private Integer age;
     private String grade;
     private String role;
+    private String departurePoint;
 
     public Integer getId() { return id; }
     public void setId(Integer id) { this.id = id; }
@@ -21,4 +22,7 @@ public class Member {
 
     public String getRole() { return role; }
     public void setRole(String role) { this.role = role; }
+
+    public String getDeparturePoint() { return departurePoint; }
+    public void setDeparturePoint(String departurePoint) { this.departurePoint = departurePoint; }
 }

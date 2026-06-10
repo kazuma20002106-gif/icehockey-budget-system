@@ -48,41 +48,113 @@ public class ExcelExportService {
     }
 
     public void exportForm24(List<Integer> projectIds, OutputStream outputStream) throws Exception {
-        exportMultiSheet("様式２－４①②事業実施・実績報告書（選手強化費）", projectIds, outputStream, (sheet, project, summary, participants) -> {
-            writeSafe(sheet, 6, 3, project.getName()); // 事業名 [7,4]
-            writeSafe(sheet, 10, 3, project.getTargetCategory()); // 種別 [11,4]
-            writeSafe(sheet, 14, 3, project.getEventDate().toString()); // 期日 [15,4]
-            writeSafe(sheet, 15, 3, project.getLocationVenue()); // 会場 [16,4]
-            writeSafe(sheet, 16, 3, project.getLocationAccommodation()); // 宿舎名 [17,4]
+        ClassPathResource resource = new ClassPathResource("書類.xlsx");
+        try (InputStream is = resource.getInputStream();
+             Workbook workbook = WorkbookFactory.create(is)) {
 
-            if (summary != null) {
-                writeSafeNumeric(sheet, 23, 3, summary.getParkingCost()); // 駐車料 [24,4]
-                writeSafeNumeric(sheet, 24, 3, summary.getRentalCost()); // 借用料 [25,4]
-                writeSafeNumeric(sheet, 25, 3, summary.getSuppliesCost()); // 需用費 [26,4]
-                writeSafeNumeric(sheet, 26, 3, summary.getServiceCost()); // 役務費 [27,4]
-                writeSafeNumeric(sheet, 27, 3, summary.getCompensationCost()); // その他（報償費）[28,4]
-            }
+            String templateName = "様式２－４①②事業実施・実績報告書（選手強化費）";
+            int templateIndex = workbook.getSheetIndex(templateName);
+            if (templateIndex == -1) throw new IllegalArgumentException("Template sheet not found: " + templateName);
 
-            int transportSum = 0;
-            int accommodationSum = 0;
-            int coachCount = 0;
-            int playerCount = 0;
+            for (int i = 0; i < projectIds.size(); i += 2) {
+                int id1 = projectIds.get(i);
+                Integer id2 = (i + 1 < projectIds.size()) ? projectIds.get(i + 1) : null;
 
-            for (ProjectParticipant p : participants) {
-                if ("指導者".equals(p.getMemberRole())) coachCount++;
-                else playerCount++;
+                Sheet newSheet = workbook.cloneSheet(templateIndex);
+                workbook.setSheetName(workbook.getSheetIndex(newSheet), "2-4_" + id1 + (id2 != null ? "_" + id2 : ""));
 
-                if (p.getExpense() != null) {
-                    transportSum += p.getExpense().getTransportCost();
-                    accommodationSum += p.getExpense().getAccommodationCost();
+                populate24Side(newSheet, id1, 0); // Left side
+                if (id2 != null) {
+                    populate24Side(newSheet, id2, 17); // Right side
+                } else {
+                    // Optionally clear out the right side if it's empty, but we can leave it blank for now.
                 }
             }
 
-            writeSafeNumeric(sheet, 20, 3, transportSum); // 交通費 [21,4]
-            writeSafeNumeric(sheet, 21, 3, accommodationSum); // 宿泊費 [22,4]
-            writeSafeNumeric(sheet, 17, 3, coachCount); // 指導者数
-            writeSafeNumeric(sheet, 17, 6, playerCount); // 選手数
-        });
+            for (int i = workbook.getNumberOfSheets() - 1; i >= 0; i--) {
+                String sName = workbook.getSheetName(i);
+                if (!sName.startsWith("2-4_")) {
+                    workbook.removeSheetAt(i);
+                }
+            }
+
+            workbook.write(outputStream);
+        }
+    }
+
+    private void populate24Side(Sheet sheet, int projectId, int colOffset) {
+        Project project = projectMapper.findById(projectId);
+        ProjectSummaryExpense summary = summaryMapper.findByProjectId(projectId);
+        List<ProjectParticipant> participants = getLoadedParticipants(projectId);
+
+        // Draw ellipse for Project Name
+        if ("強化練習".equals(project.getName())) {
+            drawEllipse(sheet, 6, 4 + colOffset, 7, 9 + colOffset);
+        } else if ("遠征試合".equals(project.getName())) {
+            drawEllipse(sheet, 6, 12 + colOffset, 7, 17 + colOffset);
+        }
+
+        // Draw ellipse for Category
+        if ("成年男子".equals(project.getTargetCategory())) {
+            drawEllipse(sheet, 10, 4 + colOffset, 11, 8 + colOffset);
+        } else if ("成年女子".equals(project.getTargetCategory())) {
+            drawEllipse(sheet, 10, 12 + colOffset, 11, 16 + colOffset);
+        } else if ("少年男子".equals(project.getTargetCategory())) {
+            drawEllipse(sheet, 11, 4 + colOffset, 12, 8 + colOffset);
+        } else if ("少年女子".equals(project.getTargetCategory())) {
+            drawEllipse(sheet, 11, 12 + colOffset, 12, 16 + colOffset);
+        }
+
+        writeSafe(sheet, 14, 3 + colOffset, project.getEventDate().toString()); // 期日 [15,4]
+        writeSafe(sheet, 15, 3 + colOffset, project.getLocationVenue()); // 会場 [16,4]
+        writeSafe(sheet, 16, 3 + colOffset, project.getLocationAccommodation()); // 宿舎名 [17,4]
+
+        if (summary != null) {
+            writeSafeNumeric(sheet, 23, 3 + colOffset, summary.getParkingCost()); // 駐車料 [24,4]
+            writeSafeNumeric(sheet, 24, 3 + colOffset, summary.getRentalCost()); // 借用料 [25,4]
+            writeSafeNumeric(sheet, 25, 3 + colOffset, summary.getSuppliesCost()); // 需用費 [26,4]
+            writeSafeNumeric(sheet, 26, 3 + colOffset, summary.getServiceCost()); // 役務費 [27,4]
+            writeSafeNumeric(sheet, 27, 3 + colOffset, summary.getCompensationCost()); // その他（報償費）[28,4]
+        }
+
+        int transportSum = 0;
+        int accommodationSum = 0;
+        int coachCount = 0;
+        int playerCount = 0;
+
+        for (ProjectParticipant p : participants) {
+            if ("指導者".equals(p.getMemberRole())) coachCount++;
+            else playerCount++;
+
+            if (p.getExpense() != null) {
+                transportSum += p.getExpense().getTransportCost();
+                accommodationSum += p.getExpense().getAccommodationCost();
+            }
+        }
+
+        writeSafeNumeric(sheet, 20, 3 + colOffset, transportSum); // 交通費 [21,4]
+        writeSafeNumeric(sheet, 21, 3 + colOffset, accommodationSum); // 宿泊費 [22,4]
+        
+        if (colOffset == 0) {
+            writeSafeNumeric(sheet, 17, 6, coachCount); // 指導者数
+            writeSafeNumeric(sheet, 17, 12, playerCount); // 選手数
+        } else {
+            writeSafeNumeric(sheet, 17, 23, coachCount);
+            writeSafeNumeric(sheet, 17, 29, playerCount);
+        }
+    }
+
+    private void drawEllipse(Sheet sheet, int row1, int col1, int row2, int col2) {
+        if (sheet instanceof org.apache.poi.xssf.usermodel.XSSFSheet) {
+            org.apache.poi.xssf.usermodel.XSSFSheet xssfSheet = (org.apache.poi.xssf.usermodel.XSSFSheet) sheet;
+            org.apache.poi.xssf.usermodel.XSSFDrawing drawing = xssfSheet.createDrawingPatriarch();
+            org.apache.poi.xssf.usermodel.XSSFClientAnchor anchor = drawing.createAnchor(0, 0, 0, 0, col1, row1, col2, row2);
+            org.apache.poi.xssf.usermodel.XSSFSimpleShape shape = drawing.createSimpleShape(anchor);
+            shape.setShapeType(org.apache.poi.ss.usermodel.ShapeTypes.ELLIPSE);
+            shape.setLineStyleColor(0, 0, 0); // Black
+            shape.setLineWidth(1.5);
+            shape.setNoFill(true);
+        }
     }
 
     public void exportForm25(List<Integer> projectIds, OutputStream outputStream) throws Exception {
@@ -102,16 +174,49 @@ public class ExcelExportService {
 
     public void exportForm26(List<Integer> projectIds, OutputStream outputStream) throws Exception {
         exportMultiSheet("様式２－６①事業別領収書１（選手強化）", projectIds, outputStream, (sheet, project, summary, participants) -> {
+            // Overwrite title in R2C15 based on category
+            String title = "選手強化費　　領収書１";
+            if ("トップチーム".equals(project.getName())) {
+                title = "トップチーム選手強化事業　領収書１";
+            } else if ("ふるさと".equals(project.getName())) {
+                title = "ふるさと選手強化事業　領収書１";
+            }
+            writeSafe(sheet, 1, 15, title);
+
             int startRow = 9; // Row 10 is participant 1
             for (int i = 0; i < participants.size(); i++) {
                 ProjectParticipant p = participants.get(i);
                 int r = startRow + (i * 3);
-                writeSafe(sheet, r, 2, p.getMemberName()); // 氏名 [r, 3]
-                writeSafe(sheet, r, 9, project.getEventDate().toString()); // 期日 [r, 10]
+                writeSafe(sheet, r, 2, p.getMemberName()); // 氏名 [R10, C3]
                 
                 if (p.getExpense() != null) {
-                    writeSafe(sheet, r, 13, p.getExpense().getTransportMethod()); // 交通手段 [r, 14]
-                    writeSafeNumeric(sheet, r + 1, 13, p.getExpense().getTransportCost()); // 費用 [r+1, 14]
+                    writeSafe(sheet, r, 9, p.getExpense().getExpenseDate() != null ? p.getExpense().getExpenseDate().toString() : ""); // 期日 [R10, C10]
+                    
+                    // Clear existing pre-printed texts
+                    writeSafe(sheet, r, 13, "");
+                    writeSafe(sheet, r + 1, 13, "");
+                    writeSafe(sheet, r + 2, 13, "");
+
+                    String method = p.getExpense().getTransportMethod();
+                    if ("電車・車".equals(method)) {
+                        Integer dist = p.getExpense().getTransportDistanceKm();
+                        method += "(" + (dist != null ? dist : "") + ")km";
+                    }
+                    if (method != null) writeSafe(sheet, r, 13, method); // 1行目
+                    if (p.getExpense().getTransportRoute() != null) writeSafe(sheet, r + 2, 13, p.getExpense().getTransportRoute()); // 3行目
+                    
+                    if (p.getExpense().getTransportCost() != null && p.getExpense().getTransportCost() > 0) {
+                        writeSafeNumeric(sheet, r + 1, 19, p.getExpense().getTransportCost()); // 交通費 [R11, C20]
+                    }
+                    if (p.getExpense().getAccommodationCost() != null && p.getExpense().getAccommodationCost() > 0) {
+                        writeSafeNumeric(sheet, r + 1, 23, p.getExpense().getAccommodationCost()); // 宿泊費 [R11, C24] 推定
+                    }
+                    if (p.getExpense().getMiscellaneousCost() != null && p.getExpense().getMiscellaneousCost() > 0) {
+                        writeSafeNumeric(sheet, r + 1, 27, p.getExpense().getMiscellaneousCost()); // 雑費 [R11, C28] 推定
+                    }
+                    if (p.getExpense().getReceiptDate() != null) {
+                        writeSafe(sheet, r + 1, 31, p.getExpense().getReceiptDate().toString()); // 受領日 [R11, C32] 推定
+                    }
                 }
             }
         });

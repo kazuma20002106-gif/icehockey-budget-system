@@ -1,68 +1,84 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org"
-      th:replace="~{layout :: html(title='名簿マスタ', content=~{::div}, activePage='members')}">
+      th:replace="~{layout :: html(title='名簿管理', content=~{::div}, activePage='members')}">
 <body>
     <div>
         <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
-            <h1 class="h2">名簿マスタ管理</h1>
-            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addModal">新規登録</button>
+            <h1 class="h2">名簿管理</h1>
         </div>
-        <div class="table-responsive">
-            <table class="table table-hover table-striped shadow-sm">
-                <thead class="table-dark">
-                    <tr>
-                        <th>ID</th>
-                        <th>氏名</th>
-                        <th>年齢</th>
-                        <th>区分</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr th:each="member : ${members}">
-                        <td th:text="${member.id}"></td>
-                        <td th:text="${member.name}"></td>
-                        <td th:text="${member.age}"></td>
-                        <td th:text="${member.role}"></td>
-                    </tr>
-                    <tr th:if="${#lists.isEmpty(members)}">
-                        <td colspan="4" class="text-center">データがありません。</td>
-                    </tr>
-                </tbody>
-            </table>
+
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">新規メンバー追加</h5>
+            </div>
+            <div class="card-body">
+                <form th:action="@{/members/add}" method="post" class="row g-3">
+                    <div class="col-md-3">
+                        <label class="form-label">氏名</label>
+                        <input type="text" name="name" class="form-control" required>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">年齢</label>
+                        <input type="number" name="age" class="form-control">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">役職</label>
+                        <select name="role" class="form-select">
+                            <option value="選手">選手</option>
+                            <option value="指導者">指導者</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">出発地点</label>
+                        <input type="text" name="departurePoint" class="form-control" placeholder="例: 宮崎西">
+                    </div>
+                    <div class="col-md-2 d-flex align-items-end">
+                        <button type="submit" class="btn btn-primary w-100">追加</button>
+                    </div>
+                </form>
+            </div>
         </div>
-        
-        <!-- Add Modal -->
-        <div class="modal fade" id="addModal" tabindex="-1">
-            <div class="modal-dialog">
-                <div class="modal-content">
-                    <form th:action="@{/members/add}" method="post">
-                        <div class="modal-header">
-                            <h5 class="modal-title">新規メンバー登録</h5>
-                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                        </div>
-                        <div class="modal-body">
-                            <div class="mb-3">
-                                <label>氏名</label>
-                                <input type="text" name="name" class="form-control" required>
-                            </div>
-                            <div class="mb-3">
-                                <label>年齢</label>
-                                <input type="number" name="age" class="form-control">
-                            </div>
-                            <div class="mb-3">
-                                <label>区分</label>
-                                <select name="role" class="form-select">
-                                    <option value="選手">選手</option>
-                                    <option value="指導者">指導者</option>
-                                </select>
-                            </div>
-                        </div>
-                        <div class="modal-footer">
-                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">閉じる</button>
-                            <button type="submit" class="btn btn-primary">登録</button>
-                        </div>
-                    </form>
-                </div>
+
+        <div class="card shadow-sm">
+            <div class="card-header bg-dark text-white">
+                <h5 class="mb-0">登録メンバー一覧</h5>
+            </div>
+            <div class="card-body p-0">
+                <table class="table table-hover mb-0 align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>ID</th>
+                            <th>氏名</th>
+                            <th>年齢</th>
+                            <th>役職</th>
+                            <th>出発地点</th>
+                            <th class="text-end">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:each="m : ${members}">
+                            <td th:text="${m.id}"></td>
+                            <form th:action="@{/members/{id}/update(id=${m.id})}" method="post">
+                                <td><input type="text" name="name" class="form-control form-control-sm" th:value="${m.name}" required></td>
+                                <td><input type="number" name="age" class="form-control form-control-sm" th:value="${m.age}"></td>
+                                <td>
+                                    <select name="role" class="form-select form-select-sm">
+                                        <option value="選手" th:selected="${m.role == '選手'}">選手</option>
+                                        <option value="指導者" th:selected="${m.role == '指導者'}">指導者</option>
+                                    </select>
+                                </td>
+                                <td><input type="text" name="departurePoint" class="form-control form-control-sm" th:value="${m.departurePoint}"></td>
+                                <td class="text-end">
+                                    <div class="btn-group btn-group-sm">
+                                        <button type="submit" class="btn btn-outline-primary">更新</button>
+                                        <button type="button" class="btn btn-outline-danger" th:onclick="'if(confirm(\'削除しますか？\')){ document.getElementById(\'deleteForm-' + ${m.id} + '\').submit(); }'">削除</button>
+                                    </div>
+                                </td>
+                            </form>
+                            <form th:id="'deleteForm-' + ${m.id}" th:action="@{/members/{id}/delete(id=${m.id})}" method="post" style="display:none;"></form>
+                        </tr>
+                    </tbody>
+                </table>
             </div>
         </div>
     </div>

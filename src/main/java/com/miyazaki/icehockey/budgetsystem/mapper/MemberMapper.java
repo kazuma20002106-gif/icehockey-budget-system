@@ -6,5 +6,8 @@ import java.util.List;
 @Mapper
 public interface MemberMapper {
     List<Member> findAll();
+    Member findByName(String name);
     void insert(Member member);
+    void update(Member member);
+    void delete(int id);
 }

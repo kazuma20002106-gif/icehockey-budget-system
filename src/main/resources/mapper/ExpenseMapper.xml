@@ -3,8 +3,8 @@
 <mapper namespace="com.miyazaki.icehockey.budgetsystem.mapper.ExpenseMapper">
 
     <insert id="insert" useGeneratedKeys="true" keyProperty="id">
-        INSERT INTO expenses (project_participant_id, transport_method, transport_cost, accommodation_cost, miscellaneous_cost)
-        VALUES (#{projectParticipantId}, #{transportMethod}, #{transportCost}, #{accommodationCost}, #{miscellaneousCost})
+        INSERT INTO expenses (project_participant_id, expense_date, transport_method, transport_route, transport_distance_km, transport_cost, accommodation_cost, miscellaneous_cost, receipt_date)
+        VALUES (#{projectParticipantId}, #{expenseDate}, #{transportMethod}, #{transportRoute}, #{transportDistanceKm}, #{transportCost}, #{accommodationCost}, #{miscellaneousCost}, #{receiptDate})
     </insert>
 
     <select id="findByProjectParticipantId" resultType="com.miyazaki.icehockey.budgetsystem.model.Expense">

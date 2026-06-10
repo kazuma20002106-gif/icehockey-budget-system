@@ -1,6 +1,8 @@
 CREATE DATABASE IF NOT EXISTS budget_system CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 USE budget_system;
 
+SET FOREIGN_KEY_CHECKS = 0;
+
 DROP TABLE IF EXISTS project_summary_expenses;
 DROP TABLE IF EXISTS expenses;
 DROP TABLE IF EXISTS project_participants;
@@ -14,7 +16,8 @@ CREATE TABLE IF NOT EXISTS members (
     name VARCHAR(100) NOT NULL,
     age INT,
     grade VARCHAR(50),
-    role VARCHAR(50) DEFAULT '選手' -- '選手' or '指導者'
+    role VARCHAR(50) DEFAULT '選手', -- '選手' or '指導者'
+    departure_point VARCHAR(200)
 );
 
 -- 予算種別マスタ
@@ -51,10 +54,14 @@ CREATE TABLE IF NOT EXISTS project_participants (
 CREATE TABLE IF NOT EXISTS expenses (
     id INT AUTO_INCREMENT PRIMARY KEY,
     project_participant_id INT NOT NULL,
-    transport_method VARCHAR(100),
-    transport_cost INT DEFAULT 0,
-    accommodation_cost INT DEFAULT 0,
-    miscellaneous_cost INT DEFAULT 0,
+    expense_date DATE, -- 期日 (2-6の各行の期日)
+    transport_method VARCHAR(100), -- 交通手段 (航空機・バス, 電車・車)
+    transport_route VARCHAR(200), -- 区間
+    transport_distance_km INT, -- 距離(km)
+    transport_cost INT DEFAULT 0, -- 交通費
+    accommodation_cost INT DEFAULT 0, -- 宿泊費
+    miscellaneous_cost INT DEFAULT 0, -- 雑費
+    receipt_date DATE, -- 受領日
     FOREIGN KEY (project_participant_id) REFERENCES project_participants(id) ON DELETE CASCADE
 );
 
@@ -96,3 +103,5 @@ INSERT IGNORE INTO expenses (id, project_participant_id, transport_method, trans
 
 INSERT IGNORE INTO project_summary_expenses (id, project_id, rental_cost, supplies_cost, parking_cost, compensation_cost, service_cost) VALUES
 (1, 1, 15000, 2000, 500, 0, 0);
+
+SET FOREIGN_KEY_CHECKS = 1;

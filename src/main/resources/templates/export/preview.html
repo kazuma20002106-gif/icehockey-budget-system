@@ -67,23 +67,93 @@
             </div>
         </div>
 
-        <div th:if="${exportType != '2-2'}">
-            <div class="card shadow-sm border-0 mb-4">
+        <div th:if="${exportType == '2-6'}">
+            <div class="alert alert-info">
+                <i class="bi bi-info-circle-fill me-2"></i>以下のデータが「様式2-6」としてシートに出力されます。
+            </div>
+            <div class="card shadow-sm border-0 mb-4" th:each="pd : ${previewProjects}">
                 <div class="card-header bg-success text-white">
-                    <h5 class="card-title mb-0">様式 <span th:text="${exportType}"></span> プレビュー</h5>
+                    <h5 class="card-title mb-0">領収書明細: <span th:text="${pd.project.name}"></span> (<span th:text="${pd.project.eventDate}"></span>)</h5>
                 </div>
-                <div class="card-body">
-                    <p>以下の <strong><span th:text="${previewProjects.size()}"></span>件</strong> の事業それぞれに専用のシートが自動生成（クローン）され、1つのExcelファイル内に格納されて出力されます。</p>
-                    
-                    <ul class="list-group mb-3">
-                        <li class="list-group-item d-flex justify-content-between align-items-center" th:each="p : ${previewProjects}">
-                            <div>
-                                <span class="badge bg-secondary me-2">シート生成</span>
-                                <strong th:text="${p.name}"></strong>
-                            </div>
-                            <span class="text-muted" th:text="${p.date} + ' @ ' + ${p.venue}"></span>
-                        </li>
-                    </ul>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-bordered mb-0 text-center align-middle">
+                            <thead class="table-light">
+                                <tr>
+                                    <th rowspan="2">No</th>
+                                    <th rowspan="2">氏名</th>
+                                    <th rowspan="2">期日</th>
+                                    <th colspan="2">交通</th>
+                                    <th colspan="3">支払額</th>
+                                    <th rowspan="2">受領日</th>
+                                </tr>
+                                <tr>
+                                    <th>手段</th>
+                                    <th>区間・距離</th>
+                                    <th>交通費</th>
+                                    <th>宿泊費</th>
+                                    <th>雑費</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr th:each="part, stat : ${pd.participants}">
+                                    <td th:text="${stat.count}"></td>
+                                    <td th:text="${part.memberName}"></td>
+                                    <td th:text="${part.expense?.expenseDate}"></td>
+                                    <td th:text="${part.expense?.transportMethod}"></td>
+                                    <td>
+                                        <div th:text="${part.expense?.transportRoute}"></div>
+                                        <div class="text-muted small" th:if="${part.expense?.transportDistanceKm != null}" th:text="${part.expense?.transportDistanceKm} + ' km'"></div>
+                                    </td>
+                                    <td class="text-end" th:text="${part.expense?.transportCost != null ? #numbers.formatInteger(part.expense.transportCost, 1, 'COMMA') : '0'}"></td>
+                                    <td class="text-end" th:text="${part.expense?.accommodationCost != null ? #numbers.formatInteger(part.expense.accommodationCost, 1, 'COMMA') : '0'}"></td>
+                                    <td class="text-end" th:text="${part.expense?.miscellaneousCost != null ? #numbers.formatInteger(part.expense.miscellaneousCost, 1, 'COMMA') : '0'}"></td>
+                                    <td th:text="${part.expense?.receiptDate}"></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div th:if="${exportType == '2-4' || exportType == '2-5'}">
+            <div class="alert alert-info">
+                <i class="bi bi-info-circle-fill me-2"></i>以下のデータが「様式<span th:text="${exportType}"></span>」として出力されます。（様式2-4は2事業で1シートにまとめられます）
+            </div>
+            <div class="card shadow-sm border-0 mb-4" th:each="pd : ${previewProjects}">
+                <div class="card-header bg-info text-white">
+                    <h5 class="card-title mb-0">事業報告: <span th:text="${pd.project.name}"></span> (<span th:text="${pd.project.eventDate}"></span>)</h5>
+                </div>
+                <div class="card-body p-0">
+                    <table class="table table-bordered mb-0">
+                        <tbody>
+                            <tr>
+                                <th class="table-light w-25">事業名</th>
+                                <td th:text="${pd.project.name}"></td>
+                                <th class="table-light w-25">種別</th>
+                                <td th:text="${pd.project.targetCategory}"></td>
+                            </tr>
+                            <tr>
+                                <th class="table-light">期日</th>
+                                <td th:text="${pd.project.eventDate}"></td>
+                                <th class="table-light">会場 / 宿舎</th>
+                                <td th:text="${pd.project.locationVenue} + ' / ' + ${pd.project.locationAccommodation}"></td>
+                            </tr>
+                            <tr>
+                                <th class="table-light">交通費合計</th>
+                                <td th:text="${pd.transportSum != null ? #numbers.formatInteger(pd.transportSum, 1, 'COMMA') : '0'} + ' 円'"></td>
+                                <th class="table-light">宿泊費合計</th>
+                                <td th:text="${pd.accommodationSum != null ? #numbers.formatInteger(pd.accommodationSum, 1, 'COMMA') : '0'} + ' 円'"></td>
+                            </tr>
+                            <tr>
+                                <th class="table-light">借用料</th>
+                                <td th:text="${pd.summary?.rentalCost != null ? #numbers.formatInteger(pd.summary.rentalCost, 1, 'COMMA') : '0'} + ' 円'"></td>
+                                <th class="table-light">需用費</th>
+                                <td th:text="${pd.summary?.suppliesCost != null ? #numbers.formatInteger(pd.summary.suppliesCost, 1, 'COMMA') : '0'} + ' 円'"></td>
+                            </tr>
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </div>
