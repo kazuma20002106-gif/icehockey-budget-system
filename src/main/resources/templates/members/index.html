@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{layout :: html(title='名簿マスタ', content=~{::div}, activePage='members')}">
+<body>
+    <div>
+        <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+            <h1 class="h2">名簿マスタ管理</h1>
+            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addModal">新規登録</button>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-hover table-striped shadow-sm">
+                <thead class="table-dark">
+                    <tr>
+                        <th>ID</th>
+                        <th>氏名</th>
+                        <th>年齢</th>
+                        <th>区分</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr th:each="member : ${members}">
+                        <td th:text="${member.id}"></td>
+                        <td th:text="${member.name}"></td>
+                        <td th:text="${member.age}"></td>
+                        <td th:text="${member.role}"></td>
+                    </tr>
+                    <tr th:if="${#lists.isEmpty(members)}">
+                        <td colspan="4" class="text-center">データがありません。</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- Add Modal -->
+        <div class="modal fade" id="addModal" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <form th:action="@{/members/add}" method="post">
+                        <div class="modal-header">
+                            <h5 class="modal-title">新規メンバー登録</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="mb-3">
+                                <label>氏名</label>
+                                <input type="text" name="name" class="form-control" required>
+                            </div>
+                            <div class="mb-3">
+                                <label>年齢</label>
+                                <input type="number" name="age" class="form-control">
+                            </div>
+                            <div class="mb-3">
+                                <label>区分</label>
+                                <select name="role" class="form-select">
+                                    <option value="選手">選手</option>
+                                    <option value="指導者">指導者</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">閉じる</button>
+                            <button type="submit" class="btn btn-primary">登録</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

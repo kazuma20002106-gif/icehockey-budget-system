@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{layout :: html(title='ダッシュボード', content=~{::div}, activePage='dashboard')}">
+<body>
+    <div>
+        <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+            <h1 class="h2">ダッシュボード</h1>
+        </div>
+        
+        <div class="row mb-4">
+            <div class="col-md-4">
+                <div class="card text-white bg-primary mb-3">
+                    <div class="card-body">
+                        <h5 class="card-title">登録事業数</h5>
+                        <p class="card-text display-6" th:text="${projectCount}">0</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card text-white bg-success mb-3">
+                    <div class="card-body">
+                        <h5 class="card-title">登録メンバー数</h5>
+                        <p class="card-text display-6" th:text="${memberCount}">0</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <h3>最近の事業</h3>
+        <div class="table-responsive">
+            <table class="table table-hover table-striped shadow-sm">
+                <thead class="table-dark">
+                    <tr>
+                        <th>期日</th>
+                        <th>事業名</th>
+                        <th>場所</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr th:each="project : ${projects}">
+                        <td th:text="${project.eventDate}">2026-06-10</td>
+                        <td th:text="${project.name}">強化練習</td>
+                        <td th:text="${project.locationVenue}">アリーナ</td>
+                        <td>
+                            <a href="#" class="btn btn-sm btn-outline-primary">詳細・経費入力</a>
+                            <a href="#" class="btn btn-sm btn-outline-success">Excel出力</a>
+                        </td>
+                    </tr>
+                    <tr th:if="${#lists.isEmpty(projects)}">
+                        <td colspan="4" class="text-center">登録されている事業がありません。</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</body>
+</html>
