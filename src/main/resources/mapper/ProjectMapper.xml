@@ -13,8 +13,5 @@
         INSERT INTO projects (name, budget_type_id, target_category, event_date, location_venue, location_accommodation)
         VALUES (#{name}, #{budgetTypeId}, #{targetCategory}, #{eventDate}, #{locationVenue}, #{locationAccommodation})
     </insert>
-    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
-        INSERT INTO projects (name, budget_type_id, target_category, event_date, location_venue, location_accommodation)
-        VALUES (#{name}, #{budgetTypeId}, #{targetCategory}, #{eventDate}, #{locationVenue}, #{locationAccommodation})
-    </insert>
+
 </mapper>
