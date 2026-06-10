@@ -25,7 +25,7 @@
                         <td th:text="${project.eventDate}"></td>
                         <td th:text="${project.locationVenue}"></td>
                         <td>
-                            <a href="#" class="btn btn-sm btn-outline-primary">詳細</a>
+                            <a th:href="@{/projects/{id}(id=${project.id})}" class="btn btn-sm btn-outline-primary">経費入力・詳細</a>
                         </td>
                     </tr>
                     <tr th:if="${#lists.isEmpty(projects)}">
@@ -35,17 +35,39 @@
             </table>
         </div>
         
-        <!-- Add Modal (Simplified for now) -->
+        <!-- Add Modal -->
         <div class="modal fade" id="addModal" tabindex="-1">
             <div class="modal-dialog">
                 <div class="modal-content">
-                    <div class="modal-header">
-                        <h5 class="modal-title">新規事業登録（準備中）</h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                    </div>
-                    <div class="modal-body">
-                        <p>事業の登録フォームは今後実装予定です。</p>
-                    </div>
+                    <form th:action="@{/projects/add}" method="post">
+                        <div class="modal-header">
+                            <h5 class="modal-title">新規事業登録</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="mb-3">
+                                <label>事業名</label>
+                                <input type="text" name="name" class="form-control" required>
+                            </div>
+                            <div class="mb-3">
+                                <label>期日</label>
+                                <input type="date" name="eventDate" class="form-control" required>
+                            </div>
+                            <div class="mb-3">
+                                <label>場所(会場)</label>
+                                <input type="text" name="locationVenue" class="form-control">
+                            </div>
+                            <div class="mb-3">
+                                <label>予算種別</label>
+                                <select name="budgetTypeId" class="form-select">
+                                    <option th:each="bt : ${budgetTypes}" th:value="${bt.id}" th:text="${bt.name}"></option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="submit" class="btn btn-primary">登録して詳細へ</button>
+                        </div>
+                    </form>
                 </div>
             </div>
         </div>

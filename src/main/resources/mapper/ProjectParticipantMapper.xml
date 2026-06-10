@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.miyazaki.icehockey.budgetsystem.mapper.ProjectParticipantMapper">
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO project_participants (project_id, member_id, is_accommodated)
+        VALUES (#{projectId}, #{memberId}, #{isAccommodated})
+    </insert>
+
+    <select id="findByProjectId" resultType="com.miyazaki.icehockey.budgetsystem.model.ProjectParticipant">
+        SELECT pp.*, m.name as memberName, m.role as memberRole 
+        FROM project_participants pp
+        JOIN members m ON pp.member_id = m.id
+        WHERE pp.project_id = #{projectId}
+        ORDER BY pp.id ASC
+    </select>
+    
+    <delete id="deleteByProjectId">
+        DELETE FROM project_participants WHERE project_id = #{projectId}
+    </delete>
+
+</mapper>

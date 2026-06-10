@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.miyazaki.icehockey.budgetsystem.mapper.ProjectSummaryExpenseMapper">
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO project_summary_expenses (project_id, rental_cost, supplies_cost, parking_cost, compensation_cost, service_cost)
+        VALUES (#{projectId}, #{rentalCost}, #{suppliesCost}, #{parkingCost}, #{compensationCost}, #{serviceCost})
+    </insert>
+
+    <select id="findByProjectId" resultType="com.miyazaki.icehockey.budgetsystem.model.ProjectSummaryExpense">
+        SELECT * FROM project_summary_expenses WHERE project_id = #{projectId} LIMIT 1
+    </select>
+    
+    <update id="update">
+        UPDATE project_summary_expenses
+        SET rental_cost = #{rentalCost},
+            supplies_cost = #{suppliesCost},
+            parking_cost = #{parkingCost},
+            compensation_cost = #{compensationCost},
+            service_cost = #{serviceCost}
+        WHERE id = #{id}
+    </update>
+
+</mapper>

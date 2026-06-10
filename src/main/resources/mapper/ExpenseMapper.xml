@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.miyazaki.icehockey.budgetsystem.mapper.ExpenseMapper">
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO expenses (project_participant_id, transport_method, transport_cost, accommodation_cost, miscellaneous_cost)
+        VALUES (#{projectParticipantId}, #{transportMethod}, #{transportCost}, #{accommodationCost}, #{miscellaneousCost})
+    </insert>
+
+    <select id="findByProjectParticipantId" resultType="com.miyazaki.icehockey.budgetsystem.model.Expense">
+        SELECT * FROM expenses WHERE project_participant_id = #{projectParticipantId}
+    </select>
+    
+    <delete id="deleteByProjectParticipantId">
+        DELETE FROM expenses WHERE project_participant_id = #{projectParticipantId}
+    </delete>
+
+</mapper>

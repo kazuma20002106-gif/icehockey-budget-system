@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{layout :: html(title='事業詳細・一括入力', content=~{::div}, activePage='projects')}">
+<body>
+    <div>
+        <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+            <h1 class="h2" th:text="${project.name}">事業名</h1>
+            <div>
+                <a th:href="@{/projects/{id}/export(id=${project.id})}" class="btn btn-success">Excelダウンロード</a>
+                <a href="/projects" class="btn btn-secondary">戻る</a>
+            </div>
+        </div>
+
+        <div class="row mb-4">
+            <div class="col-md-12">
+                <div class="card p-3 shadow-sm">
+                    <h5 class="mb-3 border-bottom pb-2">事業基本情報</h5>
+                    <div class="row">
+                        <div class="col-md-3"><strong>期日:</strong> <span th:text="${project.eventDate}"></span></div>
+                        <div class="col-md-3"><strong>場所(会場):</strong> <span th:text="${project.locationVenue}"></span></div>
+                        <div class="col-md-3"><strong>場所(宿泊):</strong> <span th:text="${project.locationAccommodation}"></span></div>
+                        <div class="col-md-3"><strong>対象:</strong> <span th:text="${project.targetCategory}"></span></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <form th:action="@{/projects/{id}/save(id=${project.id})}" th:object="${form}" method="post" id="projectForm">
+            <!-- 事業全体経費 (Project Summary Expenses) -->
+            <div class="card mb-4 shadow-sm">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0">事業全体経費（様式2-2-1等への出力）</h5>
+                </div>
+                <div class="card-body">
+                    <input type="hidden" th:field="*{summary.projectId}" />
+                    <div class="row g-3">
+                        <div class="col-md-2">
+                            <label class="form-label">借用料</label>
+                            <input type="number" class="form-control" th:field="*{summary.rentalCost}">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">需用費</label>
+                            <input type="number" class="form-control" th:field="*{summary.suppliesCost}">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">駐車料</label>
+                            <input type="number" class="form-control" th:field="*{summary.parkingCost}">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">報償費</label>
+                            <input type="number" class="form-control" th:field="*{summary.compensationCost}">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">役務費</label>
+                            <input type="number" class="form-control" th:field="*{summary.serviceCost}">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 参加者と個人経費 (Participants and Expenses) -->
+            <div class="card mb-4 shadow-sm">
+                <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">参加者・個人経費一覧</h5>
+                    <button type="button" class="btn btn-sm btn-outline-primary" onclick="addParticipantRow()">＋ 参加者を追加</button>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0" id="participantsTable">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>参加者 (名簿から選択)</th>
+                                    <th>宿泊の有無</th>
+                                    <th>交通機関</th>
+                                    <th>交通費</th>
+                                    <th>宿泊費</th>
+                                    <th>雑費</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr th:each="p, stat : *{participants}" class="participant-row">
+                                    <input type="hidden" th:name="|participants[${stat.index}].id|" th:value="${p.id}" />
+                                    <input type="hidden" th:name="|expenses[${stat.index}].id|" th:value="*{expenses[__${stat.index}__].id}" />
+                                    <td>
+                                        <select class="form-select" th:name="|participants[${stat.index}].memberId|">
+                                            <option th:each="m : ${members}" th:value="${m.id}" th:text="${m.name}" th:selected="${m.id == p.memberId}"></option>
+                                        </select>
+                                    </td>
+                                    <td class="text-center align-middle">
+                                        <input class="form-check-input" type="checkbox" th:name="|participants[${stat.index}].isAccommodated|" th:checked="${p.isAccommodated}" value="true">
+                                    </td>
+                                    <td><input type="text" class="form-control" th:name="|expenses[${stat.index}].transportMethod|" th:value="*{expenses[__${stat.index}__].transportMethod}"></td>
+                                    <td><input type="number" class="form-control" th:name="|expenses[${stat.index}].transportCost|" th:value="*{expenses[__${stat.index}__].transportCost}"></td>
+                                    <td><input type="number" class="form-control" th:name="|expenses[${stat.index}].accommodationCost|" th:value="*{expenses[__${stat.index}__].accommodationCost}"></td>
+                                    <td><input type="number" class="form-control" th:name="|expenses[${stat.index}].miscellaneousCost|" th:value="*{expenses[__${stat.index}__].miscellaneousCost}"></td>
+                                    <td class="align-middle">
+                                        <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeRow(this)">削除</button>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div class="d-grid gap-2 d-md-flex justify-content-md-end mb-5">
+                <button type="submit" class="btn btn-primary px-5">保存する</button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Hidden Template for new rows -->
+    <table style="display:none;">
+        <tbody id="rowTemplate">
+            <tr class="participant-row">
+                <td>
+                    <select class="form-select" name="participants[INDEX].memberId">
+                        <option th:each="m : ${members}" th:value="${m.id}" th:text="${m.name}"></option>
+                    </select>
+                </td>
+                <td class="text-center align-middle"><input class="form-check-input" type="checkbox" name="participants[INDEX].isAccommodated" value="true"></td>
+                <td><input type="text" class="form-control" name="expenses[INDEX].transportMethod"></td>
+                <td><input type="number" class="form-control" name="expenses[INDEX].transportCost" value="0"></td>
+                <td><input type="number" class="form-control" name="expenses[INDEX].accommodationCost" value="0"></td>
+                <td><input type="number" class="form-control" name="expenses[INDEX].miscellaneousCost" value="0"></td>
+                <td class="align-middle"><button type="button" class="btn btn-sm btn-outline-danger" onclick="removeRow(this)">削除</button></td>
+            </tr>
+        </tbody>
+    </table>
+
+    <script th:inline="javascript">
+        function addParticipantRow() {
+            const table = document.getElementById('participantsTable').getElementsByTagName('tbody')[0];
+            const rows = table.getElementsByClassName('participant-row');
+            const newIndex = rows.length;
+            
+            const template = document.getElementById('rowTemplate').innerHTML;
+            const newHtml = template.replace(/INDEX/g, newIndex);
+            
+            table.insertAdjacentHTML('beforeend', newHtml);
+        }
+
+        function removeRow(btn) {
+            btn.closest('tr').remove();
+            // In a robust app, we would re-index here, but Spring MVC handles sparse arrays.
+        }
+    </script>
+</body>
+</html>

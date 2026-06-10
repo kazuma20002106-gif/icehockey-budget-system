@@ -6,5 +6,6 @@ import java.util.List;
 @Mapper
 public interface ProjectMapper {
     List<Project> findAll();
-    void insert(Project project);
+    Project findById(int id);
+    int insert(Project project);
 }

@@ -1,24 +1,38 @@
 package com.miyazaki.icehockey.budgetsystem.model;
 
 public class ProjectParticipant {
-    private Integer id;
-    private Integer projectId;
-    private Integer memberId;
-    private Boolean isAccommodated;
+    private int id;
+    private int projectId;
+    private int memberId;
+    private boolean isAccommodated;
     private Member member;
 
-    public Integer getId() { return id; }
-    public void setId(Integer id) { this.id = id; }
+    // Transient fields for UI and Export
+    private String memberName;
+    private String memberRole;
+    private Expense expense;
 
-    public Integer getProjectId() { return projectId; }
-    public void setProjectId(Integer projectId) { this.projectId = projectId; }
+    public int getId() { return id; }
+    public void setId(int id) { this.id = id; }
 
-    public Integer getMemberId() { return memberId; }
-    public void setMemberId(Integer memberId) { this.memberId = memberId; }
+    public int getProjectId() { return projectId; }
+    public void setProjectId(int projectId) { this.projectId = projectId; }
 
-    public Boolean getIsAccommodated() { return isAccommodated; }
-    public void setIsAccommodated(Boolean isAccommodated) { this.isAccommodated = isAccommodated; }
+    public int getMemberId() { return memberId; }
+    public void setMemberId(int memberId) { this.memberId = memberId; }
+
+    public boolean getIsAccommodated() { return isAccommodated; }
+    public void setIsAccommodated(boolean isAccommodated) { this.isAccommodated = isAccommodated; }
 
     public Member getMember() { return member; }
     public void setMember(Member member) { this.member = member; }
+
+    public String getMemberName() { return memberName; }
+    public void setMemberName(String memberName) { this.memberName = memberName; }
+
+    public String getMemberRole() { return memberRole; }
+    public void setMemberRole(String memberRole) { this.memberRole = memberRole; }
+
+    public Expense getExpense() { return expense; }
+    public void setExpense(Expense expense) { this.expense = expense; }
 }
