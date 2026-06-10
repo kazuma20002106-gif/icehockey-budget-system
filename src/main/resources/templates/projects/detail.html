@@ -21,6 +21,8 @@
             input[type="number"] {
                 -moz-appearance: textfield;
             }
+            .digit-col { width: 35px; }
+            .digit-col button { font-size: 0.8rem; padding: 2px 0; }
         </style>
         <div class="row mb-4">
             <div class="col-md-12">
@@ -87,9 +89,9 @@
                                         </div>
                                     </td>
                                     <td><input type="number" class="form-control form-control-sm text-end" th:name="|expenses[${stat.index}].transportDistanceKm|" th:value="*{expenses[__${stat.index}__].transportDistanceKm}"></td>
-                                    <td><input type="number" class="form-control form-control-sm text-end" th:name="|expenses[${stat.index}].transportCost|" th:value="*{expenses[__${stat.index}__].transportCost}" min="0" step="1000" oninput="calculateTotals()"></td>
-                                    <td><input type="number" class="form-control form-control-sm text-end" th:name="|expenses[${stat.index}].accommodationCost|" th:value="*{expenses[__${stat.index}__].accommodationCost}" min="0" step="1000" oninput="calculateTotals()"></td>
-                                    <td><input type="number" class="form-control form-control-sm text-end" th:name="|expenses[${stat.index}].miscellaneousCost|" th:value="*{expenses[__${stat.index}__].miscellaneousCost}" min="0" step="1000" oninput="calculateTotals()"></td>
+                                    <td><input type="number" class="form-control form-control-sm text-end cost-input" th:name="|expenses[${stat.index}].transportCost|" th:value="*{expenses[__${stat.index}__].transportCost}" min="0" step="1000" oninput="calculateTotals()" onclick="openDigitSpinner(this)" onfocus="openDigitSpinner(this)"></td>
+                                    <td><input type="number" class="form-control form-control-sm text-end cost-input" th:name="|expenses[${stat.index}].accommodationCost|" th:value="*{expenses[__${stat.index}__].accommodationCost}" min="0" step="1000" oninput="calculateTotals()" onclick="openDigitSpinner(this)" onfocus="openDigitSpinner(this)"></td>
+                                    <td><input type="number" class="form-control form-control-sm text-end cost-input" th:name="|expenses[${stat.index}].miscellaneousCost|" th:value="*{expenses[__${stat.index}__].miscellaneousCost}" min="0" step="1000" oninput="calculateTotals()" onclick="openDigitSpinner(this)" onfocus="openDigitSpinner(this)"></td>
                                     <td><input type="date" class="form-control form-control-sm" th:name="|expenses[${stat.index}].receiptDate|" th:value="*{expenses[__${stat.index}__].receiptDate}"></td>
                                     <td class="text-center">
                                         <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeRow(this)"><i class="bi bi-trash"></i></button>
@@ -139,9 +141,9 @@
                         </div>
                     </td>
                     <td><input type="number" class="form-control form-control-sm text-end" name="expenses[INDEX].transportDistanceKm"></td>
-                    <td><input type="number" class="form-control form-control-sm text-end" name="expenses[INDEX].transportCost" value="0" min="0" step="1000" oninput="calculateTotals()"></td>
-                    <td><input type="number" class="form-control form-control-sm text-end" name="expenses[INDEX].accommodationCost" value="0" min="0" step="1000" oninput="calculateTotals()"></td>
-                    <td><input type="number" class="form-control form-control-sm text-end" name="expenses[INDEX].miscellaneousCost" value="0" min="0" step="1000" oninput="calculateTotals()"></td>
+                    <td><input type="number" class="form-control form-control-sm text-end cost-input" name="expenses[INDEX].transportCost" value="0" min="0" step="1000" oninput="calculateTotals()" onclick="openDigitSpinner(this)" onfocus="openDigitSpinner(this)"></td>
+                    <td><input type="number" class="form-control form-control-sm text-end cost-input" name="expenses[INDEX].accommodationCost" value="0" min="0" step="1000" oninput="calculateTotals()" onclick="openDigitSpinner(this)" onfocus="openDigitSpinner(this)"></td>
+                    <td><input type="number" class="form-control form-control-sm text-end cost-input" name="expenses[INDEX].miscellaneousCost" value="0" min="0" step="1000" oninput="calculateTotals()" onclick="openDigitSpinner(this)" onfocus="openDigitSpinner(this)"></td>
                     <td><input type="date" class="form-control form-control-sm" name="expenses[INDEX].receiptDate"></td>
                     <td class="text-center"><button type="button" class="btn btn-sm btn-outline-danger" onclick="removeRow(this)"><i class="bi bi-trash"></i></button></td>
                 </tr>
@@ -152,10 +154,82 @@
             <option th:each="m : ${members}" th:value="${m.name}"></option>
         </datalist>
 
+        <!-- Digit Spinner Popover -->
+        <div id="digitSpinner" class="digit-spinner shadow-lg border rounded bg-white p-2" style="display:none; position:absolute; z-index:1050;">
+            <div class="d-flex text-center mb-1">
+                <div class="digit-col mx-1">
+                    <button type="button" class="btn btn-sm btn-light border w-100 py-0" onclick="spinDigit(10000, 1)"><i class="bi bi-chevron-up"></i></button>
+                    <div class="small text-muted" style="font-size:0.7rem;">万</div>
+                    <button type="button" class="btn btn-sm btn-light border w-100 py-0" onclick="spinDigit(10000, -1)"><i class="bi bi-chevron-down"></i></button>
+                </div>
+                <div class="digit-col mx-1">
+                    <button type="button" class="btn btn-sm btn-light border w-100 py-0" onclick="spinDigit(1000, 1)"><i class="bi bi-chevron-up"></i></button>
+                    <div class="small text-muted" style="font-size:0.7rem;">千</div>
+                    <button type="button" class="btn btn-sm btn-light border w-100 py-0" onclick="spinDigit(1000, -1)"><i class="bi bi-chevron-down"></i></button>
+                </div>
+                <div class="digit-col mx-1">
+                    <button type="button" class="btn btn-sm btn-light border w-100 py-0" onclick="spinDigit(100, 1)"><i class="bi bi-chevron-up"></i></button>
+                    <div class="small text-muted" style="font-size:0.7rem;">百</div>
+                    <button type="button" class="btn btn-sm btn-light border w-100 py-0" onclick="spinDigit(100, -1)"><i class="bi bi-chevron-down"></i></button>
+                </div>
+                <div class="digit-col mx-1">
+                    <button type="button" class="btn btn-sm btn-light border w-100 py-0" onclick="spinDigit(10, 1)"><i class="bi bi-chevron-up"></i></button>
+                    <div class="small text-muted" style="font-size:0.7rem;">十</div>
+                    <button type="button" class="btn btn-sm btn-light border w-100 py-0" onclick="spinDigit(10, -1)"><i class="bi bi-chevron-down"></i></button>
+                </div>
+                <div class="digit-col mx-1">
+                    <button type="button" class="btn btn-sm btn-light border w-100 py-0" onclick="spinDigit(1, 1)"><i class="bi bi-chevron-up"></i></button>
+                    <div class="small text-muted" style="font-size:0.7rem;">一</div>
+                    <button type="button" class="btn btn-sm btn-light border w-100 py-0" onclick="spinDigit(1, -1)"><i class="bi bi-chevron-down"></i></button>
+                </div>
+            </div>
+            <div class="text-center mt-2 border-top pt-1">
+                <button type="button" class="btn btn-sm btn-secondary w-100 py-0" onclick="closeDigitSpinner()">完了</button>
+            </div>
+        </div>
+
         <script th:inline="javascript">
             /*<![CDATA[*/
             const membersData = /*[[${members}]]*/ [];
             /*]]>*/
+
+            let currentSpinnerTarget = null;
+
+            function openDigitSpinner(inputElem) {
+                currentSpinnerTarget = inputElem;
+                const spinner = document.getElementById('digitSpinner');
+                const rect = inputElem.getBoundingClientRect();
+                spinner.style.top = (window.scrollY + rect.bottom + 2) + 'px';
+                spinner.style.left = (window.scrollX + rect.left - 50) + 'px';
+                spinner.style.display = 'block';
+            }
+
+            function closeDigitSpinner() {
+                document.getElementById('digitSpinner').style.display = 'none';
+                currentSpinnerTarget = null;
+            }
+
+            function spinDigit(amount, direction) {
+                if (!currentSpinnerTarget) return;
+                
+                let currentVal = parseInt(currentSpinnerTarget.value, 10);
+                if (isNaN(currentVal)) currentVal = 0;
+                
+                currentVal += (amount * direction);
+                if (currentVal < 0) currentVal = 0;
+                
+                currentSpinnerTarget.value = currentVal;
+                calculateTotals();
+            }
+
+            document.addEventListener('click', function(e) {
+                const spinner = document.getElementById('digitSpinner');
+                if (spinner.style.display === 'block') {
+                    if (!spinner.contains(e.target) && !e.target.classList.contains('cost-input')) {
+                        closeDigitSpinner();
+                    }
+                }
+            });
 
             function updateRoute(inputElem) {
                 const group = inputElem.closest('.input-group');
