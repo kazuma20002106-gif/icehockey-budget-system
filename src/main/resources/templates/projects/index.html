@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{layout :: html(title='事業管理', content=~{::div}, activePage='projects')}">
+<body>
+    <div>
+        <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+            <h1 class="h2">事業（プロジェクト）管理</h1>
+            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addModal">新規事業登録</button>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-hover table-striped shadow-sm">
+                <thead class="table-dark">
+                    <tr>
+                        <th>ID</th>
+                        <th>事業名</th>
+                        <th>期日</th>
+                        <th>場所</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr th:each="project : ${projects}">
+                        <td th:text="${project.id}"></td>
+                        <td th:text="${project.name}"></td>
+                        <td th:text="${project.eventDate}"></td>
+                        <td th:text="${project.locationVenue}"></td>
+                        <td>
+                            <a href="#" class="btn btn-sm btn-outline-primary">詳細</a>
+                        </td>
+                    </tr>
+                    <tr th:if="${#lists.isEmpty(projects)}">
+                        <td colspan="5" class="text-center">登録されている事業がありません。</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- Add Modal (Simplified for now) -->
+        <div class="modal fade" id="addModal" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">新規事業登録（準備中）</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p>事業の登録フォームは今後実装予定です。</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

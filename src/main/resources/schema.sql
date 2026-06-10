@@ -1,6 +1,13 @@
 CREATE DATABASE IF NOT EXISTS budget_system CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 USE budget_system;
 
+DROP TABLE IF EXISTS project_summary_expenses;
+DROP TABLE IF EXISTS expenses;
+DROP TABLE IF EXISTS project_participants;
+DROP TABLE IF EXISTS projects;
+DROP TABLE IF EXISTS budget_types;
+DROP TABLE IF EXISTS members;
+
 -- 名簿マスタ
 CREATE TABLE IF NOT EXISTS members (
     id INT AUTO_INCREMENT PRIMARY KEY,
