@@ -89,9 +89,9 @@
                                         </div>
                                     </td>
                                     <td><input type="number" class="form-control form-control-sm text-end distance-input" th:name="|expenses[${stat.index}].transportDistanceKm|" th:value="*{expenses[__${stat.index}__].transportDistanceKm}" min="0" onclick="openDistanceSpinner(this)" onfocus="openDistanceSpinner(this)"></td>
-                                    <td><input type="number" class="form-control form-control-sm text-end cost-input" th:name="|expenses[${stat.index}].transportCost|" th:value="*{expenses[__${stat.index}__].transportCost}" min="0" step="1000" oninput="calculateTotals()" onclick="openDigitSpinner(this)" onfocus="openDigitSpinner(this)"></td>
-                                    <td><input type="number" class="form-control form-control-sm text-end cost-input" th:name="|expenses[${stat.index}].accommodationCost|" th:value="*{expenses[__${stat.index}__].accommodationCost}" min="0" step="1000" oninput="calculateTotals()" onclick="openDigitSpinner(this)" onfocus="openDigitSpinner(this)"></td>
-                                    <td><input type="number" class="form-control form-control-sm text-end cost-input" th:name="|expenses[${stat.index}].miscellaneousCost|" th:value="*{expenses[__${stat.index}__].miscellaneousCost}" min="0" step="1000" oninput="calculateTotals()" onclick="openDigitSpinner(this)" onfocus="openDigitSpinner(this)"></td>
+                                    <td><input type="number" class="form-control form-control-sm text-end cost-input" th:name="|expenses[${stat.index}].transportCost|" th:value="*{expenses[__${stat.index}__].transportCost}" min="0" oninput="calculateTotals()" onclick="openDigitSpinner(this)" onfocus="openDigitSpinner(this)"></td>
+                                    <td><input type="number" class="form-control form-control-sm text-end cost-input" th:name="|expenses[${stat.index}].accommodationCost|" th:value="*{expenses[__${stat.index}__].accommodationCost}" min="0" oninput="calculateTotals()" onclick="openDigitSpinner(this)" onfocus="openDigitSpinner(this)"></td>
+                                    <td><input type="number" class="form-control form-control-sm text-end cost-input" th:name="|expenses[${stat.index}].miscellaneousCost|" th:value="*{expenses[__${stat.index}__].miscellaneousCost}" min="0" oninput="calculateTotals()" onclick="openDigitSpinner(this)" onfocus="openDigitSpinner(this)"></td>
                                     <td><input type="date" class="form-control form-control-sm" th:name="|expenses[${stat.index}].receiptDate|" th:value="*{expenses[__${stat.index}__].receiptDate}"></td>
                                     <td class="text-center">
                                         <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeRow(this)"><i class="bi bi-trash"></i></button>
@@ -141,9 +141,9 @@
                         </div>
                     </td>
                     <td><input type="number" class="form-control form-control-sm text-end distance-input" name="expenses[INDEX].transportDistanceKm" min="0" onclick="openDistanceSpinner(this)" onfocus="openDistanceSpinner(this)"></td>
-                    <td><input type="number" class="form-control form-control-sm text-end cost-input" name="expenses[INDEX].transportCost" value="0" min="0" step="1000" oninput="calculateTotals()" onclick="openDigitSpinner(this)" onfocus="openDigitSpinner(this)"></td>
-                    <td><input type="number" class="form-control form-control-sm text-end cost-input" name="expenses[INDEX].accommodationCost" value="0" min="0" step="1000" oninput="calculateTotals()" onclick="openDigitSpinner(this)" onfocus="openDigitSpinner(this)"></td>
-                    <td><input type="number" class="form-control form-control-sm text-end cost-input" name="expenses[INDEX].miscellaneousCost" value="0" min="0" step="1000" oninput="calculateTotals()" onclick="openDigitSpinner(this)" onfocus="openDigitSpinner(this)"></td>
+                    <td><input type="number" class="form-control form-control-sm text-end cost-input" name="expenses[INDEX].transportCost" value="0" min="0" oninput="calculateTotals()" onclick="openDigitSpinner(this)" onfocus="openDigitSpinner(this)"></td>
+                    <td><input type="number" class="form-control form-control-sm text-end cost-input" name="expenses[INDEX].accommodationCost" value="0" min="0" oninput="calculateTotals()" onclick="openDigitSpinner(this)" onfocus="openDigitSpinner(this)"></td>
+                    <td><input type="number" class="form-control form-control-sm text-end cost-input" name="expenses[INDEX].miscellaneousCost" value="0" min="0" oninput="calculateTotals()" onclick="openDigitSpinner(this)" onfocus="openDigitSpinner(this)"></td>
                     <td><input type="date" class="form-control form-control-sm" name="expenses[INDEX].receiptDate"></td>
                     <td class="text-center"><button type="button" class="btn btn-sm btn-outline-danger" onclick="removeRow(this)"><i class="bi bi-trash"></i></button></td>
                 </tr>
