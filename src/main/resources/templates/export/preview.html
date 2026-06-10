@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{layout :: html(title='出力プレビュー', content=~{::div}, activePage='export')}">
+<body>
+    <div>
+        <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-4 border-bottom">
+            <h1 class="h2">出力プレビュー (<span th:text="${exportType}"></span>)</h1>
+            <div class="btn-toolbar mb-2 mb-md-0">
+                <a href="/export" class="btn btn-sm btn-outline-secondary me-2">一覧に戻る</a>
+            </div>
+        </div>
+
+        <div th:if="${exportType == '2-2'}" class="row justify-content-center">
+            <div class="col-md-8">
+                <div class="card shadow-sm border-0">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="card-title mb-0">様式2-2 年間集計プレビュー（選択された事業の合算）</h5>
+                    </div>
+                    <div class="card-body">
+                        <table class="table table-bordered">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>科目</th>
+                                    <th class="text-end">集計金額</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>交通費</td>
+                                    <td class="text-end fw-bold text-primary" th:text="${#numbers.formatInteger(totalTransport, 1, 'COMMA')} + ' 円'"></td>
+                                </tr>
+                                <tr>
+                                    <td>宿泊費</td>
+                                    <td class="text-end fw-bold text-primary" th:text="${#numbers.formatInteger(totalAccommodation, 1, 'COMMA')} + ' 円'"></td>
+                                </tr>
+                                <tr>
+                                    <td>駐車料金</td>
+                                    <td class="text-end fw-bold text-primary" th:text="${#numbers.formatInteger(totalParking, 1, 'COMMA')} + ' 円'"></td>
+                                </tr>
+                                <tr>
+                                    <td>借用料 (会場費など)</td>
+                                    <td class="text-end fw-bold text-primary" th:text="${#numbers.formatInteger(totalRental, 1, 'COMMA')} + ' 円'"></td>
+                                </tr>
+                                <tr>
+                                    <td>報償費 (外部指導者など)</td>
+                                    <td class="text-end fw-bold text-primary" th:text="${#numbers.formatInteger(totalCompensation, 1, 'COMMA')} + ' 円'"></td>
+                                </tr>
+                                <tr>
+                                    <td>需用費 (消耗品など)</td>
+                                    <td class="text-end fw-bold text-primary" th:text="${#numbers.formatInteger(totalSupplies, 1, 'COMMA')} + ' 円'"></td>
+                                </tr>
+                                <tr>
+                                    <td>役務費</td>
+                                    <td class="text-end fw-bold text-primary" th:text="${#numbers.formatInteger(totalService, 1, 'COMMA')} + ' 円'"></td>
+                                </tr>
+                                <tr class="table-warning">
+                                    <td class="fw-bold">総合計</td>
+                                    <td class="text-end fw-bold fs-5 text-danger" th:text="${#numbers.formatInteger(grandTotal, 1, 'COMMA')} + ' 円'"></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                        <div class="alert alert-info mt-3">
+                            <i class="bi bi-info-circle-fill me-2"></i>上記が合算された1枚のExcelシート（様式2-2）として出力されます。よろしければ下のダウンロードボタンを押してください。
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div th:if="${exportType != '2-2'}">
+            <div class="card shadow-sm border-0 mb-4">
+                <div class="card-header bg-success text-white">
+                    <h5 class="card-title mb-0">様式 <span th:text="${exportType}"></span> プレビュー</h5>
+                </div>
+                <div class="card-body">
+                    <p>以下の <strong><span th:text="${previewProjects.size()}"></span>件</strong> の事業それぞれに専用のシートが自動生成（クローン）され、1つのExcelファイル内に格納されて出力されます。</p>
+                    
+                    <ul class="list-group mb-3">
+                        <li class="list-group-item d-flex justify-content-between align-items-center" th:each="p : ${previewProjects}">
+                            <div>
+                                <span class="badge bg-secondary me-2">シート生成</span>
+                                <strong th:text="${p.name}"></strong>
+                            </div>
+                            <span class="text-muted" th:text="${p.date} + ' @ ' + ${p.venue}"></span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="text-center mt-4 mb-5">
+            <form th:action="@{/export/download}" method="post" class="d-inline">
+                <input type="hidden" name="exportType" th:value="${exportType}" />
+                <input type="hidden" name="projectIds" th:each="id : ${projectIds}" th:value="${id}" />
+                <button type="submit" class="btn btn-lg btn-primary shadow-sm px-5 py-3">
+                    <i class="bi bi-file-earmark-excel-fill me-2"></i>この内容でExcelをダウンロード
+                </button>
+            </form>
+        </div>
+    </div>
+</body>
+</html>

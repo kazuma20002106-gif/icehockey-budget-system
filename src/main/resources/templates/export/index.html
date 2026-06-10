@@ -68,8 +68,13 @@
                                 <option value="2-2">様式2-2 (年間収支報告書 ※選択した事業を合算)</option>
                             </select>
                         </div>
-                        <div class="col-md-auto ms-auto">
-                            <button type="submit" class="btn btn-primary btn-lg shadow-sm">専用ファイルをダウンロード</button>
+                        <div class="col-md-auto ms-auto d-flex gap-2">
+                            <button type="submit" formaction="/export/preview" class="btn btn-outline-primary btn-lg shadow-sm">
+                                ブラウザでプレビュー
+                            </button>
+                            <button type="submit" formaction="/export/download" class="btn btn-primary btn-lg shadow-sm">
+                                Excelダウンロード
+                            </button>
                         </div>
                     </div>
                 </form>

@@ -1,13 +1,24 @@
 package com.miyazaki.icehockey.budgetsystem.controller;
 
+import com.miyazaki.icehockey.budgetsystem.mapper.ExpenseMapper;
 import com.miyazaki.icehockey.budgetsystem.mapper.ProjectMapper;
+import com.miyazaki.icehockey.budgetsystem.mapper.ProjectParticipantMapper;
+import com.miyazaki.icehockey.budgetsystem.mapper.ProjectSummaryExpenseMapper;
+import com.miyazaki.icehockey.budgetsystem.model.Expense;
+import com.miyazaki.icehockey.budgetsystem.model.Project;
+import com.miyazaki.icehockey.budgetsystem.model.ProjectParticipant;
+import com.miyazaki.icehockey.budgetsystem.model.ProjectSummaryExpense;
 import com.miyazaki.icehockey.budgetsystem.service.ExcelExportService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 import jakarta.servlet.http.HttpServletResponse;
+
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @Controller
 @RequestMapping("/export")
@@ -15,13 +26,77 @@ public class ExportController {
 
     @Autowired private ProjectMapper projectMapper;
     @Autowired private ExcelExportService excelExportService;
+    @Autowired private ProjectSummaryExpenseMapper summaryMapper;
+    @Autowired private ProjectParticipantMapper participantMapper;
+    @Autowired private ExpenseMapper expenseMapper;
 
     @GetMapping
     public String index(Model model) {
         model.addAttribute("projects", projectMapper.findAll());
-        // In a real app, we'd calculate the accumulated sums here for the dashboard.
-        // For now, we will do it via the service if requested or just let the user select.
         return "export/index";
+    }
+
+    @PostMapping("/preview")
+    public String preview(@RequestParam("exportType") String exportType,
+                          @RequestParam(value = "projectIds", required = false) List<Integer> projectIds,
+                          Model model) {
+        if (projectIds == null || projectIds.isEmpty()) {
+            return "redirect:/export?error=no_selection";
+        }
+
+        model.addAttribute("exportType", exportType);
+        model.addAttribute("projectIds", projectIds);
+
+        if ("2-2".equals(exportType)) {
+            int totalRental = 0, totalSupplies = 0, totalParking = 0, totalCompensation = 0, totalService = 0;
+            int totalTransport = 0, totalAccommodation = 0;
+
+            for (int id : projectIds) {
+                ProjectSummaryExpense sum = summaryMapper.findByProjectId(id);
+                if (sum != null) {
+                    totalRental += sum.getRentalCost();
+                    totalSupplies += sum.getSuppliesCost();
+                    totalParking += sum.getParkingCost();
+                    totalCompensation += sum.getCompensationCost();
+                    totalService += sum.getServiceCost();
+                }
+                
+                List<ProjectParticipant> parts = participantMapper.findByProjectId(id);
+                for (ProjectParticipant p : parts) {
+                    List<Expense> exList = expenseMapper.findByProjectParticipantId(p.getId());
+                    if (!exList.isEmpty()) {
+                        Expense ex = exList.get(0);
+                        totalTransport += ex.getTransportCost();
+                        totalAccommodation += ex.getAccommodationCost();
+                    }
+                }
+            }
+
+            model.addAttribute("totalRental", totalRental);
+            model.addAttribute("totalSupplies", totalSupplies);
+            model.addAttribute("totalParking", totalParking);
+            model.addAttribute("totalCompensation", totalCompensation);
+            model.addAttribute("totalService", totalService);
+            model.addAttribute("totalTransport", totalTransport);
+            model.addAttribute("totalAccommodation", totalAccommodation);
+            model.addAttribute("grandTotal", totalRental + totalSupplies + totalParking + totalCompensation + totalService + totalTransport + totalAccommodation);
+
+        } else {
+            List<Map<String, Object>> previewProjects = new ArrayList<>();
+            for (int id : projectIds) {
+                Project p = projectMapper.findById(id);
+                if(p != null) {
+                    Map<String, Object> pd = new HashMap<>();
+                    pd.put("name", p.getName());
+                    pd.put("date", p.getEventDate());
+                    pd.put("venue", p.getLocationVenue());
+                    previewProjects.add(pd);
+                }
+            }
+            model.addAttribute("previewProjects", previewProjects);
+        }
+
+        return "export/preview";
     }
 
     @PostMapping("/download")
