@@ -80,3 +80,19 @@ INSERT IGNORE INTO members (id, name, age, grade, role) VALUES
 (2, '中村　里惟', 26, '', '選手'),
 (3, '蛯原　智仁', 25, '', '選手'),
 (4, '齋藤　豊光', NULL, '', '指導者');
+
+-- テスト用初期事業データ
+INSERT IGNORE INTO projects (id, name, budget_type_id, target_category, event_date, location_venue, location_accommodation) VALUES
+(1, '【テスト出力】強化練習', 1, '成年男子', '2025-05-24', '福岡オービジョンアリーナ', '宿泊なし');
+
+-- テスト用初期参加者と経費データ
+INSERT IGNORE INTO project_participants (id, project_id, member_id, is_accommodated) VALUES
+(1, 1, 1, FALSE),
+(2, 1, 4, FALSE);
+
+INSERT IGNORE INTO expenses (id, project_participant_id, transport_method, transport_cost, accommodation_cost, miscellaneous_cost) VALUES
+(1, 1, '自家用車', 3500, 0, 0),
+(2, 2, '自家用車', 3500, 0, 0);
+
+INSERT IGNORE INTO project_summary_expenses (id, project_id, rental_cost, supplies_cost, parking_cost, compensation_cost, service_cost) VALUES
+(1, 1, 15000, 2000, 500, 0, 0);
