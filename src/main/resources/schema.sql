@@ -82,11 +82,12 @@ INSERT IGNORE INTO budget_types (id, name) VALUES (1, '選手強化費');
 INSERT IGNORE INTO budget_types (id, name) VALUES (2, 'トップチーム活用事業');
 INSERT IGNORE INTO budget_types (id, name) VALUES (3, 'ふるさと選手活動支援');
 
-INSERT IGNORE INTO members (id, name, age, grade, role) VALUES 
-(1, '長友　繁', 48, '', '選手'),
-(2, '中村　里惟', 26, '', '選手'),
-(3, '蛯原　智仁', 25, '', '選手'),
-(4, '齋藤　豊光', NULL, '', '指導者');
+INSERT IGNORE INTO members (id, name, age, grade, role, departure_point) VALUES 
+(1, '長友　繁', 48, '', '選手', NULL),
+(2, '中村　里惟', 26, '', '選手', NULL),
+(3, '蛯原　智仁', 25, '', '選手', NULL),
+(4, '齋藤　豊光', NULL, '', '指導者', NULL),
+(5, 'カズマックス', NULL, '', '選手', '大塚');
 
 -- テスト用初期事業データ
 INSERT IGNORE INTO projects (id, name, budget_type_id, target_category, event_date, location_venue, location_accommodation) VALUES

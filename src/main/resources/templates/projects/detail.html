@@ -76,9 +76,9 @@
                                         </div>
                                     </td>
                                     <td><input type="number" class="form-control form-control-sm text-end" th:name="|expenses[${stat.index}].transportDistanceKm|" th:value="*{expenses[__${stat.index}__].transportDistanceKm}"></td>
-                                    <td><input type="number" class="form-control form-control-sm text-end" th:name="|expenses[${stat.index}].transportCost|" th:value="*{expenses[__${stat.index}__].transportCost}" step="100" oninput="calculateTotals()"></td>
-                                    <td><input type="number" class="form-control form-control-sm text-end" th:name="|expenses[${stat.index}].accommodationCost|" th:value="*{expenses[__${stat.index}__].accommodationCost}" step="100" oninput="calculateTotals()"></td>
-                                    <td><input type="number" class="form-control form-control-sm text-end" th:name="|expenses[${stat.index}].miscellaneousCost|" th:value="*{expenses[__${stat.index}__].miscellaneousCost}" step="100" oninput="calculateTotals()"></td>
+                                    <td><input type="number" class="form-control form-control-sm text-end" th:name="|expenses[${stat.index}].transportCost|" th:value="*{expenses[__${stat.index}__].transportCost}" min="0" step="1000" oninput="calculateTotals()"></td>
+                                    <td><input type="number" class="form-control form-control-sm text-end" th:name="|expenses[${stat.index}].accommodationCost|" th:value="*{expenses[__${stat.index}__].accommodationCost}" min="0" step="1000" oninput="calculateTotals()"></td>
+                                    <td><input type="number" class="form-control form-control-sm text-end" th:name="|expenses[${stat.index}].miscellaneousCost|" th:value="*{expenses[__${stat.index}__].miscellaneousCost}" min="0" step="1000" oninput="calculateTotals()"></td>
                                     <td><input type="date" class="form-control form-control-sm" th:name="|expenses[${stat.index}].receiptDate|" th:value="*{expenses[__${stat.index}__].receiptDate}"></td>
                                     <td class="text-center">
                                         <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeRow(this)"><i class="bi bi-trash"></i></button>
@@ -128,9 +128,9 @@
                         </div>
                     </td>
                     <td><input type="number" class="form-control form-control-sm text-end" name="expenses[INDEX].transportDistanceKm"></td>
-                    <td><input type="number" class="form-control form-control-sm text-end" name="expenses[INDEX].transportCost" value="0" step="100" oninput="calculateTotals()"></td>
-                    <td><input type="number" class="form-control form-control-sm text-end" name="expenses[INDEX].accommodationCost" value="0" step="100" oninput="calculateTotals()"></td>
-                    <td><input type="number" class="form-control form-control-sm text-end" name="expenses[INDEX].miscellaneousCost" value="0" step="100" oninput="calculateTotals()"></td>
+                    <td><input type="number" class="form-control form-control-sm text-end" name="expenses[INDEX].transportCost" value="0" min="0" step="1000" oninput="calculateTotals()"></td>
+                    <td><input type="number" class="form-control form-control-sm text-end" name="expenses[INDEX].accommodationCost" value="0" min="0" step="1000" oninput="calculateTotals()"></td>
+                    <td><input type="number" class="form-control form-control-sm text-end" name="expenses[INDEX].miscellaneousCost" value="0" min="0" step="1000" oninput="calculateTotals()"></td>
                     <td><input type="date" class="form-control form-control-sm" name="expenses[INDEX].receiptDate"></td>
                     <td class="text-center"><button type="button" class="btn btn-sm btn-outline-danger" onclick="removeRow(this)"><i class="bi bi-trash"></i></button></td>
                 </tr>
@@ -235,9 +235,18 @@
                     const aCost = row.querySelector('input[name*=".accommodationCost"]');
                     const mCost = row.querySelector('input[name*=".miscellaneousCost"]');
                     
-                    if (tCost && tCost.value) transport += parseInt(tCost.value, 10);
-                    if (aCost && aCost.value) accommodation += parseInt(aCost.value, 10);
-                    if (mCost && mCost.value) misc += parseInt(mCost.value, 10);
+                    if (tCost && tCost.value) {
+                        const v = parseInt(tCost.value, 10);
+                        if (!isNaN(v)) transport += v;
+                    }
+                    if (aCost && aCost.value) {
+                        const v = parseInt(aCost.value, 10);
+                        if (!isNaN(v)) accommodation += v;
+                    }
+                    if (mCost && mCost.value) {
+                        const v = parseInt(mCost.value, 10);
+                        if (!isNaN(v)) misc += v;
+                    }
                 });
                 
                 document.getElementById('totalTransport').innerText = transport.toLocaleString();
