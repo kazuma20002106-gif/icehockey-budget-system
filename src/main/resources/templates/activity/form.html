@@ -15,6 +15,7 @@
         .hdr-expense { background-color:#f0ad4e; }
         .hdr-facility{ background-color:#0dcaf0; }
         .hdr-result  { background-color:#e9ecef; color:#333 !important; }
+        .instructor-disabled { background-color: #e9ecef; }
     </style>
 
     <h4 class="fw-bold mb-3" th:text="${editId == null} ? '活動日入力（新規）' : '活動日入力（編集）'">活動日入力（新規）</h4>
@@ -52,7 +53,7 @@
                         </select>
                     </div>
                     <div class="col-md-3">
-                        <label class="form-label">年度／活動日 <span class="text-danger">*</span></label>
+                        <label class="form-label">年度／活動日／受領日 <span class="text-danger">*</span></label>
                         <input type="date" name="project.eventDate" id="eventDate" class="form-control" required
                                th:value="${activityForm.project.eventDate}">
                         <small class="text-muted">年度（4月始まり）は活動日から自動判定されます</small>
@@ -93,7 +94,7 @@
                 </span>
             </div>
             <div class="card-body">
-                <div class="table-responsive">
+                <div class="table-responsive" style="max-height: 220px; overflow-y: auto;">
                     <table class="table table-bordered align-middle mb-2" id="rosterTable">
                         <thead class="table-light text-center">
                             <tr>
@@ -109,7 +110,7 @@
                             <tr th:each="p, stat : ${activityForm.participants}" class="roster-row">
                                 <td class="text-center align-middle row-no"></td>
                                 <td>
-                                    <select class="form-select form-select-sm role-select" th:name="|participants[${stat.index}].memberRole|" onchange="updateCounts()">
+                                    <select class="form-select form-select-sm role-select" th:name="|participants[${stat.index}].memberRole|" onchange="handleRoleChange(this)">
                                         <option value="選手"   th:selected="${p.memberRole == '選手'}">選手</option>
                                         <option value="指導者" th:selected="${p.memberRole == '指導者'}">指導者</option>
                                     </select>
@@ -142,7 +143,7 @@
         <div class="card card-section border-0 shadow-sm mb-4">
             <div class="card-header hdr-expense">個人別支出（様式２－６）</div>
             <div class="card-body">
-                <div class="table-responsive">
+                <div class="table-responsive" style="max-height: 220px; overflow-y: auto;">
                     <table class="table table-bordered align-middle mb-2" id="expenseTable" style="min-width:1100px;">
                         <thead class="table-light text-center text-nowrap">
                             <tr>
@@ -154,8 +155,6 @@
                                 <th style="width:7%;">距離(km)</th>
                                 <th>交通費(円)</th>
                                 <th>宿泊費(円)</th>
-                                <th>旅行雑費(円)</th>
-                                <th style="width:10%;">受領日</th>
                             </tr>
                         </thead>
                         <tbody id="expenseBody">
@@ -184,16 +183,13 @@
                                 <td><input type="number" class="form-control form-control-sm text-end distance-input" th:name="|expenses[${stat.index}].transportDistanceKm|" th:value="${e.transportDistanceKm}" min="0" onclick="openDistanceSpinner(this)" onfocus="openDistanceSpinner(this)"></td>
                                 <td><input type="number" class="form-control form-control-sm text-end cost-input" th:name="|expenses[${stat.index}].transportCost|" th:value="${e.transportCost}" min="0" oninput="calculateTotals()" onclick="openDigitSpinner(this)" onfocus="openDigitSpinner(this)"></td>
                                 <td><input type="number" class="form-control form-control-sm text-end cost-input" th:name="|expenses[${stat.index}].accommodationCost|" th:value="${e.accommodationCost}" min="0" oninput="calculateTotals()" onclick="openDigitSpinner(this)" onfocus="openDigitSpinner(this)"></td>
-                                <td><input type="number" class="form-control form-control-sm text-end cost-input" th:name="|expenses[${stat.index}].miscellaneousCost|" th:value="${e.miscellaneousCost}" min="0" oninput="calculateTotals()" onclick="openDigitSpinner(this)" onfocus="openDigitSpinner(this)"></td>
-                                <td><input type="date" class="form-control form-control-sm" th:name="|expenses[${stat.index}].receiptDate|" th:value="${e.receiptDate}"></td>
                             </tr>
                         </tbody>
                         <tfoot class="table-light fw-bold text-end">
                             <tr>
-                                <td colspan="6" class="text-center">旅費合計</td>
+                                <td colspan="5" class="text-center">旅費合計</td>
                                 <td id="totalTransport">0</td>
                                 <td id="totalAccommodation">0</td>
-                                <td id="totalMisc">0</td>
                                 <td class="text-center text-primary">計 <span id="grandTotal">0</span> 円</td>
                             </tr>
                         </tfoot>
@@ -268,7 +264,7 @@
         <tr class="roster-row">
             <td class="text-center align-middle row-no"></td>
             <td>
-                <select class="form-select form-select-sm role-select" name="participants[IDX].memberRole" onchange="updateCounts()">
+                <select class="form-select form-select-sm role-select" name="participants[IDX].memberRole" onchange="handleRoleChange(this)">
                     <option value="選手">選手</option>
                     <option value="指導者">指導者</option>
                 </select>
@@ -308,8 +304,6 @@
             <td><input type="number" class="form-control form-control-sm text-end distance-input" name="expenses[IDX].transportDistanceKm" min="0" onclick="openDistanceSpinner(this)" onfocus="openDistanceSpinner(this)"></td>
             <td><input type="number" class="form-control form-control-sm text-end cost-input" name="expenses[IDX].transportCost" value="0" min="0" oninput="calculateTotals()" onclick="openDigitSpinner(this)" onfocus="openDigitSpinner(this)"></td>
             <td><input type="number" class="form-control form-control-sm text-end cost-input" name="expenses[IDX].accommodationCost" value="0" min="0" oninput="calculateTotals()" onclick="openDigitSpinner(this)" onfocus="openDigitSpinner(this)"></td>
-            <td><input type="number" class="form-control form-control-sm text-end cost-input" name="expenses[IDX].miscellaneousCost" value="0" min="0" oninput="calculateTotals()" onclick="openDigitSpinner(this)" onfocus="openDigitSpinner(this)"></td>
-            <td><input type="date" class="form-control form-control-sm" name="expenses[IDX].receiptDate"></td>
         </tr>
     </tbody></table>
 
@@ -390,6 +384,36 @@
         function rowIndex(row){ const parent=row.parentElement; return Array.prototype.indexOf.call(parent.children, row); }
         function mirrorName(el){ const idx=rowIndex(el.closest('tr')); const eRow=expenseBody.querySelectorAll('tr')[idx]; if(eRow){ const m=eRow.querySelector('.name-mirror'); if(m) m.value=el.value; } }
         function toggleAccom(chk){ const h=chk.closest('td').querySelector('.accom-hidden'); if(h) h.value = chk.checked ? 'true' : 'false'; }
+        function handleRoleChange(sel){
+            updateCounts();
+        }
+        function isLastEditableInputInLastExpenseRow(el){
+            const row=el.closest('tr.expense-row');
+            const rows=expenseBody.querySelectorAll('.expense-row');
+            if(!row || row !== rows[rows.length-1]) return false;
+
+            const inputs=Array.from(row.querySelectorAll('input:not([type="hidden"]):not([readonly]):not([disabled])'));
+            return inputs.length>0 && el === inputs[inputs.length-1];
+        }
+        function addRowAfterLastExpenseInput(el){
+            const row=el.closest('tr.expense-row');
+            if(!row || row.dataset.autoAdded === 'true' || !isLastEditableInputInLastExpenseRow(el)) return;
+            row.dataset.autoAdded='true';
+            addRow();
+        }
+        function isLastEditableInputInLastRosterRow(el){
+            const row=el.closest('tr.roster-row');
+            const rows=rosterBody.querySelectorAll('.roster-row');
+            if(!row || row !== rows[rows.length-1]) return false;
+
+            return el.classList.contains('accom-check') || (el.name && el.name.includes('memberAge')) || (el.name && el.name.includes('memberName'));
+        }
+        function addRowAfterLastRosterInput(el){
+            const row=el.closest('tr.roster-row');
+            if(!row || row.dataset.autoAdded === 'true' || !isLastEditableInputInLastRosterRow(el)) return;
+            row.dataset.autoAdded='true';
+            addRow();
+        }
 
         // ===== 行の追加・削除・採番 =====
         function setRowNames(row, prefix, idx){
@@ -409,6 +433,10 @@
             rosterBody.insertAdjacentHTML('beforeend', document.getElementById('rosterTemplate').innerHTML.replace(/IDX/g,'0'));
             expenseBody.insertAdjacentHTML('beforeend', document.getElementById('expenseTemplate').innerHTML.replace(/IDX/g,'0'));
             reindexAll();
+            const rWrap = rosterBody.closest('.table-responsive');
+            if (rWrap) rWrap.scrollTop = rWrap.scrollHeight;
+            const eWrap = expenseBody.closest('.table-responsive');
+            if (eWrap) eWrap.scrollTop = eWrap.scrollHeight;
         }
         function removeRow(btn){
             const row=btn.closest('tr'); const idx=rowIndex(row);
@@ -434,19 +462,16 @@
 
         // ===== 合計 =====
         function calculateTotals(){
-            let t=0,a=0,m=0;
+            let t=0,a=0;
             expenseBody.querySelectorAll('.expense-row').forEach(row=>{
                 const tc=row.querySelector('input[name*=".transportCost"]');
                 const ac=row.querySelector('input[name*=".accommodationCost"]');
-                const mc=row.querySelector('input[name*=".miscellaneousCost"]');
-                if(tc&&tc.value){const v=parseInt(tc.value,10); if(!isNaN(v))t+=v;}
-                if(ac&&ac.value){const v=parseInt(ac.value,10); if(!isNaN(v))a+=v;}
-                if(mc&&mc.value){const v=parseInt(mc.value,10); if(!isNaN(v))m+=v;}
+                if(tc&&!tc.disabled&&tc.value){const v=parseInt(tc.value,10); if(!isNaN(v))t+=v;}
+                if(ac&&!ac.disabled&&ac.value){const v=parseInt(ac.value,10); if(!isNaN(v))a+=v;}
             });
             document.getElementById('totalTransport').textContent=t.toLocaleString();
             document.getElementById('totalAccommodation').textContent=a.toLocaleString();
-            document.getElementById('totalMisc').textContent=m.toLocaleString();
-            document.getElementById('grandTotal').textContent=(t+a+m).toLocaleString();
+            document.getElementById('grandTotal').textContent=(t+a).toLocaleString();
         }
 
         // ===== 初期化 =====
@@ -458,6 +483,24 @@
             rosterBody.querySelectorAll('.name-input').forEach(mirrorName);
             calculateTotals();
         })();
+
+        expenseBody.addEventListener('blur', function(e){
+            if(e.target.matches('input:not([type="hidden"])')){
+                addRowAfterLastExpenseInput(e.target);
+            }
+        }, true);
+
+        rosterBody.addEventListener('blur', function(e){
+            if(e.target.matches('input:not([type="hidden"])')){
+                addRowAfterLastRosterInput(e.target);
+            }
+        }, true);
+
+        rosterBody.addEventListener('change', function(e){
+            if(e.target.matches('input:not([type="hidden"])')){
+                addRowAfterLastRosterInput(e.target);
+            }
+        });
 
         // ===== ツールチップ初期化（bootstrapバンドル読込後に実行） =====
         window.addEventListener('load', function () {
