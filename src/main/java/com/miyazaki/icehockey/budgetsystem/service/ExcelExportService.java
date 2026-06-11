@@ -207,26 +207,32 @@ public class ExcelExportService {
         }
         writeSafe(sheet, 1, 15, title);
 
-        // 【4】2-6 は「指導者以外（選手）の費用」のみ。指導者を除外する。
-        List<ProjectParticipant> players = new ArrayList<>();
+        // 【変更】2-6 は選手・指導者関係なく、交通費か宿泊費が1円以上の人のみ反映
+        List<ProjectParticipant> validParticipants = new ArrayList<>();
         for (ProjectParticipant p : allParticipants) {
-            if (!"指導者".equals(p.getMemberRole())) players.add(p);
+            int tCost = (p.getExpense() != null) ? nz(p.getExpense().getTransportCost()) : 0;
+            int aCost = (p.getExpense() != null) ? nz(p.getExpense().getAccommodationCost()) : 0;
+            int mCost = (p.getExpense() != null) ? nz(p.getExpense().getMiscellaneousCost()) : 0;
+            
+            if (tCost + aCost + mCost > 0) {
+                validParticipants.add(p);
+            }
         }
 
         final int startRow = 9; // No.1 の先頭行
         final int block = 3;    // 1人=3行
         final int maxSlots = 8; // テンプレートは No.1〜8
 
-        for (int i = 0; i < players.size(); i++) {
-            ProjectParticipant p = players.get(i);
+        for (int i = 0; i < validParticipants.size() && i < maxSlots; i++) {
+            ProjectParticipant p = validParticipants.get(i);
             int r = startRow + (i * block);
             Expense e = p.getExpense();
 
             writeSafe(sheet, r, 2, p.getMemberName()); // 氏名 [C]
             writeSafe(sheet, r, 9, (e != null && e.getExpenseDate() != null) ? e.getExpenseDate().toString() : ""); // 期日 [J]
 
-            // 【2】交通: 1行目「航空機・バス」、2行目「電車・車(  )km」の元テキストは消さない。
-            //         電車・車のときは ( ) 内に距離を埋め込み、3行目に区間を書く。
+            // 交通: 1行目「航空機・バス」、2行目「電車・車(  )km」の元テキストは消さない。
+            // 電車・車のときは ( ) 内に距離を埋め込み、3行目に区間を書く。
             String method = (e != null) ? e.getTransportMethod() : null;
             Integer distKm = (e != null) ? e.getTransportDistanceKm() : null;
             String distStr = ("電車・車".equals(method) && distKm != null) ? String.valueOf(distKm) : "　　";
@@ -246,12 +252,12 @@ public class ExcelExportService {
             // 支払額はブロック先頭行
             writeSafeNumeric(sheet, r, 19, (e != null) ? nz(e.getTransportCost()) : 0);     // 交通費 [T]
             writeSafeNumeric(sheet, r, 23, (e != null) ? nz(e.getAccommodationCost()) : 0);  // 宿泊費 [X]
-            writeSafeNumeric(sheet, r, 27, (e != null) ? nz(e.getMiscellaneousCost()) : 0);  // 雑費 [AB]
+            writeSafe(sheet, r, 27, "-");  // 雑費 [AB] は今後全て「-」表示
             writeSafe(sheet, r, 31, (e != null && e.getReceiptDate() != null) ? e.getReceiptDate().toString() : ""); // 受領日 [AF]
         }
 
-        // 【3】参加者数以降の余り行（テンプレートのダミー）をクリア
-        for (int i = players.size(); i < maxSlots; i++) {
+        // 参加者数以降の余り行（テンプレートのダミー）をクリア
+        for (int i = validParticipants.size(); i < maxSlots; i++) {
             int r = startRow + (i * block);
             clearCell(sheet, r, 2);       // 氏名
             clearCell(sheet, r, 9);       // 期日
