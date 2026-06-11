@@ -20,7 +20,7 @@
 
     <h4 class="fw-bold mb-3" th:text="${editId == null} ? '活動日入力（新規）' : '活動日入力（編集）'">活動日入力（新規）</h4>
 
-    <form th:action="@{/activity/save}" method="post" id="activityForm">
+    <form th:action="@{/activity/save}" method="post" id="activityForm" onsubmit="return validateForm()">
         <input type="hidden" name="project.id" th:if="${editId != null}" th:value="${activityForm.project.id}" />
 
         <!-- ===== 基本情報 ===== -->
@@ -57,6 +57,7 @@
                         <input type="date" name="project.eventDate" id="eventDate" class="form-control" required
                                th:value="${activityForm.project.eventDate}">
                         <small class="text-muted">年度（4月始まり）は活動日から自動判定されます</small>
+                        <small class="text-muted ms-2">※受領日はエクセル出力時に、活動日と同じ日付が自動印字されます</small>
                     </div>
                     <div class="col-md-5">
                         <label class="form-label">会場名 <span class="text-danger">*</span></label>
@@ -349,9 +350,9 @@
 
         // ===== 金額スピナー =====
         let currentSpinnerTarget = null;
-        function openDigitSpinner(el){ closeDistanceSpinner(); currentSpinnerTarget = el; const s=document.getElementById('digitSpinner'); const r=el.getBoundingClientRect(); s.style.top=(window.scrollY+r.bottom+2)+'px'; s.style.left=(window.scrollX+r.left-50)+'px'; s.style.display='block'; }
+        function openDigitSpinner(el){ closeDistanceSpinner(); currentSpinnerTarget = el; const s=document.getElementById('digitSpinner'); const r=el.getBoundingClientRect(); s.style.top=(window.scrollY+r.bottom+2)+'px'; let leftX=window.scrollX+r.left-50; if(leftX<0) leftX=10; s.style.left=leftX+'px'; s.style.display='block'; }
         function closeDigitSpinner(){ const s=document.getElementById('digitSpinner'); if(s) s.style.display='none'; }
-        function openDistanceSpinner(el){ closeDigitSpinner(); currentSpinnerTarget = el; const s=document.getElementById('distanceSpinner'); const r=el.getBoundingClientRect(); s.style.top=(window.scrollY+r.bottom+2)+'px'; s.style.left=(window.scrollX+r.left-30)+'px'; s.style.display='block'; }
+        function openDistanceSpinner(el){ closeDigitSpinner(); currentSpinnerTarget = el; const s=document.getElementById('distanceSpinner'); const r=el.getBoundingClientRect(); s.style.top=(window.scrollY+r.bottom+2)+'px'; let leftX=window.scrollX+r.left-30; if(leftX<0) leftX=10; s.style.left=leftX+'px'; s.style.display='block'; }
         function closeDistanceSpinner(){ const s=document.getElementById('distanceSpinner'); if(s) s.style.display='none'; }
         function spinDigit(amount, dir){ if(!currentSpinnerTarget) return; let v=parseInt(currentSpinnerTarget.value,10); if(isNaN(v)) v=0; v+=amount*dir; if(v<0) v=0; currentSpinnerTarget.value=v; calculateTotals(); }
         document.addEventListener('click', function(e){
@@ -515,6 +516,15 @@
                     calculateTotals();
                 }
             }catch(e){ console.error('Distance fetch error',e); }
+        }
+
+        // ===== フォームバリデーション =====
+        function validateForm(){
+            const names=rosterBody.querySelectorAll('.name-input');
+            let count=0;
+            names.forEach(n=>{ if(n.value.trim()) count++; });
+            if(count===0){ alert('参加者を1名以上入力してください。'); return false; }
+            return true;
         }
 
         // ===== 初期化 =====
