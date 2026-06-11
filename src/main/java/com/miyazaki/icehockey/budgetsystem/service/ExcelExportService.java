@@ -108,6 +108,8 @@ public class ExcelExportService {
         writeSafe(sheet, 14, 3 + colOffset, project.getEventDate().toString()); // 期日 [15,4]
         writeSafe(sheet, 15, 3 + colOffset, project.getLocationVenue()); // 会場 [16,4]
         writeSafe(sheet, 16, 3 + colOffset, project.getLocationAccommodation()); // 宿舎名 [17,4]
+        writeSafe(sheet, 34, 3 + colOffset, project.getScheduleContent()); // 日程及び内容 [D35]
+        writeSafe(sheet, 40, 3 + colOffset, project.getProjectOutcome()); // 事業の成果 [D41]
 
         if (summary != null) {
             writeSafeNumeric(sheet, 23, 3 + colOffset, summary.getParkingCost()); // 駐車料 [24,4]
@@ -119,6 +121,7 @@ public class ExcelExportService {
 
         int transportSum = 0;
         int accommodationSum = 0;
+        int miscSum = 0;
         int coachCount = 0;
         int playerCount = 0;
 
@@ -127,14 +130,16 @@ public class ExcelExportService {
             else playerCount++;
 
             if (p.getExpense() != null) {
-                transportSum += p.getExpense().getTransportCost();
-                accommodationSum += p.getExpense().getAccommodationCost();
+                transportSum += nz(p.getExpense().getTransportCost());
+                accommodationSum += nz(p.getExpense().getAccommodationCost());
+                miscSum += nz(p.getExpense().getMiscellaneousCost());
             }
         }
 
         writeSafeNumeric(sheet, 20, 3 + colOffset, transportSum); // 交通費 [21,4]
         writeSafeNumeric(sheet, 21, 3 + colOffset, accommodationSum); // 宿泊費 [22,4]
-        
+        writeSafeNumeric(sheet, 22, 3 + colOffset, miscSum); // 旅行雑費 [D23]
+
         if (colOffset == 0) {
             writeSafeNumeric(sheet, 17, 6, coachCount); // 指導者数
             writeSafeNumeric(sheet, 17, 12, playerCount); // 選手数
@@ -162,19 +167,28 @@ public class ExcelExportService {
                 (sheet, project, summary, participants) -> populate25(sheet, project, participants));
     }
 
+    // 2-5 は指導者・選手すべてを出力する
     private void populate25(Sheet sheet, Project project, List<ProjectParticipant> participants) {
         if (project.getEventDate() != null) {
             writeSafe(sheet, 5, 2, project.getEventDate().toString()); // 実施日 [6,3]
         }
-        int startRow = 8; // Row 9
+        int startRow = 8;   // 番号1の行
+        int lastRow = 35;   // 番号28の行（テンプレートの参加者欄の最終）
         for (int i = 0; i < participants.size(); i++) {
             ProjectParticipant p = participants.get(i);
-            writeSafe(sheet, startRow + i, 1, p.getMemberRole()); // 監督・選手 [row, 2]
-            writeSafe(sheet, startRow + i, 3, p.getMemberName()); // 氏名 [row, 4]
-            if (p.getMemberAge() != null) {
-                writeSafeNumeric(sheet, startRow + i, 6, p.getMemberAge()); // 年齢 [row, 7]
-            }
-            writeSafe(sheet, startRow + i, 7, p.getIsAccommodated() ? "〇" : ""); // 宿泊 [row, 8]
+            int r = startRow + i;
+            writeSafe(sheet, r, 1, p.getMemberRole()); // 監督・選手別 [B]
+            writeSafe(sheet, r, 3, p.getMemberName()); // 氏名 [D]
+            if (p.getMemberAge() != null) writeSafeNumeric(sheet, r, 6, p.getMemberAge()); // 年齢 [G]
+            else clearCell(sheet, r, 6);
+            writeSafe(sheet, r, 7, p.getIsAccommodated() ? "〇" : ""); // 宿泊 [H]
+        }
+        // テンプレートのダミー（参加者数以降の行）をクリア
+        for (int r = startRow + participants.size(); r <= lastRow; r++) {
+            clearCell(sheet, r, 1);
+            clearCell(sheet, r, 3);
+            clearCell(sheet, r, 6);
+            clearCell(sheet, r, 7);
         }
     }
 
@@ -183,7 +197,7 @@ public class ExcelExportService {
                 (sheet, project, summary, participants) -> populate26(sheet, project, participants));
     }
 
-    private void populate26(Sheet sheet, Project project, List<ProjectParticipant> participants) {
+    private void populate26(Sheet sheet, Project project, List<ProjectParticipant> allParticipants) {
         // Overwrite title in R2C15 based on category
         String title = "選手強化費　　領収書１";
         if ("トップチーム".equals(project.getName())) {
@@ -193,41 +207,61 @@ public class ExcelExportService {
         }
         writeSafe(sheet, 1, 15, title);
 
-        int startRow = 9; // Row 10 is participant 1
-        for (int i = 0; i < participants.size(); i++) {
-            ProjectParticipant p = participants.get(i);
-            int r = startRow + (i * 3);
-            writeSafe(sheet, r, 2, p.getMemberName()); // 氏名 [R10, C3]
+        // 【4】2-6 は「指導者以外（選手）の費用」のみ。指導者を除外する。
+        List<ProjectParticipant> players = new ArrayList<>();
+        for (ProjectParticipant p : allParticipants) {
+            if (!"指導者".equals(p.getMemberRole())) players.add(p);
+        }
 
-            if (p.getExpense() != null) {
-                writeSafe(sheet, r, 9, p.getExpense().getExpenseDate() != null ? p.getExpense().getExpenseDate().toString() : ""); // 期日 [R10, C10]
+        final int startRow = 9; // No.1 の先頭行
+        final int block = 3;    // 1人=3行
+        final int maxSlots = 8; // テンプレートは No.1〜8
 
-                // Clear existing pre-printed texts
-                writeSafe(sheet, r, 13, "");
-                writeSafe(sheet, r + 1, 13, "");
-                writeSafe(sheet, r + 2, 13, "");
+        for (int i = 0; i < players.size(); i++) {
+            ProjectParticipant p = players.get(i);
+            int r = startRow + (i * block);
+            Expense e = p.getExpense();
 
-                String method = p.getExpense().getTransportMethod();
-                if ("電車・車".equals(method)) {
-                    Integer dist = p.getExpense().getTransportDistanceKm();
-                    method += "(" + (dist != null ? dist : "") + ")km";
-                }
-                if (method != null) writeSafe(sheet, r, 13, method); // 1行目
-                if (p.getExpense().getTransportRoute() != null) writeSafe(sheet, r + 2, 13, p.getExpense().getTransportRoute()); // 3行目
+            writeSafe(sheet, r, 2, p.getMemberName()); // 氏名 [C]
+            writeSafe(sheet, r, 9, (e != null && e.getExpenseDate() != null) ? e.getExpenseDate().toString() : ""); // 期日 [J]
 
-                if (p.getExpense().getTransportCost() != null && p.getExpense().getTransportCost() > 0) {
-                    writeSafeNumeric(sheet, r + 1, 19, p.getExpense().getTransportCost()); // 交通費 [R11, C20]
-                }
-                if (p.getExpense().getAccommodationCost() != null && p.getExpense().getAccommodationCost() > 0) {
-                    writeSafeNumeric(sheet, r + 1, 23, p.getExpense().getAccommodationCost()); // 宿泊費 [R11, C24] 推定
-                }
-                if (p.getExpense().getMiscellaneousCost() != null && p.getExpense().getMiscellaneousCost() > 0) {
-                    writeSafeNumeric(sheet, r + 1, 27, p.getExpense().getMiscellaneousCost()); // 雑費 [R11, C28] 推定
-                }
-                if (p.getExpense().getReceiptDate() != null) {
-                    writeSafe(sheet, r + 1, 31, p.getExpense().getReceiptDate().toString()); // 受領日 [R11, C32] 推定
-                }
+            // 【2】交通: 1行目「航空機・バス」、2行目「電車・車(  )km」の元テキストは消さない。
+            //         電車・車のときは ( ) 内に距離を埋め込み、3行目に区間を書く。
+            String method = (e != null) ? e.getTransportMethod() : null;
+            Integer distKm = (e != null) ? e.getTransportDistanceKm() : null;
+            String distStr = ("電車・車".equals(method) && distKm != null) ? String.valueOf(distKm) : "　　";
+
+            ensureLabel(sheet, r, 13, "航空機・ﾊﾞｽ"); // 1行目（空なら補完、既存は維持）
+
+            String line2 = getCellString(sheet, r + 1, 13);
+            if (line2 == null || !line2.contains("電車")) {
+                line2 = "電車・車(" + distStr + ")㎞"; // 元テキストが無い行は基本書式を補完
+            } else {
+                line2 = line2.replaceFirst("[（(][^）)]*[）)]", "(" + distStr + ")"); // ( ) の中だけ差し替え
             }
+            writeSafe(sheet, r + 1, 13, line2); // 2行目
+
+            writeSafe(sheet, r + 2, 13, (e != null && e.getTransportRoute() != null) ? e.getTransportRoute() : ""); // 3行目=区間
+
+            // 支払額はブロック先頭行
+            writeSafeNumeric(sheet, r, 19, (e != null) ? nz(e.getTransportCost()) : 0);     // 交通費 [T]
+            writeSafeNumeric(sheet, r, 23, (e != null) ? nz(e.getAccommodationCost()) : 0);  // 宿泊費 [X]
+            writeSafeNumeric(sheet, r, 27, (e != null) ? nz(e.getMiscellaneousCost()) : 0);  // 雑費 [AB]
+            writeSafe(sheet, r, 31, (e != null && e.getReceiptDate() != null) ? e.getReceiptDate().toString() : ""); // 受領日 [AF]
+        }
+
+        // 【3】参加者数以降の余り行（テンプレートのダミー）をクリア
+        for (int i = players.size(); i < maxSlots; i++) {
+            int r = startRow + (i * block);
+            clearCell(sheet, r, 2);       // 氏名
+            clearCell(sheet, r, 9);       // 期日
+            clearCell(sheet, r, 13);      // 交通1行目
+            clearCell(sheet, r + 1, 13);  // 交通2行目
+            clearCell(sheet, r + 2, 13);  // 交通3行目
+            clearCell(sheet, r, 19);      // 交通費
+            clearCell(sheet, r, 23);      // 宿泊費
+            clearCell(sheet, r, 27);      // 雑費
+            clearCell(sheet, r, 31);      // 受領日
         }
     }
 
@@ -426,5 +460,30 @@ public class ExcelExportService {
         org.apache.poi.ss.usermodel.Cell cell = row.getCell(colIndex);
         if (cell == null) cell = row.createCell(colIndex);
         cell.setCellValue(value);
+    }
+
+    // セルの文字列を取得（無ければnull）
+    private String getCellString(Sheet sheet, int rowIndex, int colIndex) {
+        Row row = sheet.getRow(rowIndex);
+        if (row == null) return null;
+        org.apache.poi.ss.usermodel.Cell cell = row.getCell(colIndex);
+        if (cell == null) return null;
+        if (cell.getCellType() == org.apache.poi.ss.usermodel.CellType.STRING) return cell.getStringCellValue();
+        return null;
+    }
+
+    // セルの値を空白化（書式は維持）
+    private void clearCell(Sheet sheet, int rowIndex, int colIndex) {
+        Row row = sheet.getRow(rowIndex);
+        if (row == null) return;
+        org.apache.poi.ss.usermodel.Cell cell = row.getCell(colIndex);
+        if (cell == null) return;
+        cell.setBlank();
+    }
+
+    // ラベルが空のときだけ補完（既存テキストは消さない）
+    private void ensureLabel(Sheet sheet, int rowIndex, int colIndex, String label) {
+        String cur = getCellString(sheet, rowIndex, colIndex);
+        if (cur == null || cur.trim().isEmpty()) writeSafe(sheet, rowIndex, colIndex, label);
     }
 }
