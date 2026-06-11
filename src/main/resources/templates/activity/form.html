@@ -141,7 +141,13 @@
 
         <!-- ===== 個人別支出（様式2-6） ===== -->
         <div class="card card-section border-0 shadow-sm mb-4">
-            <div class="card-header hdr-expense">個人別支出（様式２－６）</div>
+            <div class="card-header hdr-expense d-flex justify-content-between align-items-center">
+                <span>個人別支出（様式２－６）</span>
+                <div class="d-flex align-items-center gap-2">
+                    <label class="form-label mb-0 text-white small fw-normal">交通費単価（円/km）</label>
+                    <input type="number" id="transportRate" class="form-control form-control-sm text-end" value="17" style="width:80px;" oninput="recalculateTransportCosts()">
+                </div>
+            </div>
             <div class="card-body">
                 <div class="table-responsive" style="max-height: 220px; overflow-y: auto;">
                     <table class="table table-bordered align-middle mb-2" id="expenseTable" style="min-width:1100px;">
@@ -371,6 +377,9 @@
                 const g=eRow.querySelector('.route-hidden').closest('.input-group');
                 const ins=g.querySelectorAll('input[type="text"]');
                 if(!ins[0].value){ ins[0].value=member.departurePoint; updateRoute(ins[0]); }
+                // 出発地が確定したので距離を自動取得
+                const venue=document.querySelector('input[name="project.locationVenue"]').value;
+                autoFetchDistance(idx, member.departurePoint, venue);
             }
             updateCounts();
         }
@@ -474,6 +483,40 @@
             document.getElementById('grandTotal').textContent=(t+a).toLocaleString();
         }
 
+        // ===== 交通費単価・距離自動取得 =====
+        function recalculateTransportCosts(){
+            const rate=parseInt(document.getElementById('transportRate').value,10)||17;
+            expenseBody.querySelectorAll('tr').forEach(row=>{
+                const distInput=row.querySelector('.distance-input');
+                const costInput=row.querySelector('input[name*=".transportCost"]');
+                if(!distInput||!costInput) return;
+                const dist=parseInt(distInput.value,10);
+                if(!isNaN(dist)&&dist>0) costInput.value=dist*rate;
+            });
+            calculateTotals();
+        }
+        async function autoFetchDistance(expenseRowIndex, departure, venue){
+            if(!departure||!venue) return;
+            try{
+                const response=await fetch(`/api/routes/distance?departure=${encodeURIComponent(departure)}&destination=${encodeURIComponent(venue)}`);
+                if(response.ok){
+                    const data=await response.json();
+                    const expenseRow=expenseBody.querySelectorAll('tr')[expenseRowIndex];
+                    if(!expenseRow) return;
+                    const routeGroup=expenseRow.querySelector('.route-hidden').closest('.input-group');
+                    const routeInputs=routeGroup.querySelectorAll('input[type="text"]');
+                    routeInputs[1].value=venue;
+                    updateRoute(routeInputs[1]);
+                    const distInput=expenseRow.querySelector('.distance-input');
+                    distInput.value=data.distanceKm;
+                    const rate=parseInt(document.getElementById('transportRate').value,10)||17;
+                    const costInput=expenseRow.querySelector('input[name*=".transportCost"]');
+                    costInput.value=data.distanceKm*rate;
+                    calculateTotals();
+                }
+            }catch(e){ console.error('Distance fetch error',e); }
+        }
+
         // ===== 初期化 =====
         (function(){
             if(rosterBody.querySelectorAll('tr').length===0){ addRow(); }
@@ -500,6 +543,19 @@
             if(e.target.matches('input:not([type="hidden"])')){
                 addRowAfterLastRosterInput(e.target);
             }
+        });
+
+        // 会場変更時：出発地が入力済みの全参加者行の距離を再取得
+        document.querySelector('input[name="project.locationVenue"]').addEventListener('change', function(){
+            const venue=this.value;
+            if(!venue) return;
+            expenseBody.querySelectorAll('tr').forEach((eRow,idx)=>{
+                const h=eRow.querySelector('.route-hidden');
+                if(!h) return;
+                const ins=h.closest('.input-group').querySelectorAll('input[type="text"]');
+                const departure=ins[0].value;
+                if(departure) autoFetchDistance(idx,departure,venue);
+            });
         });
 
         // ===== ツールチップ初期化（bootstrapバンドル読込後に実行） =====
