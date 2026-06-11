@@ -47,35 +47,56 @@ public class ProjectService {
         for (int i = 0; i < participants.size(); i++) {
             ProjectParticipant p = participants.get(i);
             p.setProjectId(projectId);
-            Expense e = expenses.get(i);
+            Expense e = (i < expenses.size()) ? expenses.get(i) : new Expense();
 
             // Handle Member Name and Auto-Registration
             String mName = p.getMemberName();
+            // 氏名が空の行はスキップ（外部キー制約違反を防ぐ）
+            if (mName == null || mName.trim().isEmpty()) {
+                continue;
+            }
             if (mName != null && !mName.trim().isEmpty()) {
+                String departure = extractDeparture(e);
                 Member existing = memberMapper.findByName(mName);
                 if (existing == null) {
                     existing = new Member();
                     existing.setName(mName);
-                    if (e != null && e.getTransportRoute() != null) {
-                        String route = e.getTransportRoute();
-                        if (route.contains("〜")) existing.setDeparturePoint(route.split("〜")[0].trim());
-                        else if (route.contains("～")) existing.setDeparturePoint(route.split("～")[0].trim());
-                    }
+                    existing.setDeparturePoint(departure);
+                    existing.setRole(normalizeRole(p.getMemberRole()));
+                    existing.setAge(p.getMemberAge());
                     memberMapper.insert(existing);
                 } else {
-                    if (e != null && e.getTransportRoute() != null && (existing.getDeparturePoint() == null || existing.getDeparturePoint().isEmpty())) {
-                        String route = e.getTransportRoute();
-                        if (route.contains("〜")) { existing.setDeparturePoint(route.split("〜")[0].trim()); memberMapper.update(existing); }
-                        else if (route.contains("～")) { existing.setDeparturePoint(route.split("～")[0].trim()); memberMapper.update(existing); }
+                    // 登録済みでも、入力値が登録内容と違えば上書きして登録し直す
+                    boolean dirty = false;
+                    if (departure != null && !departure.isEmpty() && !departure.equals(existing.getDeparturePoint())) {
+                        existing.setDeparturePoint(departure); dirty = true;
                     }
+                    String role = normalizeRole(p.getMemberRole());
+                    if (role != null && !role.equals(existing.getRole())) { existing.setRole(role); dirty = true; }
+                    if (p.getMemberAge() != null && !p.getMemberAge().equals(existing.getAge())) { existing.setAge(p.getMemberAge()); dirty = true; }
+                    if (dirty) memberMapper.update(existing);
                 }
                 p.setMemberId(existing.getId());
             }
 
             participantMapper.insert(p);
-            
+
             e.setProjectParticipantId(p.getId());
             expenseMapper.insert(e);
         }
+    }
+
+    private String extractDeparture(Expense e) {
+        if (e == null || e.getTransportRoute() == null) return null;
+        String route = e.getTransportRoute();
+        if (route.contains("〜")) return route.split("〜")[0].trim();
+        if (route.contains("～")) return route.split("～")[0].trim();
+        return null;
+    }
+
+    private String normalizeRole(String role) {
+        if (role == null) return null;
+        role = role.trim();
+        return role.isEmpty() ? null : role;
     }
 }

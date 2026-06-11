@@ -1,86 +1,146 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org"
-      th:replace="~{layout :: html(title='名簿管理', content=~{::div}, activePage='members')}">
+      th:replace="~{activity/layout :: html(title='名簿管理', content=~{::div}, activePage='members')}">
 <body>
-    <div>
-        <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
-            <h1 class="h2">名簿管理</h1>
-        </div>
+<div>
+    <div class="d-flex justify-content-between align-items-center mb-2">
+        <h3 class="fw-bold mb-0">
+            名簿管理
+            <i class="text-info" style="cursor:help; font-style:normal;"
+               data-bs-toggle="tooltip" data-bs-html="true"
+               title="活動日入力で新しい氏名を入力して保存すると、ここに自動で登録されます。<br>登録済みの人は年齢・出発地点が変わると保存時に自動で上書きされます。<br>この画面で直接編集した内容は、欄を変更した時点で<b>自動保存</b>されます（更新ボタンは不要）。">&#9432;</i>
+        </h3>
+    </div>
 
-        <div class="card shadow-sm mb-4">
-            <div class="card-header bg-primary text-white">
-                <h5 class="mb-0">新規メンバー追加</h5>
-            </div>
-            <div class="card-body">
-                <form th:action="@{/members/add}" method="post" class="row g-3">
-                    <div class="col-md-3">
-                        <label class="form-label">氏名</label>
-                        <input type="text" name="name" class="form-control" required>
-                    </div>
-                    <div class="col-md-2">
-                        <label class="form-label">年齢</label>
-                        <input type="number" name="age" class="form-control">
-                    </div>
-                    <div class="col-md-2">
-                        <label class="form-label">役職</label>
-                        <select name="role" class="form-select">
-                            <option value="選手">選手</option>
-                            <option value="指導者">指導者</option>
-                        </select>
-                    </div>
-                    <div class="col-md-3">
-                        <label class="form-label">出発地点</label>
-                        <input type="text" name="departurePoint" class="form-control" placeholder="例: 宮崎西">
-                    </div>
-                    <div class="col-md-2 d-flex align-items-end">
-                        <button type="submit" class="btn btn-primary w-100">追加</button>
-                    </div>
-                </form>
-            </div>
-        </div>
+    <p class="text-muted small">
+        各欄を変更すると<strong>自動で保存</strong>されます。活動日入力で入力した新しい氏名もここに自動登録されます。
+    </p>
 
-        <div class="card shadow-sm">
-            <div class="card-header bg-dark text-white">
-                <h5 class="mb-0">登録メンバー一覧</h5>
-            </div>
-            <div class="card-body p-0">
+    <!-- 新規メンバー追加 -->
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-header bg-primary text-white">新規メンバー追加</div>
+        <div class="card-body">
+            <form th:action="@{/members/add}" method="post" class="row g-3">
+                <div class="col-md-3">
+                    <label class="form-label">氏名</label>
+                    <input type="text" name="name" class="form-control" required>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">年齢</label>
+                    <input type="number" name="age" class="form-control" min="0">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">種別</label>
+                    <select name="role" class="form-select">
+                        <option value="選手">選手</option>
+                        <option value="指導者">指導者</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">主な出発地点</label>
+                    <input type="text" name="departurePoint" class="form-control" placeholder="例：宮崎西">
+                </div>
+                <div class="col-md-2 d-flex align-items-end">
+                    <button type="submit" class="btn btn-primary w-100">追加</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 登録メンバー一覧 -->
+    <div class="card border-0 shadow-sm">
+        <div class="card-header bg-dark text-white d-flex align-items-center">
+            登録メンバー一覧
+            <span class="badge bg-light text-dark ms-2" data-bs-toggle="tooltip"
+                  title="各欄を編集すると自動で保存されます" style="cursor:help;">自動保存</span>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
                 <table class="table table-hover mb-0 align-middle">
                     <thead class="table-light">
                         <tr>
-                            <th>ID</th>
+                            <th style="width:6%;">ID</th>
                             <th>氏名</th>
-                            <th>年齢</th>
-                            <th>役職</th>
-                            <th>出発地点</th>
-                            <th class="text-end">操作</th>
+                            <th style="width:12%;">年齢</th>
+                            <th style="width:14%;">種別</th>
+                            <th>主な出発地点</th>
+                            <th class="text-end" style="width:20%;">操作</th>
                         </tr>
                     </thead>
                     <tbody>
-                        <tr th:each="m : ${members}">
+                        <tr th:each="m : ${members}" th:attr="data-id=${m.id}">
                             <td th:text="${m.id}"></td>
-                            <form th:action="@{/members/{id}/update(id=${m.id})}" method="post">
-                                <td><input type="text" name="name" class="form-control form-control-sm" th:value="${m.name}" required></td>
-                                <td><input type="number" name="age" class="form-control form-control-sm" th:value="${m.age}"></td>
-                                <td>
-                                    <select name="role" class="form-select form-select-sm">
-                                        <option value="選手" th:selected="${m.role == '選手'}">選手</option>
-                                        <option value="指導者" th:selected="${m.role == '指導者'}">指導者</option>
-                                    </select>
-                                </td>
-                                <td><input type="text" name="departurePoint" class="form-control form-control-sm" th:value="${m.departurePoint}"></td>
-                                <td class="text-end">
-                                    <div class="btn-group btn-group-sm">
-                                        <button type="submit" class="btn btn-outline-primary">更新</button>
-                                        <button type="button" class="btn btn-outline-danger" th:onclick="'if(confirm(\'削除しますか？\')){ document.getElementById(\'deleteForm-' + ${m.id} + '\').submit(); }'">削除</button>
-                                    </div>
-                                </td>
-                            </form>
-                            <form th:id="'deleteForm-' + ${m.id}" th:action="@{/members/{id}/delete(id=${m.id})}" method="post" style="display:none;"></form>
+                            <td><input type="text" class="form-control form-control-sm" data-field="name"
+                                       th:value="${m.name}" onchange="saveMember(this)"
+                                       title="変更すると自動保存されます" required></td>
+                            <td><input type="number" class="form-control form-control-sm" data-field="age"
+                                       th:value="${m.age}" min="0" onchange="saveMember(this)"
+                                       title="変更すると自動保存されます"></td>
+                            <td>
+                                <select class="form-select form-select-sm" data-field="role" onchange="saveMember(this)"
+                                        title="変更すると自動保存されます">
+                                    <option value="選手" th:selected="${m.role == '選手'}">選手</option>
+                                    <option value="指導者" th:selected="${m.role == '指導者'}">指導者</option>
+                                </select>
+                            </td>
+                            <td><input type="text" class="form-control form-control-sm" data-field="departurePoint"
+                                       th:value="${m.departurePoint}" placeholder="例：宮崎西" onchange="saveMember(this)"
+                                       title="変更すると自動保存されます"></td>
+                            <td class="text-end">
+                                <span class="save-status text-success small me-2" style="display:none;">✓ 保存しました</span>
+                                <button type="button" class="btn btn-sm btn-outline-danger" onclick="deleteMember(this)">削除</button>
+                            </td>
+                        </tr>
+                        <tr th:if="${#lists.isEmpty(members)}">
+                            <td colspan="6" class="text-center text-muted py-4">登録メンバーがいません。</td>
                         </tr>
                     </tbody>
                 </table>
             </div>
         </div>
     </div>
+
+    <script>
+        // ===== 行の自動保存 =====
+        function saveMember(el) {
+            const row = el.closest('tr');
+            const id = row.getAttribute('data-id');
+            if (!id) return;
+            const nameInput = row.querySelector('[data-field="name"]');
+            if (nameInput && !nameInput.value.trim()) { return; } // 氏名空は保存しない
+            const body = new URLSearchParams();
+            row.querySelectorAll('[data-field]').forEach(f => body.append(f.getAttribute('data-field'), f.value));
+            fetch('/members/' + id + '/update', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
+                body: body.toString()
+            }).then(res => {
+                if (res.ok || res.redirected) { flashSaved(row); }
+            }).catch(() => {});
+        }
+        function flashSaved(row) {
+            const s = row.querySelector('.save-status');
+            if (!s) return;
+            s.style.display = 'inline';
+            clearTimeout(s._t);
+            s._t = setTimeout(() => { s.style.display = 'none'; }, 1500);
+        }
+        // ===== 削除 =====
+        function deleteMember(btn) {
+            if (!confirm('削除しますか？')) return;
+            const row = btn.closest('tr');
+            const id = row.getAttribute('data-id');
+            fetch('/members/' + id + '/delete', { method: 'POST' })
+                .then(() => { row.remove(); })
+                .catch(() => {});
+        }
+        // ===== ツールチップ初期化（bootstrapバンドル読込後に実行） =====
+        window.addEventListener('load', function () {
+            if (window.bootstrap) {
+                document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el => new bootstrap.Tooltip(el));
+            }
+        });
+    </script>
+</div>
 </body>
 </html>

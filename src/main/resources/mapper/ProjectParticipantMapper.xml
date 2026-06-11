@@ -8,7 +8,7 @@
     </insert>
 
     <select id="findByProjectId" resultType="com.miyazaki.icehockey.budgetsystem.model.ProjectParticipant">
-        SELECT pp.*, m.name as memberName, m.role as memberRole 
+        SELECT pp.*, m.name as memberName, m.role as memberRole, m.age as memberAge
         FROM project_participants pp
         JOIN members m ON pp.member_id = m.id
         WHERE pp.project_id = #{projectId}

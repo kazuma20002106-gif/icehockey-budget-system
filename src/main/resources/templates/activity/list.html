@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{activity/layout :: html(title='活動一覧', content=~{::div}, activePage='list')}">
+<body>
+<div>
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h3 class="fw-bold mb-0">活動一覧</h3>
+        <a href="/activity/new" class="btn btn-primary">新規入力</a>
+    </div>
+
+    <!-- 絞り込み -->
+    <form method="get" action="/activity" class="card border-0 shadow-sm p-3 mb-3">
+        <div class="row g-2 align-items-end">
+            <div class="col-auto">
+                <label class="form-label small text-muted mb-1">年度</label>
+                <select name="year" class="form-select">
+                    <option th:each="y : ${years}" th:value="${y}" th:text="${y} + '年度'"
+                            th:selected="${y == selectedYear}"></option>
+                </select>
+            </div>
+            <div class="col-auto" style="min-width: 220px;">
+                <label class="form-label small text-muted mb-1">補助金区分</label>
+                <select name="budgetTypeId" class="form-select">
+                    <option value="" th:selected="${selectedBudgetTypeId == null}">全区分</option>
+                    <option th:each="bt : ${budgetTypes}" th:value="${bt.id}" th:text="${bt.name}"
+                            th:selected="${bt.id == selectedBudgetTypeId}"></option>
+                </select>
+            </div>
+            <div class="col-auto">
+                <button type="submit" class="btn btn-outline-secondary">絞り込み</button>
+            </div>
+            <div class="col text-end">
+                <a class="btn btn-success"
+                   th:href="@{/activity/export/year(year=${selectedYear}, budgetTypeId=${selectedBudgetTypeId})}">
+                    年度まとめExcel出力
+                </a>
+            </div>
+        </div>
+    </form>
+
+    <!-- 一覧テーブル -->
+    <div class="card border-0 shadow-sm mb-3">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="text-muted">
+                    <tr>
+                        <th class="ps-3">活動日</th>
+                        <th>補助金区分</th>
+                        <th>種別</th>
+                        <th>事業名</th>
+                        <th>会場</th>
+                        <th class="text-end">参加人数</th>
+                        <th class="text-end">支出合計</th>
+                        <th class="text-center">操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr th:each="row : ${rows}">
+                        <td class="ps-3" th:text="${#temporals.format(row.project.eventDate, 'yyyy/MM/dd')}">2026/06/06</td>
+                        <td>
+                            <span class="badge rounded-pill" th:classappend="'text-bg-' + ${row.budgetColor}"
+                                  th:text="${row.budgetLabel}">①選手強化費</span>
+                        </td>
+                        <td th:text="${row.project.targetCategory}">成年男子</td>
+                        <td th:text="${row.project.name}">強化練習</td>
+                        <td th:text="${row.project.locationVenue}">会場</td>
+                        <td class="text-end"><span th:text="${row.participantCount}">1</span> 名</td>
+                        <td class="text-end fw-bold"><span th:text="${#numbers.formatInteger(row.expenseTotal, 0, 'COMMA')}">0</span> 円</td>
+                        <td class="text-center text-nowrap">
+                            <a th:href="@{/activity/{id}/edit(id=${row.project.id})}"
+                               class="btn btn-sm btn-outline-primary" title="編集">編集</a>
+                            <div class="btn-group btn-group-sm">
+                                <button type="button" class="btn btn-outline-success dropdown-toggle"
+                                        data-bs-toggle="dropdown" aria-expanded="false" title="Excel出力">出力</button>
+                                <ul class="dropdown-menu dropdown-menu-end">
+                                    <li><a class="dropdown-item" th:href="@{/activity/{id}/export(id=${row.project.id}, form='all')}">まとめて（2-4〜2-6）</a></li>
+                                    <li><hr class="dropdown-divider"></li>
+                                    <li><a class="dropdown-item" th:href="@{/activity/{id}/export(id=${row.project.id}, form='2-4')}">様式2-4 のみ</a></li>
+                                    <li><a class="dropdown-item" th:href="@{/activity/{id}/export(id=${row.project.id}, form='2-5')}">様式2-5 のみ</a></li>
+                                    <li><a class="dropdown-item" th:href="@{/activity/{id}/export(id=${row.project.id}, form='2-6')}">様式2-6 のみ</a></li>
+                                </ul>
+                            </div>
+                            <button type="button" class="btn btn-sm btn-outline-danger" title="削除"
+                                    th:onclick="|confirmDelete(${row.project.id})|">削除</button>
+                        </td>
+                    </tr>
+                    <tr th:if="${#lists.isEmpty(rows)}">
+                        <td colspan="8" class="text-center text-muted py-4">該当する活動がありません。</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- 集計フッター -->
+    <div class="card border-0 shadow-sm">
+        <div class="row text-center py-3 g-0">
+            <div class="col border-end">
+                <div class="text-muted small">活動件数</div>
+                <div class="fs-4 fw-bold"><span th:text="${totalCount}">3</span> 件</div>
+            </div>
+            <div class="col border-end">
+                <div class="text-muted small">延べ参加人数</div>
+                <div class="fs-4 fw-bold"><span th:text="${totalParticipants}">4</span> 名</div>
+            </div>
+            <div class="col">
+                <div class="text-muted small">支出合計</div>
+                <div class="fs-4 fw-bold text-primary"><span th:text="${#numbers.formatInteger(grandTotal, 0, 'COMMA')}">0</span> 円</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 削除用の隠しフォーム -->
+    <form id="deleteForm" method="post" style="display:none;"></form>
+    <script>
+        function confirmDelete(id) {
+            if (!confirm('この活動を削除します。よろしいですか？')) return;
+            const f = document.getElementById('deleteForm');
+            f.action = '/activity/' + id + '/delete';
+            f.submit();
+        }
+    </script>
+</div>
+</body>
+</html>

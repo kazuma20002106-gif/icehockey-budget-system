@@ -10,6 +10,7 @@ public class ProjectParticipant {
     // Transient fields for UI and Export
     private String memberName;
     private String memberRole;
+    private Integer memberAge;
     private Expense expense;
 
     public int getId() { return id; }
@@ -32,6 +33,9 @@ public class ProjectParticipant {
 
     public String getMemberRole() { return memberRole; }
     public void setMemberRole(String memberRole) { this.memberRole = memberRole; }
+
+    public Integer getMemberAge() { return memberAge; }
+    public void setMemberAge(Integer memberAge) { this.memberAge = memberAge; }
 
     public Expense getExpense() { return expense; }
     public void setExpense(Expense expense) { this.expense = expense; }

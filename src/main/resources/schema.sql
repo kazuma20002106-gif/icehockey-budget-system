@@ -1,14 +1,12 @@
 CREATE DATABASE IF NOT EXISTS budget_system CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 USE budget_system;
 
-SET FOREIGN_KEY_CHECKS = 0;
-
-DROP TABLE IF EXISTS project_summary_expenses;
-DROP TABLE IF EXISTS expenses;
-DROP TABLE IF EXISTS project_participants;
-DROP TABLE IF EXISTS projects;
-DROP TABLE IF EXISTS budget_types;
-DROP TABLE IF EXISTS members;
+-- ============================================================
+-- 注意: このスクリプトは毎回起動時に実行される（spring.sql.init.mode=always）。
+--       テーブルは IF NOT EXISTS で「無ければ作る」だけにし、DROP はしない。
+--       これにより入力したデータは再起動しても保持される（年度集計の前提）。
+--       マスタ（補助金区分）だけ INSERT IGNORE で投入する。
+-- ============================================================
 
 -- 名簿マスタ
 CREATE TABLE IF NOT EXISTS members (
@@ -36,6 +34,8 @@ CREATE TABLE IF NOT EXISTS projects (
     event_date DATE NOT NULL,
     location_venue VARCHAR(200),
     location_accommodation VARCHAR(200),
+    schedule_content TEXT, -- 日程及び内容
+    project_outcome TEXT, -- 事業の成果
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (budget_type_id) REFERENCES budget_types(id)
 );
@@ -77,32 +77,7 @@ CREATE TABLE IF NOT EXISTS project_summary_expenses (
     FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
 );
 
--- 初期データの挿入
+-- 補助金区分マスタ（アプリ動作に必須。既にあれば無視）
 INSERT IGNORE INTO budget_types (id, name) VALUES (1, '選手強化費');
 INSERT IGNORE INTO budget_types (id, name) VALUES (2, 'トップチーム活用事業');
 INSERT IGNORE INTO budget_types (id, name) VALUES (3, 'ふるさと選手活動支援');
-
-INSERT IGNORE INTO members (id, name, age, grade, role, departure_point) VALUES 
-(1, '長友　繁', 48, '', '選手', NULL),
-(2, '中村　里惟', 26, '', '選手', NULL),
-(3, '蛯原　智仁', 25, '', '選手', NULL),
-(4, '齋藤　豊光', NULL, '', '指導者', NULL),
-(5, 'カズマックス', NULL, '', '選手', '大塚');
-
--- テスト用初期事業データ
-INSERT IGNORE INTO projects (id, name, budget_type_id, target_category, event_date, location_venue, location_accommodation) VALUES
-(1, '【テスト出力】強化練習', 1, '成年男子', '2025-05-24', '福岡オービジョンアリーナ', '宿泊なし');
-
--- テスト用初期参加者と経費データ
-INSERT IGNORE INTO project_participants (id, project_id, member_id, is_accommodated) VALUES
-(1, 1, 1, FALSE),
-(2, 1, 4, FALSE);
-
-INSERT IGNORE INTO expenses (id, project_participant_id, transport_method, transport_cost, accommodation_cost, miscellaneous_cost) VALUES
-(1, 1, '自家用車', 3500, 0, 0),
-(2, 2, '自家用車', 3500, 0, 0);
-
-INSERT IGNORE INTO project_summary_expenses (id, project_id, rental_cost, supplies_cost, parking_cost, compensation_cost, service_cost) VALUES
-(1, 1, 15000, 2000, 500, 0, 0);
-
-SET FOREIGN_KEY_CHECKS = 1;

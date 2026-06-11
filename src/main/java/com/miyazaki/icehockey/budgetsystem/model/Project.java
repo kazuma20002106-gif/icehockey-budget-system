@@ -8,6 +8,8 @@ public class Project {
     private java.time.LocalDate eventDate;
     private String locationVenue;
     private String locationAccommodation;
+    private String scheduleContent; // 日程及び内容
+    private String projectOutcome; // 事業の成果
     private java.time.LocalDateTime createdAt;
 
     public Integer getId() { return id; }
@@ -30,6 +32,19 @@ public class Project {
 
     public String getLocationAccommodation() { return locationAccommodation; }
     public void setLocationAccommodation(String locationAccommodation) { this.locationAccommodation = locationAccommodation; }
+
+    public String getScheduleContent() { return scheduleContent; }
+    public void setScheduleContent(String scheduleContent) { this.scheduleContent = scheduleContent; }
+
+    public String getProjectOutcome() { return projectOutcome; }
+    public void setProjectOutcome(String projectOutcome) { this.projectOutcome = projectOutcome; }
+
+    // 年度（日本の会計年度：4月始まり）を活動日から導出
+    public Integer getFiscalYear() {
+        if (eventDate == null) return null;
+        int y = eventDate.getYear();
+        return eventDate.getMonthValue() >= 4 ? y : y - 1;
+    }
 
     public java.time.LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(java.time.LocalDateTime createdAt) { this.createdAt = createdAt; }

@@ -9,9 +9,41 @@
         SELECT * FROM projects WHERE id = #{id};
     </select>
 
+    <!-- 年度（4月始まり）と補助金区分での絞り込み。両方省略可 -->
+    <select id="findFiltered" resultType="com.miyazaki.icehockey.budgetsystem.model.Project">
+        SELECT * FROM projects
+        <where>
+            <if test="fiscalYear != null">
+                AND event_date &gt;= CONCAT(#{fiscalYear}, '-04-01')
+                AND event_date &lt;  CONCAT(#{fiscalYear} + 1, '-04-01')
+            </if>
+            <if test="budgetTypeId != null">
+                AND budget_type_id = #{budgetTypeId}
+            </if>
+        </where>
+        ORDER BY event_date DESC, id DESC
+    </select>
+
     <insert id="insert" useGeneratedKeys="true" keyProperty="id">
-        INSERT INTO projects (name, budget_type_id, target_category, event_date, location_venue, location_accommodation)
-        VALUES (#{name}, #{budgetTypeId}, #{targetCategory}, #{eventDate}, #{locationVenue}, #{locationAccommodation})
+        INSERT INTO projects (name, budget_type_id, target_category, event_date, location_venue, location_accommodation, schedule_content, project_outcome)
+        VALUES (#{name}, #{budgetTypeId}, #{targetCategory}, #{eventDate}, #{locationVenue}, #{locationAccommodation}, #{scheduleContent}, #{projectOutcome})
     </insert>
+
+    <update id="update">
+        UPDATE projects SET
+            name = #{name},
+            budget_type_id = #{budgetTypeId},
+            target_category = #{targetCategory},
+            event_date = #{eventDate},
+            location_venue = #{locationVenue},
+            location_accommodation = #{locationAccommodation},
+            schedule_content = #{scheduleContent},
+            project_outcome = #{projectOutcome}
+        WHERE id = #{id}
+    </update>
+
+    <delete id="delete">
+        DELETE FROM projects WHERE id = #{id}
+    </delete>
 
 </mapper>

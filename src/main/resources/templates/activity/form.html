@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{activity/layout :: html(title='活動日入力', content=~{::div}, activePage='new')}">
+<body>
+<div>
+    <style>
+        input[type="number"]::-webkit-outer-spin-button,
+        input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+        input[type="number"] { -moz-appearance: textfield; }
+        .digit-col { width: 35px; }
+        .digit-col button { font-size: 0.8rem; padding: 2px 0; }
+        .card-section > .card-header { color:#fff; font-weight:600; }
+        .hdr-basic   { background-color:#2563eb; }
+        .hdr-roster  { background-color:#198754; }
+        .hdr-expense { background-color:#f0ad4e; }
+        .hdr-facility{ background-color:#0dcaf0; }
+        .hdr-result  { background-color:#e9ecef; color:#333 !important; }
+    </style>
+
+    <h4 class="fw-bold mb-3" th:text="${editId == null} ? '活動日入力（新規）' : '活動日入力（編集）'">活動日入力（新規）</h4>
+
+    <form th:action="@{/activity/save}" method="post" id="activityForm">
+        <input type="hidden" name="project.id" th:if="${editId != null}" th:value="${activityForm.project.id}" />
+
+        <!-- ===== 基本情報 ===== -->
+        <div class="card card-section border-0 shadow-sm mb-4">
+            <div class="card-header hdr-basic">基本情報</div>
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-3">
+                        <label class="form-label">補助金区分 <span class="text-danger">*</span></label>
+                        <select name="project.budgetTypeId" class="form-select" required>
+                            <option value="">-- 選択 --</option>
+                            <option th:each="bt : ${budgetTypes}" th:value="${bt.id}" th:text="${bt.name}"
+                                    th:selected="${bt.id == activityForm.project.budgetTypeId}"></option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">種別 <span class="text-danger">*</span></label>
+                        <select name="project.targetCategory" class="form-select" required>
+                            <option value="">-- 選択 --</option>
+                            <option th:each="c : ${ {'成年男子','成年女子','少年男子','少年女子'} }" th:value="${c}" th:text="${c}"
+                                    th:selected="${c == activityForm.project.targetCategory}"></option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">事業名 <span class="text-danger">*</span></label>
+                        <select name="project.name" class="form-select" required>
+                            <option value="">-- 選択 --</option>
+                            <option th:each="n : ${ {'強化練習','遠征試合'} }" th:value="${n}" th:text="${n}"
+                                    th:selected="${n == activityForm.project.name}"></option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">年度／活動日 <span class="text-danger">*</span></label>
+                        <input type="date" name="project.eventDate" id="eventDate" class="form-control" required
+                               th:value="${activityForm.project.eventDate}">
+                        <small class="text-muted">年度（4月始まり）は活動日から自動判定されます</small>
+                    </div>
+                    <div class="col-md-5">
+                        <label class="form-label">会場名 <span class="text-danger">*</span></label>
+                        <input type="text" name="project.locationVenue" class="form-control" required
+                               placeholder="例：福岡オービジョンアリーナ" th:value="${activityForm.project.locationVenue}">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">宿舎名</label>
+                        <input type="text" name="project.locationAccommodation" class="form-control"
+                               placeholder="宿泊なし" th:value="${activityForm.project.locationAccommodation}">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">指導者（名）</label>
+                        <input type="number" class="form-control text-end" id="coachCount" readonly value="0">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">選手（名）</label>
+                        <input type="number" class="form-control text-end" id="playerCount" readonly value="0">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">合計</label>
+                        <input type="text" class="form-control text-end bg-light" id="totalCount" readonly value="0 名">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===== 参加者名簿（様式2-5） ===== -->
+        <div class="card card-section border-0 shadow-sm mb-4">
+            <div class="card-header hdr-roster d-flex justify-content-between align-items-center">
+                <span>
+                    参加者名簿（様式２－５）
+                    <i style="cursor:help; font-style:normal;" data-bs-toggle="tooltip" data-bs-html="true"
+                       title="氏名に<b>新しい人</b>を入力して保存すると、名簿に自動登録され、次回から氏名欄の候補に出ます。<br><b>登録済みの人</b>は氏名を選ぶと年齢・出発地点が自動入力されます。<br>年齢・出発地点を変えて保存すると、名簿側も自動で上書きされます。">&#9432;</i>
+                </span>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-bordered align-middle mb-2" id="rosterTable">
+                        <thead class="table-light text-center">
+                            <tr>
+                                <th style="width:8%;">番号</th>
+                                <th style="width:18%;">種別</th>
+                                <th>氏名</th>
+                                <th style="width:14%;">年齢</th>
+                                <th style="width:10%;">宿泊</th>
+                                <th style="width:8%;">削除</th>
+                            </tr>
+                        </thead>
+                        <tbody id="rosterBody">
+                            <tr th:each="p, stat : ${activityForm.participants}" class="roster-row">
+                                <td class="text-center align-middle row-no"></td>
+                                <td>
+                                    <select class="form-select form-select-sm role-select" th:name="|participants[${stat.index}].memberRole|" onchange="updateCounts()">
+                                        <option value="選手"   th:selected="${p.memberRole == '選手'}">選手</option>
+                                        <option value="指導者" th:selected="${p.memberRole == '指導者'}">指導者</option>
+                                    </select>
+                                </td>
+                                <td>
+                                    <input type="text" class="form-control form-control-sm name-input" th:name="|participants[${stat.index}].memberName|"
+                                           th:value="${p.memberName}" list="memberList" autocomplete="off"
+                                           oninput="mirrorName(this)" onchange="autoFillDeparture(this)">
+                                </td>
+                                <td>
+                                    <input type="number" class="form-control form-control-sm text-end" th:name="|participants[${stat.index}].memberAge|"
+                                           th:value="${p.memberAge}" min="0">
+                                </td>
+                                <td class="text-center">
+                                    <input type="hidden" class="accom-hidden" th:name="|participants[${stat.index}].isAccommodated|" th:value="${p.isAccommodated}" />
+                                    <input type="checkbox" class="form-check-input accom-check" th:checked="${p.isAccommodated}" onchange="toggleAccom(this)">
+                                </td>
+                                <td class="text-center">
+                                    <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeRow(this)">×</button>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <button type="button" class="btn btn-sm btn-outline-success" onclick="addRow()">＋ 参加者を追加</button>
+            </div>
+        </div>
+
+        <!-- ===== 個人別支出（様式2-6） ===== -->
+        <div class="card card-section border-0 shadow-sm mb-4">
+            <div class="card-header hdr-expense">個人別支出（様式２－６）</div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-bordered align-middle mb-2" id="expenseTable" style="min-width:1100px;">
+                        <thead class="table-light text-center text-nowrap">
+                            <tr>
+                                <th style="width:5%;">No.</th>
+                                <th style="width:12%;">氏名</th>
+                                <th style="width:10%;">期日</th>
+                                <th style="width:10%;">交通手段</th>
+                                <th style="width:16%;">交通区間</th>
+                                <th style="width:7%;">距離(km)</th>
+                                <th>交通費(円)</th>
+                                <th>宿泊費(円)</th>
+                                <th>旅行雑費(円)</th>
+                                <th style="width:10%;">受領日</th>
+                            </tr>
+                        </thead>
+                        <tbody id="expenseBody">
+                            <tr th:each="e, stat : ${activityForm.expenses}" class="expense-row">
+                                <td class="text-center row-no"></td>
+                                <td>
+                                    <input type="text" class="form-control form-control-sm name-mirror bg-light" readonly
+                                           th:value="${activityForm.participants[__${stat.index}__] != null ? activityForm.participants[__${stat.index}__].memberName : ''}">
+                                </td>
+                                <td><input type="date" class="form-control form-control-sm" th:name="|expenses[${stat.index}].expenseDate|" th:value="${e.expenseDate}"></td>
+                                <td>
+                                    <select class="form-select form-select-sm" th:name="|expenses[${stat.index}].transportMethod|">
+                                        <option value="">選択...</option>
+                                        <option value="航空機・バス" th:selected="${e.transportMethod == '航空機・バス'}">航空機・バス</option>
+                                        <option value="電車・車"    th:selected="${e.transportMethod == '電車・車'}">電車・車</option>
+                                    </select>
+                                </td>
+                                <td>
+                                    <div class="input-group input-group-sm">
+                                        <input type="text" class="form-control text-center px-1" placeholder="出発" onchange="updateRoute(this)">
+                                        <span class="input-group-text px-1">～</span>
+                                        <input type="text" class="form-control text-center px-1" placeholder="到着" onchange="updateRoute(this)">
+                                        <input type="hidden" class="route-hidden" th:name="|expenses[${stat.index}].transportRoute|" th:value="${e.transportRoute}">
+                                    </div>
+                                </td>
+                                <td><input type="number" class="form-control form-control-sm text-end distance-input" th:name="|expenses[${stat.index}].transportDistanceKm|" th:value="${e.transportDistanceKm}" min="0" onclick="openDistanceSpinner(this)" onfocus="openDistanceSpinner(this)"></td>
+                                <td><input type="number" class="form-control form-control-sm text-end cost-input" th:name="|expenses[${stat.index}].transportCost|" th:value="${e.transportCost}" min="0" oninput="calculateTotals()" onclick="openDigitSpinner(this)" onfocus="openDigitSpinner(this)"></td>
+                                <td><input type="number" class="form-control form-control-sm text-end cost-input" th:name="|expenses[${stat.index}].accommodationCost|" th:value="${e.accommodationCost}" min="0" oninput="calculateTotals()" onclick="openDigitSpinner(this)" onfocus="openDigitSpinner(this)"></td>
+                                <td><input type="number" class="form-control form-control-sm text-end cost-input" th:name="|expenses[${stat.index}].miscellaneousCost|" th:value="${e.miscellaneousCost}" min="0" oninput="calculateTotals()" onclick="openDigitSpinner(this)" onfocus="openDigitSpinner(this)"></td>
+                                <td><input type="date" class="form-control form-control-sm" th:name="|expenses[${stat.index}].receiptDate|" th:value="${e.receiptDate}"></td>
+                            </tr>
+                        </tbody>
+                        <tfoot class="table-light fw-bold text-end">
+                            <tr>
+                                <td colspan="6" class="text-center">旅費合計</td>
+                                <td id="totalTransport">0</td>
+                                <td id="totalAccommodation">0</td>
+                                <td id="totalMisc">0</td>
+                                <td class="text-center text-primary">計 <span id="grandTotal">0</span> 円</td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+                <small class="text-muted">※ 氏名は「参加者名簿」と連動します。名簿で追加・編集してください。</small>
+            </div>
+        </div>
+
+        <!-- ===== 施設・その他経費 ===== -->
+        <div class="card card-section border-0 shadow-sm mb-4">
+            <div class="card-header hdr-facility">施設・その他経費</div>
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-3">
+                        <label class="form-label">借用料（円）</label>
+                        <input type="number" class="form-control text-end cost-input" name="summary.rentalCost" min="0"
+                               th:value="${activityForm.summary.rentalCost != null ? activityForm.summary.rentalCost : 0}"
+                               onclick="openDigitSpinner(this)" onfocus="openDigitSpinner(this)">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">需用費（円）</label>
+                        <input type="number" class="form-control text-end cost-input" name="summary.suppliesCost" min="0"
+                               th:value="${activityForm.summary.suppliesCost != null ? activityForm.summary.suppliesCost : 0}"
+                               onclick="openDigitSpinner(this)" onfocus="openDigitSpinner(this)">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">役務費（円）</label>
+                        <input type="number" class="form-control text-end cost-input" name="summary.serviceCost" min="0"
+                               th:value="${activityForm.summary.serviceCost != null ? activityForm.summary.serviceCost : 0}"
+                               onclick="openDigitSpinner(this)" onfocus="openDigitSpinner(this)">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">駐車料金（円）</label>
+                        <input type="number" class="form-control text-end cost-input" name="summary.parkingCost" min="0"
+                               th:value="${activityForm.summary.parkingCost != null ? activityForm.summary.parkingCost : 0}"
+                               onclick="openDigitSpinner(this)" onfocus="openDigitSpinner(this)">
+                    </div>
+                    <input type="hidden" name="summary.compensationCost"
+                           th:value="${activityForm.summary.compensationCost != null ? activityForm.summary.compensationCost : 0}">
+                </div>
+            </div>
+        </div>
+
+        <!-- ===== 日程・成果 ===== -->
+        <div class="card card-section border-0 shadow-sm mb-4">
+            <div class="card-header hdr-result">日程・成果</div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <label class="form-label">日程及び内容</label>
+                    <textarea class="form-control" name="project.scheduleContent" rows="3"
+                              placeholder="例：21:15～ 大分選抜との練習試合（１対９）23:00 終了"
+                              th:text="${activityForm.project.scheduleContent}"></textarea>
+                </div>
+                <div>
+                    <label class="form-label">事業の成果</label>
+                    <textarea class="form-control" name="project.projectOutcome" rows="3"
+                              placeholder="例：技術力・チーム連携の向上"
+                              th:text="${activityForm.project.projectOutcome}"></textarea>
+                </div>
+            </div>
+        </div>
+
+        <div class="d-flex justify-content-end gap-2 mb-5">
+            <a href="/activity" class="btn btn-outline-secondary px-4">キャンセル</a>
+            <button type="submit" class="btn btn-primary px-4">保存する</button>
+        </div>
+    </form>
+
+    <!-- ===== 行テンプレート（非表示） ===== -->
+    <table style="display:none;"><tbody id="rosterTemplate">
+        <tr class="roster-row">
+            <td class="text-center align-middle row-no"></td>
+            <td>
+                <select class="form-select form-select-sm role-select" name="participants[IDX].memberRole" onchange="updateCounts()">
+                    <option value="選手">選手</option>
+                    <option value="指導者">指導者</option>
+                </select>
+            </td>
+            <td><input type="text" class="form-control form-control-sm name-input" name="participants[IDX].memberName" list="memberList" autocomplete="off" oninput="mirrorName(this)" onchange="autoFillDeparture(this)"></td>
+            <td><input type="number" class="form-control form-control-sm text-end" name="participants[IDX].memberAge" min="0"></td>
+            <td class="text-center">
+                <input type="hidden" class="accom-hidden" name="participants[IDX].isAccommodated" value="false" />
+                <input type="checkbox" class="form-check-input accom-check" onchange="toggleAccom(this)">
+            </td>
+            <td class="text-center"><button type="button" class="btn btn-sm btn-outline-danger" onclick="removeRow(this)">×</button></td>
+        </tr>
+    </tbody></table>
+
+    <table style="display:none;"><tbody id="expenseTemplate">
+        <tr class="expense-row">
+            <td class="text-center row-no"></td>
+            <td>
+                <input type="text" class="form-control form-control-sm name-mirror bg-light" readonly>
+            </td>
+            <td><input type="date" class="form-control form-control-sm" name="expenses[IDX].expenseDate"></td>
+            <td>
+                <select class="form-select form-select-sm" name="expenses[IDX].transportMethod">
+                    <option value="">選択...</option>
+                    <option value="航空機・バス">航空機・バス</option>
+                    <option value="電車・車">電車・車</option>
+                </select>
+            </td>
+            <td>
+                <div class="input-group input-group-sm">
+                    <input type="text" class="form-control text-center px-1" placeholder="出発" onchange="updateRoute(this)">
+                    <span class="input-group-text px-1">～</span>
+                    <input type="text" class="form-control text-center px-1" placeholder="到着" onchange="updateRoute(this)">
+                    <input type="hidden" class="route-hidden" name="expenses[IDX].transportRoute">
+                </div>
+            </td>
+            <td><input type="number" class="form-control form-control-sm text-end distance-input" name="expenses[IDX].transportDistanceKm" min="0" onclick="openDistanceSpinner(this)" onfocus="openDistanceSpinner(this)"></td>
+            <td><input type="number" class="form-control form-control-sm text-end cost-input" name="expenses[IDX].transportCost" value="0" min="0" oninput="calculateTotals()" onclick="openDigitSpinner(this)" onfocus="openDigitSpinner(this)"></td>
+            <td><input type="number" class="form-control form-control-sm text-end cost-input" name="expenses[IDX].accommodationCost" value="0" min="0" oninput="calculateTotals()" onclick="openDigitSpinner(this)" onfocus="openDigitSpinner(this)"></td>
+            <td><input type="number" class="form-control form-control-sm text-end cost-input" name="expenses[IDX].miscellaneousCost" value="0" min="0" oninput="calculateTotals()" onclick="openDigitSpinner(this)" onfocus="openDigitSpinner(this)"></td>
+            <td><input type="date" class="form-control form-control-sm" name="expenses[IDX].receiptDate"></td>
+        </tr>
+    </tbody></table>
+
+    <datalist id="memberList">
+        <option th:each="m : ${members}" th:value="${m.name}"></option>
+    </datalist>
+
+    <!-- 金額スピナー -->
+    <div id="digitSpinner" class="shadow-lg border rounded bg-white p-2" style="display:none; position:absolute; z-index:1050;">
+        <div class="d-flex text-center mb-1">
+            <div class="digit-col mx-1"><button type="button" class="btn btn-sm btn-light border w-100" onclick="spinDigit(10000,1)">▲</button><div class="small text-muted" style="font-size:.7rem;">万</div><button type="button" class="btn btn-sm btn-light border w-100" onclick="spinDigit(10000,-1)">▼</button></div>
+            <div class="digit-col mx-1"><button type="button" class="btn btn-sm btn-light border w-100" onclick="spinDigit(1000,1)">▲</button><div class="small text-muted" style="font-size:.7rem;">千</div><button type="button" class="btn btn-sm btn-light border w-100" onclick="spinDigit(1000,-1)">▼</button></div>
+            <div class="digit-col mx-1"><button type="button" class="btn btn-sm btn-light border w-100" onclick="spinDigit(100,1)">▲</button><div class="small text-muted" style="font-size:.7rem;">百</div><button type="button" class="btn btn-sm btn-light border w-100" onclick="spinDigit(100,-1)">▼</button></div>
+            <div class="digit-col mx-1"><button type="button" class="btn btn-sm btn-light border w-100" onclick="spinDigit(10,1)">▲</button><div class="small text-muted" style="font-size:.7rem;">十</div><button type="button" class="btn btn-sm btn-light border w-100" onclick="spinDigit(10,-1)">▼</button></div>
+            <div class="digit-col mx-1"><button type="button" class="btn btn-sm btn-light border w-100" onclick="spinDigit(1,1)">▲</button><div class="small text-muted" style="font-size:.7rem;">一</div><button type="button" class="btn btn-sm btn-light border w-100" onclick="spinDigit(1,-1)">▼</button></div>
+        </div>
+        <div class="text-center mt-2 border-top pt-1"><button type="button" class="btn btn-sm btn-secondary w-100 py-0" onclick="closeDigitSpinner()">完了</button></div>
+    </div>
+
+    <!-- 距離スピナー -->
+    <div id="distanceSpinner" class="shadow-lg border rounded bg-white p-2" style="display:none; position:absolute; z-index:1050;">
+        <div class="d-flex text-center mb-1">
+            <div class="digit-col mx-1"><button type="button" class="btn btn-sm btn-light border w-100" onclick="spinDigit(100,1)">▲</button><div class="small text-muted" style="font-size:.7rem;">百</div><button type="button" class="btn btn-sm btn-light border w-100" onclick="spinDigit(100,-1)">▼</button></div>
+            <div class="digit-col mx-1"><button type="button" class="btn btn-sm btn-light border w-100" onclick="spinDigit(10,1)">▲</button><div class="small text-muted" style="font-size:.7rem;">十</div><button type="button" class="btn btn-sm btn-light border w-100" onclick="spinDigit(10,-1)">▼</button></div>
+            <div class="digit-col mx-1"><button type="button" class="btn btn-sm btn-light border w-100" onclick="spinDigit(1,1)">▲</button><div class="small text-muted" style="font-size:.7rem;">一</div><button type="button" class="btn btn-sm btn-light border w-100" onclick="spinDigit(1,-1)">▼</button></div>
+        </div>
+        <div class="text-center mt-2 border-top pt-1"><button type="button" class="btn btn-sm btn-secondary w-100 py-0" onclick="closeDistanceSpinner()">完了</button></div>
+    </div>
+
+    <script th:inline="javascript">
+        /*<![CDATA[*/
+        const membersData = /*[[${members}]]*/ [];
+        /*]]>*/
+
+        const rosterBody = document.getElementById('rosterBody');
+        const expenseBody = document.getElementById('expenseBody');
+
+        // ===== 金額スピナー =====
+        let currentSpinnerTarget = null;
+        function openDigitSpinner(el){ closeDistanceSpinner(); currentSpinnerTarget = el; const s=document.getElementById('digitSpinner'); const r=el.getBoundingClientRect(); s.style.top=(window.scrollY+r.bottom+2)+'px'; s.style.left=(window.scrollX+r.left-50)+'px'; s.style.display='block'; }
+        function closeDigitSpinner(){ const s=document.getElementById('digitSpinner'); if(s) s.style.display='none'; }
+        function openDistanceSpinner(el){ closeDigitSpinner(); currentSpinnerTarget = el; const s=document.getElementById('distanceSpinner'); const r=el.getBoundingClientRect(); s.style.top=(window.scrollY+r.bottom+2)+'px'; s.style.left=(window.scrollX+r.left-30)+'px'; s.style.display='block'; }
+        function closeDistanceSpinner(){ const s=document.getElementById('distanceSpinner'); if(s) s.style.display='none'; }
+        function spinDigit(amount, dir){ if(!currentSpinnerTarget) return; let v=parseInt(currentSpinnerTarget.value,10); if(isNaN(v)) v=0; v+=amount*dir; if(v<0) v=0; currentSpinnerTarget.value=v; calculateTotals(); }
+        document.addEventListener('click', function(e){
+            const sp=document.getElementById('digitSpinner'), dp=document.getElementById('distanceSpinner');
+            if(sp && sp.style.display==='block' && !sp.contains(e.target) && !e.target.classList.contains('cost-input')) closeDigitSpinner();
+            if(dp && dp.style.display==='block' && !dp.contains(e.target) && !e.target.classList.contains('distance-input')) closeDistanceSpinner();
+        });
+
+        // ===== 区間 =====
+        function updateRoute(el){ const g=el.closest('.input-group'); const ins=g.querySelectorAll('input[type="text"]'); const h=g.querySelector('.route-hidden'); const f=ins[0].value||'', t=ins[1].value||''; h.value=(f||t)?(f+'～'+t):''; }
+        function autoFillDeparture(el){
+            const row=el.closest('tr'); const idx=rowIndex(row);
+            const member=membersData.find(m=>m.name===el.value);
+            if(!member) return;
+            // 登録済みの年齢・種別を名簿行に呼び出し（未入力のときのみ）
+            const ageInput=row.querySelector('input[name*=".memberAge"]');
+            if(ageInput && !ageInput.value && member.age != null){ ageInput.value=member.age; }
+            const roleSelect=row.querySelector('.role-select');
+            if(roleSelect && member.role){ roleSelect.value=member.role; }
+            // 出発地点は連動する支出行の交通区間に呼び出し（未入力のときのみ）
+            const eRow=expenseBody.querySelectorAll('tr')[idx];
+            if(eRow && member.departurePoint){
+                const g=eRow.querySelector('.route-hidden').closest('.input-group');
+                const ins=g.querySelectorAll('input[type="text"]');
+                if(!ins[0].value){ ins[0].value=member.departurePoint; updateRoute(ins[0]); }
+            }
+            updateCounts();
+        }
+        function initRoutes(){
+            document.querySelectorAll('.route-hidden').forEach(h=>{
+                if(h.value){ const parts=h.value.split(/～|〜/); const g=h.closest('.input-group'); const ins=g.querySelectorAll('input[type="text"]'); ins[0].value=parts[0]||''; if(parts.length>1) ins[1].value=parts[1]||''; }
+            });
+        }
+
+        // ===== 名簿⇔支出 連動 =====
+        function rowIndex(row){ const parent=row.parentElement; return Array.prototype.indexOf.call(parent.children, row); }
+        function mirrorName(el){ const idx=rowIndex(el.closest('tr')); const eRow=expenseBody.querySelectorAll('tr')[idx]; if(eRow){ const m=eRow.querySelector('.name-mirror'); if(m) m.value=el.value; } }
+        function toggleAccom(chk){ const h=chk.closest('td').querySelector('.accom-hidden'); if(h) h.value = chk.checked ? 'true' : 'false'; }
+
+        // ===== 行の追加・削除・採番 =====
+        function setRowNames(row, prefix, idx){
+            row.querySelectorAll('[name]').forEach(inp=>{ inp.name = inp.name.replace(/^(participants|expenses)\[\d+\]/, prefix+'['+idx+']'); });
+        }
+        function reindexAll(){
+            const rRows=rosterBody.querySelectorAll('tr');
+            const eRows=expenseBody.querySelectorAll('tr');
+            for(let i=0;i<rRows.length;i++){
+                setRowNames(rRows[i],'participants',i);
+                rRows[i].querySelector('.row-no').textContent=(i+1);
+                if(eRows[i]){ setRowNames(eRows[i],'expenses',i); eRows[i].querySelector('.row-no').textContent=(i+1); }
+            }
+            updateCounts();
+        }
+        function addRow(){
+            rosterBody.insertAdjacentHTML('beforeend', document.getElementById('rosterTemplate').innerHTML.replace(/IDX/g,'0'));
+            expenseBody.insertAdjacentHTML('beforeend', document.getElementById('expenseTemplate').innerHTML.replace(/IDX/g,'0'));
+            reindexAll();
+        }
+        function removeRow(btn){
+            const row=btn.closest('tr'); const idx=rowIndex(row);
+            const eRows=expenseBody.querySelectorAll('tr');
+            row.remove();
+            if(eRows[idx]) eRows[idx].remove();
+            reindexAll();
+            calculateTotals();
+        }
+
+        // ===== 人数カウント =====
+        function updateCounts(){
+            let coach=0, player=0;
+            rosterBody.querySelectorAll('.roster-row').forEach(r=>{
+                const name=r.querySelector('.name-input'); if(!name || !name.value.trim()) return;
+                const role=r.querySelector('.role-select').value;
+                if(role==='指導者') coach++; else player++;
+            });
+            document.getElementById('coachCount').value=coach;
+            document.getElementById('playerCount').value=player;
+            document.getElementById('totalCount').value=(coach+player)+' 名';
+        }
+
+        // ===== 合計 =====
+        function calculateTotals(){
+            let t=0,a=0,m=0;
+            expenseBody.querySelectorAll('.expense-row').forEach(row=>{
+                const tc=row.querySelector('input[name*=".transportCost"]');
+                const ac=row.querySelector('input[name*=".accommodationCost"]');
+                const mc=row.querySelector('input[name*=".miscellaneousCost"]');
+                if(tc&&tc.value){const v=parseInt(tc.value,10); if(!isNaN(v))t+=v;}
+                if(ac&&ac.value){const v=parseInt(ac.value,10); if(!isNaN(v))a+=v;}
+                if(mc&&mc.value){const v=parseInt(mc.value,10); if(!isNaN(v))m+=v;}
+            });
+            document.getElementById('totalTransport').textContent=t.toLocaleString();
+            document.getElementById('totalAccommodation').textContent=a.toLocaleString();
+            document.getElementById('totalMisc').textContent=m.toLocaleString();
+            document.getElementById('grandTotal').textContent=(t+a+m).toLocaleString();
+        }
+
+        // ===== 初期化 =====
+        (function(){
+            if(rosterBody.querySelectorAll('tr').length===0){ addRow(); }
+            else { reindexAll(); }
+            initRoutes();
+            // 既存行の氏名ミラーを同期
+            rosterBody.querySelectorAll('.name-input').forEach(mirrorName);
+            calculateTotals();
+        })();
+
+        // ===== ツールチップ初期化（bootstrapバンドル読込後に実行） =====
+        window.addEventListener('load', function () {
+            if (window.bootstrap) {
+                document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el => new bootstrap.Tooltip(el));
+            }
+        });
+    </script>
+</div>
+</body>
+</html>

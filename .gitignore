@@ -31,3 +31,7 @@ build/
 
 ### VS Code ###
 .vscode/
+
+# 実行時ログ（コミット対象外）
+app_run.log
+*.log
