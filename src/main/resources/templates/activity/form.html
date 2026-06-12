@@ -56,8 +56,10 @@
                         <label class="form-label">年度／活動日／受領日 <span class="text-danger">*</span></label>
                         <input type="date" name="project.eventDate" id="eventDate" class="form-control" required
                                th:value="${activityForm.project.eventDate}">
-                        <small class="text-muted">年度（4月始まり）は活動日から自動判定されます</small>
-                        <small class="text-muted ms-2">※受領日はエクセル出力時に、活動日と同じ日付が自動印字されます</small>
+                        <div class="mt-1">
+                            <small class="text-muted d-block">年度（4月始まり）は活動日から自動判定されます</small>
+                            <small class="text-muted d-block mt-1">※受領日はエクセル出力時に、活動日と同じ日付が自動印字されます</small>
+                        </div>
                     </div>
                     <div class="col-md-5">
                         <label class="form-label">会場名 <span class="text-danger">*</span></label>
@@ -95,9 +97,9 @@
                 </span>
             </div>
             <div class="card-body">
-                <div class="table-responsive" style="max-height: 220px; overflow-y: auto;">
+                <div class="table-responsive" style="max-height: 320px; overflow-y: auto;">
                     <table class="table table-bordered align-middle mb-2" id="rosterTable">
-                        <thead class="table-light text-center">
+                        <thead class="table-light text-center" style="position:sticky; top:0; z-index:2; background-color:#f8f9fa;">
                             <tr>
                                 <th style="width:8%;">番号</th>
                                 <th style="width:18%;">種別</th>
@@ -111,18 +113,18 @@
                             <tr th:each="p, stat : ${activityForm.participants}" class="roster-row">
                                 <td class="text-center align-middle row-no"></td>
                                 <td>
-                                    <select class="form-select form-select-sm role-select" th:name="|participants[${stat.index}].memberRole|" onchange="handleRoleChange(this)">
+                                    <select class="form-select role-select" th:name="|participants[${stat.index}].memberRole|" onchange="handleRoleChange(this)">
                                         <option value="選手"   th:selected="${p.memberRole == '選手'}">選手</option>
                                         <option value="指導者" th:selected="${p.memberRole == '指導者'}">指導者</option>
                                     </select>
                                 </td>
                                 <td>
-                                    <input type="text" class="form-control form-control-sm name-input" th:name="|participants[${stat.index}].memberName|"
+                                    <input type="text" class="form-control name-input" th:name="|participants[${stat.index}].memberName|"
                                            th:value="${p.memberName}" list="memberList" autocomplete="off"
                                            oninput="mirrorName(this)" onchange="autoFillDeparture(this)">
                                 </td>
                                 <td>
-                                    <input type="number" class="form-control form-control-sm text-end" th:name="|participants[${stat.index}].memberAge|"
+                                    <input type="number" class="form-control text-end" th:name="|participants[${stat.index}].memberAge|"
                                            th:value="${p.memberAge}" min="0">
                                 </td>
                                 <td class="text-center">
@@ -146,13 +148,13 @@
                 <span>個人別支出（様式２－６）</span>
                 <div class="d-flex align-items-center gap-2">
                     <label class="form-label mb-0 text-white small fw-normal">交通費単価（円/km）</label>
-                    <input type="number" id="transportRate" class="form-control form-control-sm text-end" value="17" style="width:80px;" oninput="recalculateTransportCosts()">
+                    <input type="number" id="transportRate" class="form-control text-end" value="17" style="width:80px;" oninput="recalculateTransportCosts()">
                 </div>
             </div>
             <div class="card-body">
-                <div class="table-responsive" style="max-height: 220px; overflow-y: auto;">
+                <div class="table-responsive" style="max-height: 320px; overflow-y: auto;">
                     <table class="table table-bordered align-middle mb-2" id="expenseTable" style="min-width:1100px;">
-                        <thead class="table-light text-center text-nowrap">
+                        <thead class="table-light text-center text-nowrap" style="position:sticky; top:0; z-index:2; background-color:#f8f9fa;">
                             <tr>
                                 <th style="width:5%;">No.</th>
                                 <th style="width:12%;">氏名</th>
@@ -168,28 +170,28 @@
                             <tr th:each="e, stat : ${activityForm.expenses}" class="expense-row">
                                 <td class="text-center row-no"></td>
                                 <td>
-                                    <input type="text" class="form-control form-control-sm name-mirror bg-light" readonly
+                                    <input type="text" class="form-control name-mirror bg-light" readonly
                                            th:value="${activityForm.participants[__${stat.index}__] != null ? activityForm.participants[__${stat.index}__].memberName : ''}">
                                 </td>
-                                <td><input type="date" class="form-control form-control-sm" th:name="|expenses[${stat.index}].expenseDate|" th:value="${e.expenseDate}"></td>
+                                <td><input type="date" class="form-control" th:name="|expenses[${stat.index}].expenseDate|" th:value="${e.expenseDate}"></td>
                                 <td>
-                                    <select class="form-select form-select-sm" th:name="|expenses[${stat.index}].transportMethod|">
+                                    <select class="form-select" th:name="|expenses[${stat.index}].transportMethod|">
                                         <option value="">選択...</option>
                                         <option value="航空機・バス" th:selected="${e.transportMethod == '航空機・バス'}">航空機・バス</option>
                                         <option value="電車・車"    th:selected="${e.transportMethod == '電車・車'}">電車・車</option>
                                     </select>
                                 </td>
                                 <td>
-                                    <div class="input-group input-group-sm">
+                                    <div class="input-group">
                                         <input type="text" class="form-control text-center px-1" placeholder="出発" onchange="updateRoute(this)">
                                         <span class="input-group-text px-1">～</span>
                                         <input type="text" class="form-control text-center px-1" placeholder="到着" onchange="updateRoute(this)">
                                         <input type="hidden" class="route-hidden" th:name="|expenses[${stat.index}].transportRoute|" th:value="${e.transportRoute}">
                                     </div>
                                 </td>
-                                <td><input type="number" class="form-control form-control-sm text-end distance-input" th:name="|expenses[${stat.index}].transportDistanceKm|" th:value="${e.transportDistanceKm}" min="0" onclick="openDistanceSpinner(this)" onfocus="openDistanceSpinner(this)"></td>
-                                <td><input type="number" class="form-control form-control-sm text-end cost-input" th:name="|expenses[${stat.index}].transportCost|" th:value="${e.transportCost}" min="0" oninput="calculateTotals()" onclick="openDigitSpinner(this)" onfocus="openDigitSpinner(this)"></td>
-                                <td><input type="number" class="form-control form-control-sm text-end cost-input" th:name="|expenses[${stat.index}].accommodationCost|" th:value="${e.accommodationCost}" min="0" oninput="calculateTotals()" onclick="openDigitSpinner(this)" onfocus="openDigitSpinner(this)"></td>
+                                <td><input type="number" class="form-control text-end distance-input" th:name="|expenses[${stat.index}].transportDistanceKm|" th:value="${e.transportDistanceKm}" min="0" onclick="openDistanceSpinner(this)" onfocus="openDistanceSpinner(this)"></td>
+                                <td><input type="number" class="form-control text-end cost-input" th:name="|expenses[${stat.index}].transportCost|" th:value="${e.transportCost}" min="0" oninput="calculateTotals()" onclick="openDigitSpinner(this)" onfocus="openDigitSpinner(this)"></td>
+                                <td><input type="number" class="form-control text-end cost-input" th:name="|expenses[${stat.index}].accommodationCost|" th:value="${e.accommodationCost}" min="0" oninput="calculateTotals()" onclick="openDigitSpinner(this)" onfocus="openDigitSpinner(this)"></td>
                             </tr>
                         </tbody>
                         <tfoot class="table-light fw-bold text-end">
@@ -254,8 +256,7 @@
                 <div>
                     <label class="form-label">事業の成果</label>
                     <textarea class="form-control" name="project.projectOutcome" rows="3"
-                              placeholder="例：技術力・チーム連携の向上"
-                              th:text="${activityForm.project.projectOutcome}"></textarea>
+                              th:text="${activityForm.project.projectOutcome != null and !#strings.isEmpty(activityForm.project.projectOutcome)} ? ${activityForm.project.projectOutcome} : '技術力・チーム連携の向上'"></textarea>
                 </div>
             </div>
         </div>
@@ -271,13 +272,13 @@
         <tr class="roster-row">
             <td class="text-center align-middle row-no"></td>
             <td>
-                <select class="form-select form-select-sm role-select" name="participants[IDX].memberRole" onchange="handleRoleChange(this)">
+                <select class="form-select role-select" name="participants[IDX].memberRole" onchange="handleRoleChange(this)">
                     <option value="選手">選手</option>
                     <option value="指導者">指導者</option>
                 </select>
             </td>
-            <td><input type="text" class="form-control form-control-sm name-input" name="participants[IDX].memberName" list="memberList" autocomplete="off" oninput="mirrorName(this)" onchange="autoFillDeparture(this)"></td>
-            <td><input type="number" class="form-control form-control-sm text-end" name="participants[IDX].memberAge" min="0"></td>
+            <td><input type="text" class="form-control name-input" name="participants[IDX].memberName" list="memberList" autocomplete="off" oninput="mirrorName(this)" onchange="autoFillDeparture(this)"></td>
+            <td><input type="number" class="form-control text-end" name="participants[IDX].memberAge" min="0"></td>
             <td class="text-center">
                 <input type="hidden" class="accom-hidden" name="participants[IDX].isAccommodated" value="false" />
                 <input type="checkbox" class="form-check-input accom-check" onchange="toggleAccom(this)">
@@ -290,27 +291,27 @@
         <tr class="expense-row">
             <td class="text-center row-no"></td>
             <td>
-                <input type="text" class="form-control form-control-sm name-mirror bg-light" readonly>
+                <input type="text" class="form-control name-mirror bg-light" readonly>
             </td>
-            <td><input type="date" class="form-control form-control-sm" name="expenses[IDX].expenseDate"></td>
+            <td><input type="date" class="form-control" name="expenses[IDX].expenseDate"></td>
             <td>
-                <select class="form-select form-select-sm" name="expenses[IDX].transportMethod">
+                <select class="form-select" name="expenses[IDX].transportMethod">
                     <option value="">選択...</option>
                     <option value="航空機・バス">航空機・バス</option>
                     <option value="電車・車">電車・車</option>
                 </select>
             </td>
             <td>
-                <div class="input-group input-group-sm">
+                <div class="input-group">
                     <input type="text" class="form-control text-center px-1" placeholder="出発" onchange="updateRoute(this)">
                     <span class="input-group-text px-1">～</span>
                     <input type="text" class="form-control text-center px-1" placeholder="到着" onchange="updateRoute(this)">
                     <input type="hidden" class="route-hidden" name="expenses[IDX].transportRoute">
                 </div>
             </td>
-            <td><input type="number" class="form-control form-control-sm text-end distance-input" name="expenses[IDX].transportDistanceKm" min="0" onclick="openDistanceSpinner(this)" onfocus="openDistanceSpinner(this)"></td>
-            <td><input type="number" class="form-control form-control-sm text-end cost-input" name="expenses[IDX].transportCost" value="0" min="0" oninput="calculateTotals()" onclick="openDigitSpinner(this)" onfocus="openDigitSpinner(this)"></td>
-            <td><input type="number" class="form-control form-control-sm text-end cost-input" name="expenses[IDX].accommodationCost" value="0" min="0" oninput="calculateTotals()" onclick="openDigitSpinner(this)" onfocus="openDigitSpinner(this)"></td>
+            <td><input type="number" class="form-control text-end distance-input" name="expenses[IDX].transportDistanceKm" min="0" onclick="openDistanceSpinner(this)" onfocus="openDistanceSpinner(this)"></td>
+            <td><input type="number" class="form-control text-end cost-input" name="expenses[IDX].transportCost" value="0" min="0" oninput="calculateTotals()" onclick="openDigitSpinner(this)" onfocus="openDigitSpinner(this)"></td>
+            <td><input type="number" class="form-control text-end cost-input" name="expenses[IDX].accommodationCost" value="0" min="0" oninput="calculateTotals()" onclick="openDigitSpinner(this)" onfocus="openDigitSpinner(this)"></td>
         </tr>
     </tbody></table>
 

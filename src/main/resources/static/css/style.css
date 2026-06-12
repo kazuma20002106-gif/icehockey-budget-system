@@ -116,3 +116,19 @@ body {
     box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.15);
     border-color: #86b7fe;
 }
+
+/* Tooltip */
+.tooltip {
+    --bs-tooltip-bg: #fff;
+    --bs-tooltip-color: #333;
+    --bs-tooltip-max-width: 350px;
+    --bs-tooltip-font-size: 0.95rem;
+    --bs-tooltip-padding-x: 12px;
+    --bs-tooltip-padding-y: 8px;
+    --bs-tooltip-border-radius: 6px;
+}
+.tooltip .tooltip-inner {
+    text-align: left;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    border: 1px solid #dee2e6;
+}
