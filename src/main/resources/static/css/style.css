@@ -154,6 +154,11 @@ body {
     border-right-color: #6c757d;
 }
 
+/* セレクトボックスの矢印と文字の被り防止 */
+select.form-select {
+    padding-right: 2.75rem;
+}
+
 /* Name column width */
 #rosterTable th.name-col,
 #rosterTable td.name-col,

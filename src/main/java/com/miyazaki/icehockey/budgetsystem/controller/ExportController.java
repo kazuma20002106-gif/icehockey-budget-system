@@ -138,6 +138,9 @@ public class ExportController {
             excelExportService.exportForm25(projectIds, response.getOutputStream());
         } else if ("2-6".equals(exportType)) {
             excelExportService.exportForm26(projectIds, response.getOutputStream());
+        } else {
+            // "all" またはその他: 2-4/2-5/2-6 まとめて出力
+            excelExportService.exportAllFormsForProjects(projectIds, response.getOutputStream());
         }
     }
 

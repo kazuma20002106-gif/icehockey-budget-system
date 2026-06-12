@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.miyazaki.icehockey.budgetsystem.mapper.RouteMasterMapper">
+
+    <select id="findByRoute" resultType="com.miyazaki.icehockey.budgetsystem.model.RouteMaster">
+        SELECT * FROM route_master
+        WHERE departure = #{departure} AND destination = #{destination}
+    </select>
+
+    <insert id="upsert" parameterType="com.miyazaki.icehockey.budgetsystem.model.RouteMaster">
+        INSERT INTO route_master (departure, destination, distance_km)
+        VALUES (#{departure}, #{destination}, #{distanceKm})
+        ON DUPLICATE KEY UPDATE distance_km = #{distanceKm}
+    </insert>
+
+</mapper>

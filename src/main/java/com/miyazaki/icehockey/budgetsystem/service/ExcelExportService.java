@@ -20,6 +20,7 @@ import org.springframework.stereotype.Service;
 
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -32,6 +33,29 @@ public class ExcelExportService {
     @Autowired private ExpenseMapper expenseMapper;
     @Autowired private UserSettingService userSettingService;
 
+    // ===== 令和変換・日付 helper =====
+
+    private int getReiwaYear(int year) {
+        return year - 2018;
+    }
+
+    private String formatJapaneseDate(LocalDate date) {
+        if (date == null) return "";
+        return "令和" + getReiwaYear(date.getYear()) + "年" + date.getMonthValue() + "月" + date.getDayOfMonth() + "日";
+    }
+
+    private String formatJapaneseDateWithWeekday(LocalDate date) {
+        if (date == null) return "";
+        String[] weekdays = {"日", "月", "火", "水", "木", "金", "土"};
+        String w = weekdays[date.getDayOfWeek().getValue() % 7];
+        return formatJapaneseDate(date) + "(" + w + ")";
+    }
+
+    private String formatMonthDay(LocalDate date) {
+        if (date == null) return "";
+        return date.getMonthValue() + "/" + date.getDayOfMonth();
+    }
+
     // Helper to get fully loaded participants
     private List<ProjectParticipant> getLoadedParticipants(int projectId) {
         List<ProjectParticipant> participants = participantMapper.findByProjectId(projectId);
@@ -42,12 +66,38 @@ public class ExcelExportService {
         return participants;
     }
 
+    // ===== 既存図形の削除 =====
+    private void clearExistingShapes(Sheet sheet) {
+        if (sheet instanceof org.apache.poi.xssf.usermodel.XSSFSheet) {
+            org.apache.poi.xssf.usermodel.XSSFSheet xSheet = (org.apache.poi.xssf.usermodel.XSSFSheet) sheet;
+            org.apache.poi.xssf.usermodel.XSSFDrawing drawing = xSheet.getDrawingPatriarch();
+            if (drawing != null) {
+                org.openxmlformats.schemas.drawingml.x2006.spreadsheetDrawing.CTDrawing ctd = drawing.getCTDrawing();
+                while (ctd.sizeOfTwoCellAnchorArray() > 0) ctd.removeTwoCellAnchor(0);
+                while (ctd.sizeOfOneCellAnchorArray() > 0) ctd.removeOneCellAnchor(0);
+            }
+        }
+    }
+
+    // 様式2-4の右/左の一方をクリアする（空欄表示用）
+    private void clearSide24(Sheet sheet, int colOffset) {
+        clearCell(sheet, 14, 3 + colOffset);  // 期日
+        clearCell(sheet, 15, 3 + colOffset);  // 会場
+        clearCell(sheet, 16, 3 + colOffset);  // 宿舎名
+        clearCell(sheet, 17, 6 + (colOffset > 0 ? 17 : 0)); // 指導者数
+        clearCell(sheet, 17, 12 + (colOffset > 0 ? 17 : 0)); // 選手数
+        for (int r = 20; r <= 27; r++) {
+            clearCell(sheet, r, 3 + colOffset);
+        }
+        clearCell(sheet, 33, 3 + colOffset);  // 計
+        clearCell(sheet, 34, 3 + colOffset);  // 日程及び内容
+        clearCell(sheet, 40, 3 + colOffset);  // 事業の成果
+    }
+
     public void exportProjectForms(Project project, ProjectSummaryExpense summary, List<ProjectParticipant> participants, OutputStream outputStream) throws Exception {
-        // Fallback for old single export, though now we prefer batch.
-        // Left here for compatibility with existing single-export button.
         List<Integer> ids = new ArrayList<>();
         ids.add(project.getId());
-        exportForm24(ids, outputStream); // just exports 2-4 as default for single, or we can just keep the old logic.
+        exportForm24(ids, outputStream);
     }
 
     public void exportForm24(List<Integer> projectIds, OutputStream outputStream) throws Exception {
@@ -55,22 +105,57 @@ public class ExcelExportService {
         try (InputStream is = resource.getInputStream();
              Workbook workbook = WorkbookFactory.create(is)) {
 
-            String templateName = "様式２－４①②事業実施・実績報告書（選手強化費）";
-            int templateIndex = workbook.getSheetIndex(templateName);
-            if (templateIndex == -1) throw new IllegalArgumentException("Template sheet not found: " + templateName);
+            int templateIndex = workbook.getSheetIndex(SHEET_24);
+            if (templateIndex == -1) throw new IllegalArgumentException("Template sheet not found: " + SHEET_24);
 
-            for (int i = 0; i < projectIds.size(); i += 2) {
-                int id1 = projectIds.get(i);
-                Integer id2 = (i + 1 < projectIds.size()) ? projectIds.get(i + 1) : null;
+            if (projectIds.size() == 1) {
+                // 相方自動連行システム
+                int id = projectIds.get(0);
+                Project target = projectMapper.findById(id);
+                Integer fiscalYear = target.getFiscalYear();
+                List<Project> yearProjects = projectMapper.findByFiscalYearOrdered(fiscalYear);
+
+                int position = 1;
+                for (int i = 0; i < yearProjects.size(); i++) {
+                    if (yearProjects.get(i).getId().equals(id)) {
+                        position = i + 1; // 1-based
+                        break;
+                    }
+                }
 
                 Sheet newSheet = workbook.cloneSheet(templateIndex);
-                workbook.setSheetName(workbook.getSheetIndex(newSheet), "2-4_" + id1 + (id2 != null ? "_" + id2 : ""));
+                workbook.setSheetName(workbook.getSheetIndex(newSheet), "2-4_" + id);
+                clearExistingShapes(newSheet);
 
-                populate24Side(newSheet, id1, 0); // Left side
-                if (id2 != null) {
-                    populate24Side(newSheet, id2, 17); // Right side
+                if (position % 2 == 1) {
+                    // 奇数回目: 左=対象, 右=空欄
+                    populate24Side(newSheet, id, 0);
+                    clearSide24(newSheet, 17);
                 } else {
-                    // Optionally clear out the right side if it's empty, but we can leave it blank for now.
+                    // 偶数回目: 右=対象, 左=1つ前の活動
+                    populate24Side(newSheet, id, 17);
+                    if (position >= 2) {
+                        int prevId = yearProjects.get(position - 2).getId();
+                        populate24Side(newSheet, prevId, 0);
+                    } else {
+                        clearSide24(newSheet, 0);
+                    }
+                }
+            } else {
+                for (int i = 0; i < projectIds.size(); i += 2) {
+                    int id1 = projectIds.get(i);
+                    Integer id2 = (i + 1 < projectIds.size()) ? projectIds.get(i + 1) : null;
+
+                    Sheet newSheet = workbook.cloneSheet(templateIndex);
+                    workbook.setSheetName(workbook.getSheetIndex(newSheet), "2-4_" + id1 + (id2 != null ? "_" + id2 : ""));
+                    clearExistingShapes(newSheet);
+
+                    populate24Side(newSheet, id1, 0);
+                    if (id2 != null) {
+                        populate24Side(newSheet, id2, 17);
+                    } else {
+                        clearSide24(newSheet, 17);
+                    }
                 }
             }
 
@@ -90,6 +175,13 @@ public class ExcelExportService {
         ProjectSummaryExpense summary = summaryMapper.findByProjectId(projectId);
         List<ProjectParticipant> participants = getLoadedParticipants(projectId);
 
+        // 年度 (R2C1, 0-based row=1 col=0) - 両側で同じなので毎回書いて問題なし
+        if (project.getEventDate() != null) {
+            int rYear = getReiwaYear(project.getFiscalYear() != null
+                    ? project.getFiscalYear() : project.getEventDate().getYear());
+            writeSafe(sheet, 1, 0, "令和" + rYear + "年度　国スポ選手強化プロジェクト（①選手強化費）事業実施報告書");
+        }
+
         // Draw ellipse for Project Name
         if ("強化練習".equals(project.getName())) {
             drawEllipse(sheet, 6, 4 + colOffset, 7, 9 + colOffset);
@@ -108,18 +200,25 @@ public class ExcelExportService {
             drawEllipse(sheet, 11, 12 + colOffset, 12, 16 + colOffset);
         }
 
-        writeSafe(sheet, 14, 3 + colOffset, project.getEventDate().toString()); // 期日 [15,4]
-        writeSafe(sheet, 15, 3 + colOffset, project.getLocationVenue()); // 会場 [16,4]
-        writeSafe(sheet, 16, 3 + colOffset, project.getLocationAccommodation()); // 宿舎名 [17,4]
-        writeSafe(sheet, 34, 3 + colOffset, project.getScheduleContent()); // 日程及び内容 [D35]
-        writeSafe(sheet, 40, 3 + colOffset, project.getProjectOutcome()); // 事業の成果 [D41]
+        // 期日: 令和X年Y月Z日(曜) 形式
+        writeSafe(sheet, 14, 3 + colOffset, formatJapaneseDateWithWeekday(project.getEventDate()));
+        writeSafe(sheet, 15, 3 + colOffset, project.getLocationVenue());
+        writeSafe(sheet, 16, 3 + colOffset, project.getLocationAccommodation());
+        writeSafe(sheet, 34, 3 + colOffset, project.getScheduleContent());
+        writeSafe(sheet, 40, 3 + colOffset, project.getProjectOutcome());
 
+        int parkingCost = 0, rentalCost = 0, suppliesCost = 0, serviceCost = 0, compensationCost = 0;
         if (summary != null) {
-            writeSafeNumeric(sheet, 23, 3 + colOffset, summary.getParkingCost()); // 駐車料 [24,4]
-            writeSafeNumeric(sheet, 24, 3 + colOffset, summary.getRentalCost()); // 借用料 [25,4]
-            writeSafeNumeric(sheet, 25, 3 + colOffset, summary.getSuppliesCost()); // 需用費 [26,4]
-            writeSafeNumeric(sheet, 26, 3 + colOffset, summary.getServiceCost()); // 役務費 [27,4]
-            writeSafeNumeric(sheet, 27, 3 + colOffset, summary.getCompensationCost()); // その他（報償費）[28,4]
+            parkingCost = nz(summary.getParkingCost());
+            rentalCost = nz(summary.getRentalCost());
+            suppliesCost = nz(summary.getSuppliesCost());
+            serviceCost = nz(summary.getServiceCost());
+            compensationCost = nz(summary.getCompensationCost());
+            writeSafeNumeric(sheet, 23, 3 + colOffset, parkingCost);
+            writeSafeNumeric(sheet, 24, 3 + colOffset, rentalCost);
+            writeSafeNumeric(sheet, 25, 3 + colOffset, suppliesCost);
+            writeSafeNumeric(sheet, 26, 3 + colOffset, serviceCost);
+            writeSafeNumeric(sheet, 27, 3 + colOffset, compensationCost);
         }
 
         int transportSum = 0;
@@ -139,19 +238,24 @@ public class ExcelExportService {
             }
         }
 
-        writeSafeNumeric(sheet, 20, 3 + colOffset, transportSum); // 交通費 [21,4]
-        writeSafeNumeric(sheet, 21, 3 + colOffset, accommodationSum); // 宿泊費 [22,4]
-        writeSafeNumeric(sheet, 22, 3 + colOffset, miscSum); // 旅行雑費 [D23]
+        writeSafeNumeric(sheet, 20, 3 + colOffset, transportSum);
+        writeSafeNumeric(sheet, 21, 3 + colOffset, accommodationSum);
+        writeSafeNumeric(sheet, 22, 3 + colOffset, miscSum);
 
         if (colOffset == 0) {
-            writeSafeNumeric(sheet, 17, 6, coachCount); // 指導者数
-            writeSafeNumeric(sheet, 17, 12, playerCount); // 選手数
+            writeSafeNumeric(sheet, 17, 6, coachCount);
+            writeSafeNumeric(sheet, 17, 12, playerCount);
         } else {
             writeSafeNumeric(sheet, 17, 23, coachCount);
             writeSafeNumeric(sheet, 17, 29, playerCount);
         }
 
-        // 記入責任者氏名・電話番号（row 47 = 0-indexed 46、A47:AK47 結合セルのため col 0 に書き込む）
+        // 合計金額の強制上書き (R34C4 or R34C21, 0-based row=33)
+        int total = transportSum + accommodationSum + miscSum
+                + parkingCost + rentalCost + suppliesCost + serviceCost + compensationCost;
+        writeSafeNumeric(sheet, 33, 3 + colOffset, total);
+
+        // 記入責任者氏名・電話番号 (row=46, col=0 - 両側で共有)
         try {
             User activeUser = userSettingService.getActiveUser();
             if (activeUser != null) {
@@ -171,49 +275,86 @@ public class ExcelExportService {
             org.apache.poi.xssf.usermodel.XSSFClientAnchor anchor = drawing.createAnchor(0, 0, 0, 0, col1, row1, col2, row2);
             org.apache.poi.xssf.usermodel.XSSFSimpleShape shape = drawing.createSimpleShape(anchor);
             shape.setShapeType(org.apache.poi.ss.usermodel.ShapeTypes.ELLIPSE);
-            shape.setLineStyleColor(0, 0, 0); // Black
+            shape.setLineStyleColor(0, 0, 0);
             shape.setLineWidth(1.5);
             shape.setNoFill(true);
         }
     }
 
     public void exportForm25(List<Integer> projectIds, OutputStream outputStream) throws Exception {
-        exportMultiSheet("様式２－５①事業別参加者名簿（選手強化）", projectIds, outputStream,
+        exportMultiSheet(SHEET_25, projectIds, outputStream,
                 (sheet, project, summary, participants) -> populate25(sheet, project, participants));
     }
 
-    // 2-5 は指導者・選手すべてを出力する
     private void populate25(Sheet sheet, Project project, List<ProjectParticipant> participants) {
+        // 年度数値 (R3C3, 0-based row=2 col=2)
         if (project.getEventDate() != null) {
-            writeSafe(sheet, 5, 2, project.getEventDate().toString()); // 実施日 [6,3]
+            int fy = project.getFiscalYear() != null ? project.getFiscalYear() : project.getEventDate().getYear();
+            writeSafeNumeric(sheet, 2, 2, getReiwaYear(fy));
         }
-        int startRow = 8;   // 番号1の行
-        int lastRow = 35;   // 番号28の行（テンプレートの参加者欄の最終）
+
+        // 事業実施日: 令和X年Y月Z日 (R6C3, 0-based row=5 col=2)
+        if (project.getEventDate() != null) {
+            writeSafe(sheet, 5, 2, formatJapaneseDate(project.getEventDate()));
+        }
+
+        // 宿泊対象者ヘッダーと参加者の〇印
+        boolean hasAccommodation = participants.stream().anyMatch(p ->
+                p.getExpense() != null && nz(p.getExpense().getAccommodationCost()) > 0);
+        if (hasAccommodation && project.getEventDate() != null) {
+            // 宿泊日ヘッダー (R8C8, 0-based row=7 col=7)
+            LocalDate stayDate = project.getEventDate();
+            writeSafe(sheet, 7, 7, stayDate.getMonthValue() + "月" + stayDate.getDayOfMonth() + "日");
+        }
+
+        int startRow = 8;
+        int lastRow = 35;
         for (int i = 0; i < participants.size(); i++) {
             ProjectParticipant p = participants.get(i);
             int r = startRow + i;
-            writeSafe(sheet, r, 1, p.getMemberRole()); // 監督・選手別 [B]
-            writeSafe(sheet, r, 3, p.getMemberName()); // 氏名 [D]
-            if (p.getMemberAge() != null) writeSafeNumeric(sheet, r, 6, p.getMemberAge()); // 年齢 [G]
+            writeSafe(sheet, r, 1, p.getMemberRole());
+            writeSafe(sheet, r, 3, p.getMemberName());
+            if (p.getMemberAge() != null) writeSafeNumeric(sheet, r, 6, p.getMemberAge());
             else clearCell(sheet, r, 6);
-            writeSafe(sheet, r, 7, p.getIsAccommodated() ? "〇" : ""); // 宿泊 [H]
+            // 宿泊費が1円以上の参加者に〇 (旧: isAccommodated)
+            boolean accommodated = p.getExpense() != null && nz(p.getExpense().getAccommodationCost()) > 0;
+            writeSafe(sheet, r, 7, accommodated ? "○" : "");
         }
-        // テンプレートのダミー（参加者数以降の行）をクリア
         for (int r = startRow + participants.size(); r <= lastRow; r++) {
             clearCell(sheet, r, 1);
             clearCell(sheet, r, 3);
             clearCell(sheet, r, 6);
             clearCell(sheet, r, 7);
         }
+
+        // 記入責任者氏名・電話番号 (R37C1, 0-based row=36 col=0)
+        try {
+            User activeUser = userSettingService.getActiveUser();
+            if (activeUser != null) {
+                String line = "記入責任者氏名（　" + activeUser.getName()
+                        + "　）　電話番号（　" + activeUser.getPhoneNumber() + "　）";
+                writeSafe(sheet, 36, 0, line);
+            } else {
+                writeSafe(sheet, 36, 0, "");
+            }
+        } catch (Exception e) {
+            // ignore
+        }
     }
 
     public void exportForm26(List<Integer> projectIds, OutputStream outputStream) throws Exception {
-        exportMultiSheet("様式２－６①事業別領収書１（選手強化）", projectIds, outputStream,
+        exportMultiSheet(SHEET_26, projectIds, outputStream,
                 (sheet, project, summary, participants) -> populate26(sheet, project, participants));
     }
 
     private void populate26(Sheet sheet, Project project, List<ProjectParticipant> allParticipants) {
-        // Overwrite title in R2C15 based on category
+        // 年度数値 (R3C10, 0-based row=2 col=9)
+        if (project.getEventDate() != null) {
+            int fy = project.getFiscalYear() != null ? project.getFiscalYear() : project.getEventDate().getYear();
+            writeSafeNumeric(sheet, 2, 9, getReiwaYear(fy));
+        }
+
+        // タイトル
         String title = "選手強化費　　領収書１";
         if ("トップチーム".equals(project.getName())) {
             title = "トップチーム選手強化事業　領収書１";
@@ -222,64 +363,98 @@ public class ExcelExportService {
         }
         writeSafe(sheet, 1, 15, title);
 
-        // 【変更】2-6 は選手・指導者関係なく、交通費か宿泊費が1円以上の人のみ反映
+        // 2-6 は交通費か宿泊費か雑費が1円以上の人のみ
         List<ProjectParticipant> validParticipants = new ArrayList<>();
         for (ProjectParticipant p : allParticipants) {
             int tCost = (p.getExpense() != null) ? nz(p.getExpense().getTransportCost()) : 0;
             int aCost = (p.getExpense() != null) ? nz(p.getExpense().getAccommodationCost()) : 0;
             int mCost = (p.getExpense() != null) ? nz(p.getExpense().getMiscellaneousCost()) : 0;
-            
             if (tCost + aCost + mCost > 0) {
                 validParticipants.add(p);
             }
         }
 
-        final int startRow = 9; // No.1 の先頭行
-        final int block = 3;    // 1人=3行
-        final int maxSlots = 8; // テンプレートは No.1〜8
+        final int startRow = 9;
+        final int block = 3;
+        final int maxSlots = 8;
+
+        int totalTransport = 0, totalAccommodation = 0, totalMisc = 0;
 
         for (int i = 0; i < validParticipants.size() && i < maxSlots; i++) {
             ProjectParticipant p = validParticipants.get(i);
             int r = startRow + (i * block);
             Expense e = p.getExpense();
 
-            writeSafe(sheet, r, 2, p.getMemberName()); // 氏名 [C]
-            writeSafe(sheet, r, 9, (e != null && e.getExpenseDate() != null) ? e.getExpenseDate().toString() : ""); // 期日 [J]
+            writeSafe(sheet, r, 2, p.getMemberName());
 
-            // 交通: 1行目に交通手段（距離付き）、3行目に区間を出力。2行目はクリア。
+            // 期日: M/d 形式
+            LocalDate expDate = (e != null && e.getExpenseDate() != null)
+                    ? e.getExpenseDate()
+                    : project.getEventDate();
+            writeSafe(sheet, r, 9, formatMonthDay(expDate));
+
             String method = (e != null) ? e.getTransportMethod() : null;
             Integer distKm = (e != null) ? e.getTransportDistanceKm() : null;
 
-            clearCell(sheet, r, 13);       // 1行目クリア
-            clearCell(sheet, r + 1, 13);   // 2行目クリア
-            writeSafe(sheet, r, 13, buildTransportLabel(method, distKm));                                            // 1行目: 交通手段
-            writeSafe(sheet, r + 2, 13, (e != null && e.getTransportRoute() != null) ? e.getTransportRoute() : ""); // 3行目: 区間
+            clearCell(sheet, r, 13);
+            clearCell(sheet, r + 1, 13);
+            writeSafe(sheet, r, 13, buildTransportLabel(method, distKm));
+            writeSafe(sheet, r + 2, 13, (e != null && e.getTransportRoute() != null) ? e.getTransportRoute() : "");
 
-            // 支払額はブロック先頭行
-            writeSafeNumeric(sheet, r, 19, (e != null) ? nz(e.getTransportCost()) : 0);     // 交通費 [T]
-            writeSafeNumeric(sheet, r, 23, (e != null) ? nz(e.getAccommodationCost()) : 0);  // 宿泊費 [X]
-            writeSafe(sheet, r, 27, "-");  // 雑費 [AB] は今後全て「-」表示
-            String receiptDateStr = "";
-            if (e != null && e.getReceiptDate() != null) {
-                receiptDateStr = e.getReceiptDate().toString();
-            } else if (project.getEventDate() != null) {
-                receiptDateStr = project.getEventDate().toString();
-            }
-            writeSafe(sheet, r, 31, receiptDateStr); // 受領日 [AF]
+            int tc = (e != null) ? nz(e.getTransportCost()) : 0;
+            int ac = (e != null) ? nz(e.getAccommodationCost()) : 0;
+            int mc = (e != null) ? nz(e.getMiscellaneousCost()) : 0;
+
+            writeSafeNumeric(sheet, r, 19, tc);
+            writeSafeNumeric(sheet, r, 23, ac);
+            writeSafe(sheet, r, 27, "-");
+
+            totalTransport += tc;
+            totalAccommodation += ac;
+            totalMisc += mc;
+
+            // 受領日: M/d 形式
+            LocalDate receiptDate = (e != null && e.getReceiptDate() != null)
+                    ? e.getReceiptDate()
+                    : project.getEventDate();
+            writeSafe(sheet, r, 31, formatMonthDay(receiptDate));
         }
 
-        // 参加者数以降の余り行（テンプレートのダミー）をクリア
+        // 余り行のクリア
         for (int i = validParticipants.size(); i < maxSlots; i++) {
             int r = startRow + (i * block);
-            clearCell(sheet, r, 2);       // 氏名
-            clearCell(sheet, r, 9);       // 期日
-            clearCell(sheet, r, 13);      // 交通1行目
-            clearCell(sheet, r + 1, 13);  // 交通2行目
-            clearCell(sheet, r + 2, 13);  // 交通3行目
-            clearCell(sheet, r, 19);      // 交通費
-            clearCell(sheet, r, 23);      // 宿泊費
-            clearCell(sheet, r, 27);      // 雑費
-            clearCell(sheet, r, 31);      // 受領日
+            clearCell(sheet, r, 2);
+            clearCell(sheet, r, 9);
+            clearCell(sheet, r, 13);
+            clearCell(sheet, r + 1, 13);
+            clearCell(sheet, r + 2, 13);
+            clearCell(sheet, r, 19);
+            clearCell(sheet, r, 23);
+            clearCell(sheet, r, 27);
+            clearCell(sheet, r, 31);
+        }
+
+        // 合計金額の強制上書き (R40, 0-based row=39)
+        writeSafeNumeric(sheet, 39, 19, totalTransport);
+        writeSafeNumeric(sheet, 39, 23, totalAccommodation);
+        writeSafeNumeric(sheet, 39, 27, 0); // 雑費は「-」表示のため0
+        writeSafeNumeric(sheet, 39, 37, totalTransport + totalAccommodation + totalMisc);
+
+        // 作成者名 (R7C29, 0-based row=6 col=28)
+        // 記入責任者氏名 (R41C1, 0-based row=40 col=0) と 電話番号 (R41C28, 0-based row=40 col=27)
+        try {
+            User activeUser = userSettingService.getActiveUser();
+            if (activeUser != null) {
+                writeSafe(sheet, 6, 28, "作成者名（　" + activeUser.getName() + "　　）");
+                writeSafe(sheet, 40, 0, "記入責任者氏名(　" + activeUser.getName() + "　　)");
+                writeSafe(sheet, 40, 27, "電話番号(" + activeUser.getPhoneNumber() + "　)");
+            } else {
+                writeSafe(sheet, 6, 28, "作成者名（　　）");
+                writeSafe(sheet, 40, 0, "記入責任者氏名(　　)");
+                writeSafe(sheet, 40, 27, "電話番号(　)");
+            }
+        } catch (Exception e) {
+            // ignore
         }
     }
 
@@ -288,14 +463,13 @@ public class ExcelExportService {
         try (InputStream is = resource.getInputStream();
              Workbook workbook = WorkbookFactory.create(is)) {
 
-            String templateName = SHEET_22;
-            Sheet sheet22 = workbook.getSheet(templateName);
+            Sheet sheet22 = workbook.getSheet(SHEET_22);
             if (sheet22 != null) {
                 populate22Summary(sheet22, projectIds);
             }
 
             for (int i = workbook.getNumberOfSheets() - 1; i >= 0; i--) {
-                if (!workbook.getSheetName(i).equals(templateName)) {
+                if (!workbook.getSheetName(i).equals(SHEET_22)) {
                     workbook.removeSheetAt(i);
                 }
             }
@@ -304,7 +478,6 @@ public class ExcelExportService {
         }
     }
 
-    // 様式2-2決算書に年間合算を書き込む
     private void populate22Summary(Sheet sheet22, List<Integer> projectIds) {
         int totalRental = 0, totalSupplies = 0, totalParking = 0, totalCompensation = 0, totalService = 0;
         int totalTransport = 0, totalAccommodation = 0;
@@ -327,13 +500,22 @@ public class ExcelExportService {
             }
         }
 
-        writeSafeNumeric(sheet22, 15, 9, totalTransport); // 交通費 [16,10]
-        writeSafeNumeric(sheet22, 17, 9, totalAccommodation); // 宿泊費 [18,10]
-        writeSafeNumeric(sheet22, 21, 9, totalParking); // 駐車料 [22,10]
-        writeSafeNumeric(sheet22, 23, 9, totalRental); // 借用料 [24,10]
-        writeSafeNumeric(sheet22, 25, 9, totalCompensation); // 報償費 [26,10]
-        writeSafeNumeric(sheet22, 27, 9, totalSupplies); // 需用費 [28,10]
-        writeSafeNumeric(sheet22, 29, 9, totalService); // 役務費 [30,10]
+        // 年度 (R2C8, 0-based row=1 col=7) - 先頭プロジェクトから令和年度を計算
+        if (!projectIds.isEmpty()) {
+            Project first = projectMapper.findById(projectIds.get(0));
+            if (first != null && first.getEventDate() != null) {
+                int fy = first.getFiscalYear() != null ? first.getFiscalYear() : first.getEventDate().getYear();
+                writeSafeNumeric(sheet22, 1, 7, getReiwaYear(fy));
+            }
+        }
+
+        writeSafeNumeric(sheet22, 15, 9, totalTransport);
+        writeSafeNumeric(sheet22, 17, 9, totalAccommodation);
+        writeSafeNumeric(sheet22, 21, 9, totalParking);
+        writeSafeNumeric(sheet22, 23, 9, totalRental);
+        writeSafeNumeric(sheet22, 25, 9, totalCompensation);
+        writeSafeNumeric(sheet22, 27, 9, totalSupplies);
+        writeSafeNumeric(sheet22, 29, 9, totalService);
     }
 
     // ===== テンプレートシート名 =====
@@ -342,12 +524,10 @@ public class ExcelExportService {
     private static final String SHEET_26 = "様式２－６①事業別領収書１（選手強化）";
     private static final String SHEET_22 = "様式２－２－１　事業別決算書（選手強化費）";
 
-    /** 1つ以上の活動について、様式2-4/2-5/2-6 を1ブックにまとめて出力。 */
     public void exportAllFormsForProjects(List<Integer> projectIds, OutputStream outputStream) throws Exception {
         buildCombinedWorkbook(projectIds, false, outputStream);
     }
 
-    /** 年度まとめ：様式2-2決算書（合算）＋ 全活動の 2-4/2-5/2-6 を1ブックにまとめて出力。 */
     public void exportYearlySummary(List<Integer> projectIds, OutputStream outputStream) throws Exception {
         buildCombinedWorkbook(projectIds, true, outputStream);
     }
@@ -361,7 +541,6 @@ public class ExcelExportService {
             int idx25 = workbook.getSheetIndex(SHEET_25);
             int idx26 = workbook.getSheetIndex(SHEET_26);
 
-            // 様式2-2（年度まとめ時のみ、テンプレートのまま合算を書き込んで残す）
             if (includeSummary22) {
                 Sheet sheet22 = workbook.getSheet(SHEET_22);
                 if (sheet22 != null) populate22Summary(sheet22, projectIds);
@@ -374,8 +553,13 @@ public class ExcelExportService {
                     Integer id2 = (i + 1 < projectIds.size()) ? projectIds.get(i + 1) : null;
                     Sheet s = workbook.cloneSheet(idx24);
                     workbook.setSheetName(workbook.getSheetIndex(s), uniqueName(workbook, "2-4_" + id1));
+                    clearExistingShapes(s);
                     populate24Side(s, id1, 0);
-                    if (id2 != null) populate24Side(s, id2, 17);
+                    if (id2 != null) {
+                        populate24Side(s, id2, 17);
+                    } else {
+                        clearSide24(s, 17);
+                    }
                 }
             }
 
@@ -395,7 +579,7 @@ public class ExcelExportService {
                 }
             }
 
-            // 生成シート以外（テンプレート原本）を削除。年度まとめ時は2-2を残す。
+            // テンプレート原本を削除
             for (int i = workbook.getNumberOfSheets() - 1; i >= 0; i--) {
                 String name = workbook.getSheetName(i);
                 boolean generated = name.startsWith("2-4_") || name.startsWith("2-5_") || name.startsWith("2-6_");
@@ -405,7 +589,6 @@ public class ExcelExportService {
                 }
             }
 
-            // 最低1シートは必要
             if (workbook.getNumberOfSheets() == 0) {
                 workbook.createSheet("データなし");
             }
@@ -480,7 +663,6 @@ public class ExcelExportService {
         cell.setCellValue(value);
     }
 
-    // セルの文字列を取得（無ければnull）
     private String getCellString(Sheet sheet, int rowIndex, int colIndex) {
         Row row = sheet.getRow(rowIndex);
         if (row == null) return null;
@@ -490,7 +672,6 @@ public class ExcelExportService {
         return null;
     }
 
-    // セルの値を空白化（書式は維持）
     private void clearCell(Sheet sheet, int rowIndex, int colIndex) {
         Row row = sheet.getRow(rowIndex);
         if (row == null) return;
@@ -499,7 +680,6 @@ public class ExcelExportService {
         cell.setBlank();
     }
 
-    // 交通手段表示文字列を組み立てる
     private String buildTransportLabel(String method, Integer distKm) {
         if (method == null || method.isEmpty()) return "";
         switch (method) {
@@ -517,7 +697,6 @@ public class ExcelExportService {
         }
     }
 
-    // ラベルが空のときだけ補完（既存テキストは消さない）
     private void ensureLabel(Sheet sheet, int rowIndex, int colIndex, String label) {
         String cur = getCellString(sheet, rowIndex, colIndex);
         if (cur == null || cur.trim().isEmpty()) writeSafe(sheet, rowIndex, colIndex, label);

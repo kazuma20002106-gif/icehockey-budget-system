@@ -117,7 +117,7 @@
             </div>
         </div>
 
-        <div th:if="${exportType == '2-4' || exportType == '2-5'}">
+        <div th:if="${exportType == '2-4' || exportType == '2-5' || exportType == 'all'}">
             <div class="alert alert-info">
                 <i class="bi bi-info-circle-fill me-2"></i>以下のデータが「様式<span th:text="${exportType}"></span>」として出力されます。（様式2-4は2事業で1シートにまとめられます）
             </div>

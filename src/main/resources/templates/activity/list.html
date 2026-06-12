@@ -27,11 +27,29 @@
                 </select>
             </div>
             <div class="col-auto">
+                <label class="form-label small text-muted mb-1">月</label>
+                <select name="month" class="form-select">
+                    <option value="" th:selected="${selectedMonth == null}">全て</option>
+                    <option value="4"  th:selected="${selectedMonth == 4}">4月</option>
+                    <option value="5"  th:selected="${selectedMonth == 5}">5月</option>
+                    <option value="6"  th:selected="${selectedMonth == 6}">6月</option>
+                    <option value="7"  th:selected="${selectedMonth == 7}">7月</option>
+                    <option value="8"  th:selected="${selectedMonth == 8}">8月</option>
+                    <option value="9"  th:selected="${selectedMonth == 9}">9月</option>
+                    <option value="10" th:selected="${selectedMonth == 10}">10月</option>
+                    <option value="11" th:selected="${selectedMonth == 11}">11月</option>
+                    <option value="12" th:selected="${selectedMonth == 12}">12月</option>
+                    <option value="1"  th:selected="${selectedMonth == 1}">1月</option>
+                    <option value="2"  th:selected="${selectedMonth == 2}">2月</option>
+                    <option value="3"  th:selected="${selectedMonth == 3}">3月</option>
+                </select>
+            </div>
+            <div class="col-auto">
                 <button type="submit" class="btn btn-outline-secondary">絞り込み</button>
             </div>
             <div class="col text-end">
                 <a class="btn btn-success"
-                   th:href="@{/activity/export/year(year=${selectedYear}, budgetTypeId=${selectedBudgetTypeId})}">
+                   th:href="@{/activity/export/year(year=${selectedYear}, budgetTypeId=${selectedBudgetTypeId}, month=${selectedMonth})}">
                     年度まとめExcel出力
                 </a>
             </div>
@@ -73,11 +91,35 @@
                                 <button type="button" class="btn btn-outline-success dropdown-toggle"
                                         data-bs-toggle="dropdown" aria-expanded="false" title="Excel出力">出力</button>
                                 <ul class="dropdown-menu dropdown-menu-end">
-                                    <li><a class="dropdown-item" th:href="@{/activity/{id}/export(id=${row.project.id}, form='all')}">まとめて（2-4〜2-6）</a></li>
+                                    <li>
+                                        <form method="post" action="/export/preview" class="d-inline">
+                                            <input type="hidden" name="projectIds" th:value="${row.project.id}">
+                                            <input type="hidden" name="exportType" value="all">
+                                            <button type="submit" class="dropdown-item">まとめて（2-4〜2-6）</button>
+                                        </form>
+                                    </li>
                                     <li><hr class="dropdown-divider"></li>
-                                    <li><a class="dropdown-item" th:href="@{/activity/{id}/export(id=${row.project.id}, form='2-4')}">様式2-4 のみ</a></li>
-                                    <li><a class="dropdown-item" th:href="@{/activity/{id}/export(id=${row.project.id}, form='2-5')}">様式2-5 のみ</a></li>
-                                    <li><a class="dropdown-item" th:href="@{/activity/{id}/export(id=${row.project.id}, form='2-6')}">様式2-6 のみ</a></li>
+                                    <li>
+                                        <form method="post" action="/export/preview" class="d-inline">
+                                            <input type="hidden" name="projectIds" th:value="${row.project.id}">
+                                            <input type="hidden" name="exportType" value="2-4">
+                                            <button type="submit" class="dropdown-item">様式2-4 のみ</button>
+                                        </form>
+                                    </li>
+                                    <li>
+                                        <form method="post" action="/export/preview" class="d-inline">
+                                            <input type="hidden" name="projectIds" th:value="${row.project.id}">
+                                            <input type="hidden" name="exportType" value="2-5">
+                                            <button type="submit" class="dropdown-item">様式2-5 のみ</button>
+                                        </form>
+                                    </li>
+                                    <li>
+                                        <form method="post" action="/export/preview" class="d-inline">
+                                            <input type="hidden" name="projectIds" th:value="${row.project.id}">
+                                            <input type="hidden" name="exportType" value="2-6">
+                                            <button type="submit" class="dropdown-item">様式2-6 のみ</button>
+                                        </form>
+                                    </li>
                                 </ul>
                             </div>
                             <button type="button" class="btn btn-sm btn-outline-danger" title="削除"

@@ -31,16 +31,18 @@ public class ActivityController {
     @Autowired private ProjectSummaryExpenseMapper summaryMapper;
     @Autowired private ProjectService projectService;
     @Autowired private ExcelExportService excelExportService;
+    @Autowired private com.miyazaki.icehockey.budgetsystem.mapper.RouteMasterMapper routeMasterMapper;
 
     // ===== 一覧画面 =====
     @GetMapping
     public String list(@RequestParam(value = "year", required = false) Integer year,
                        @RequestParam(value = "budgetTypeId", required = false) Integer budgetTypeId,
+                       @RequestParam(value = "month", required = false) Integer month,
                        Model model) {
         // 年度未指定なら現在の会計年度
         if (year == null) year = currentFiscalYear();
 
-        List<Project> projects = projectMapper.findFiltered(year, budgetTypeId);
+        List<Project> projects = projectMapper.findFiltered(year, budgetTypeId, month);
 
         List<ActivityRow> rows = new ArrayList<>();
         int totalCount = 0, totalParticipants = 0;
@@ -77,6 +79,7 @@ public class ActivityController {
         model.addAttribute("years", availableFiscalYears());
         model.addAttribute("selectedYear", year);
         model.addAttribute("selectedBudgetTypeId", budgetTypeId);
+        model.addAttribute("selectedMonth", month);
         model.addAttribute("totalCount", totalCount);
         model.addAttribute("totalParticipants", totalParticipants);
         model.addAttribute("grandTotal", grandTotal);
@@ -137,6 +140,22 @@ public class ActivityController {
         summary.setProjectId(id);
         projectService.saveProjectData(id, summary, form.getParticipants(), form.getExpenses());
 
+        // 距離データの自動学習（UPSERT）
+        if (form.getExpenses() != null) {
+            for (Expense e : form.getExpenses()) {
+                if (e != null && e.getTransportRoute() != null && e.getTransportDistanceKm() != null && e.getTransportDistanceKm() > 0) {
+                    String[] parts = e.getTransportRoute().split("～|〜");
+                    if (parts.length >= 2) {
+                        RouteMaster rm = new RouteMaster();
+                        rm.setDeparture(parts[0].trim());
+                        rm.setDestination(parts[parts.length - 1].trim());
+                        rm.setDistanceKm(e.getTransportDistanceKm());
+                        routeMasterMapper.upsert(rm);
+                    }
+                }
+            }
+        }
+
         return "redirect:/activity?year=" + (project.getFiscalYear() != null ? project.getFiscalYear() : currentFiscalYear());
     }
 
@@ -171,9 +190,10 @@ public class ActivityController {
     @GetMapping("/export/year")
     public void exportYear(@RequestParam(value = "year", required = false) Integer year,
                            @RequestParam(value = "budgetTypeId", required = false) Integer budgetTypeId,
+                           @RequestParam(value = "month", required = false) Integer month,
                            HttpServletResponse response) throws Exception {
         if (year == null) year = currentFiscalYear();
-        List<Project> projects = projectMapper.findFiltered(year, budgetTypeId);
+        List<Project> projects = projectMapper.findFiltered(year, budgetTypeId, month);
         List<Integer> ids = projects.stream().map(Project::getId).collect(Collectors.toList());
 
         String fname = year + "年度_まとめ.xlsx";

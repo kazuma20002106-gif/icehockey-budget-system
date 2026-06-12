@@ -16,7 +16,9 @@
                 </div>
                 <div class="mb-3">
                     <label class="form-label">電話番号 <span class="text-danger">*</span></label>
-                    <input type="text" name="phoneNumber" class="form-control" required th:value="${user.phoneNumber}" placeholder="例：090-5288-9928">
+                    <input type="text" id="phoneNumber" name="phoneNumber" class="form-control" required
+                           th:value="${user.phoneNumber}" placeholder="例: 090-1234-5678">
+                    <div class="form-text text-muted">※ハイフンなしで入力しても自動で補完されます</div>
                 </div>
                 <div class="d-flex gap-2">
                     <button type="submit" class="btn btn-primary">保存</button>
@@ -25,6 +27,36 @@
             </form>
         </div>
     </div>
+
+    <script>
+    (function() {
+        var input = document.getElementById('phoneNumber');
+        if (!input) return;
+        input.addEventListener('input', function() {
+            var digits = this.value.replace(/\D/g, '');
+            if (digits.length === 11) {
+                // 携帯: 090-1234-5678
+                this.value = digits.slice(0, 3) + '-' + digits.slice(3, 7) + '-' + digits.slice(7);
+            } else if (digits.length === 10) {
+                // 固定電話など: 0985-12-3456 または 03-1234-5678
+                if (digits.startsWith('0985') || digits.startsWith('0986') ||
+                    digits.startsWith('0966') || digits.startsWith('0993') ||
+                    digits.startsWith('0994') || digits.startsWith('0995') ||
+                    digits.startsWith('0996') || digits.startsWith('0997') ||
+                    digits.startsWith('0998') || digits.startsWith('0999')) {
+                    // 4桁市外局番
+                    this.value = digits.slice(0, 4) + '-' + digits.slice(4, 6) + '-' + digits.slice(6);
+                } else if (digits.startsWith('03') || digits.startsWith('06') || digits.startsWith('04')) {
+                    // 2桁市外局番
+                    this.value = digits.slice(0, 2) + '-' + digits.slice(2, 6) + '-' + digits.slice(6);
+                } else {
+                    // 3桁市外局番（デフォルト）
+                    this.value = digits.slice(0, 3) + '-' + digits.slice(3, 6) + '-' + digits.slice(6);
+                }
+            }
+        });
+    })();
+    </script>
 </div>
 </body>
 </html>

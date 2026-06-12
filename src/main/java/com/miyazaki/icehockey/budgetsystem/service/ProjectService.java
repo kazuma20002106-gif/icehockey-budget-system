@@ -41,7 +41,7 @@ public class ProjectService {
         }
 
         // Recreate participants and expenses for simplicity
-        expenseMapper.deleteByProjectParticipantId(projectId);
+        // 経費(expenses)は participant の ON DELETE CASCADE によって自動削除されるため個別の削除は不要
         participantMapper.deleteByProjectId(projectId);
         
         for (int i = 0; i < participants.size(); i++) {

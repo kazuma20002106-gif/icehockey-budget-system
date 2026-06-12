@@ -9,7 +9,7 @@
         SELECT * FROM projects WHERE id = #{id};
     </select>
 
-    <!-- 年度（4月始まり）と補助金区分での絞り込み。両方省略可 -->
+    <!-- 年度（4月始まり）・補助金区分・月での絞り込み。全て省略可 -->
     <select id="findFiltered" resultType="com.miyazaki.icehockey.budgetsystem.model.Project">
         SELECT * FROM projects
         <where>
@@ -20,8 +20,23 @@
             <if test="budgetTypeId != null">
                 AND budget_type_id = #{budgetTypeId}
             </if>
+            <if test="month != null">
+                AND MONTH(event_date) = #{month}
+            </if>
         </where>
         ORDER BY event_date DESC, id DESC
+    </select>
+
+    <!-- 年度内の活動を日付昇順・ID昇順で取得（相方自動連行用） -->
+    <select id="findByFiscalYearOrdered" resultType="com.miyazaki.icehockey.budgetsystem.model.Project">
+        SELECT * FROM projects
+        <where>
+            <if test="fiscalYear != null">
+                AND event_date &gt;= CONCAT(#{fiscalYear}, '-04-01')
+                AND event_date &lt;  CONCAT(#{fiscalYear} + 1, '-04-01')
+            </if>
+        </where>
+        ORDER BY event_date ASC, id ASC
     </select>
 
     <insert id="insert" useGeneratedKeys="true" keyProperty="id">
