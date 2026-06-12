@@ -81,3 +81,38 @@ CREATE TABLE IF NOT EXISTS project_summary_expenses (
 INSERT IGNORE INTO budget_types (id, name) VALUES (1, '選手強化費');
 INSERT IGNORE INTO budget_types (id, name) VALUES (2, 'トップチーム活用事業');
 INSERT IGNORE INTO budget_types (id, name) VALUES (3, 'ふるさと選手活動支援');
+
+-- 学習型距離マスタ（出発地と目的地の組み合わせを記憶）
+CREATE TABLE IF NOT EXISTS route_master (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    departure VARCHAR(200) NOT NULL,
+    destination VARCHAR(200) NOT NULL,
+    distance_km INT NOT NULL,
+    UNIQUE KEY (departure, destination)
+);
+
+-- 操作ユーザーマスタ
+CREATE TABLE IF NOT EXISTS users (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    phone_number VARCHAR(50) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- システム設定（active_user_id など）
+CREATE TABLE IF NOT EXISTS system_settings (
+    setting_key VARCHAR(100) PRIMARY KEY,
+    setting_value VARCHAR(255) NOT NULL
+);
+
+-- 初期ユーザー登録（重複なし）
+INSERT IGNORE INTO users (id, name, phone_number) VALUES (1, '齋藤 和明', '090-5288-9928');
+
+-- active_user_id の初期設定（未設定の場合のみ）
+INSERT INTO system_settings (setting_key, setting_value)
+SELECT 'active_user_id', CAST(id AS CHAR) FROM users WHERE name = '齋藤 和明' LIMIT 1
+ON DUPLICATE KEY UPDATE setting_value = setting_value;
+
+-- 過去データの交通手段マイグレーション（旧複合値 → 新単体値）
+UPDATE expenses SET transport_method = '電車'  WHERE transport_method = '電車・車';
+UPDATE expenses SET transport_method = '航空機' WHERE transport_method = '航空機・バス';

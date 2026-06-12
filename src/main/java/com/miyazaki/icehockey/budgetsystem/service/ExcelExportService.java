@@ -8,6 +8,8 @@ import com.miyazaki.icehockey.budgetsystem.model.Expense;
 import com.miyazaki.icehockey.budgetsystem.model.Project;
 import com.miyazaki.icehockey.budgetsystem.model.ProjectParticipant;
 import com.miyazaki.icehockey.budgetsystem.model.ProjectSummaryExpense;
+import com.miyazaki.icehockey.budgetsystem.model.User;
+import com.miyazaki.icehockey.budgetsystem.service.UserSettingService;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
@@ -28,6 +30,7 @@ public class ExcelExportService {
     @Autowired private ProjectSummaryExpenseMapper summaryMapper;
     @Autowired private ProjectParticipantMapper participantMapper;
     @Autowired private ExpenseMapper expenseMapper;
+    @Autowired private UserSettingService userSettingService;
 
     // Helper to get fully loaded participants
     private List<ProjectParticipant> getLoadedParticipants(int projectId) {
@@ -146,6 +149,18 @@ public class ExcelExportService {
         } else {
             writeSafeNumeric(sheet, 17, 23, coachCount);
             writeSafeNumeric(sheet, 17, 29, playerCount);
+        }
+
+        // 記入責任者氏名・電話番号（row 47 = 0-indexed 46、A47:AK47 結合セルのため col 0 に書き込む）
+        try {
+            User activeUser = userSettingService.getActiveUser();
+            if (activeUser != null) {
+                String responsible = "記入責任者氏名（　" + activeUser.getName()
+                        + "　）　　電話番号（　" + activeUser.getPhoneNumber() + "　）";
+                writeSafe(sheet, 46, 0, responsible);
+            }
+        } catch (Exception e) {
+            // ユーザー取得失敗時は空欄のまま
         }
     }
 

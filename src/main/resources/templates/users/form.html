@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{activity/layout :: html(title='操作ユーザー設定', content=~{::div}, activePage='')}">
+<body>
+<div>
+    <h4 class="fw-bold mb-3" th:text="${user.id == null} ? '操作ユーザー 新規登録' : '操作ユーザー 編集'">操作ユーザー</h4>
+
+    <div class="card border-0 shadow-sm" style="max-width:480px;">
+        <div class="card-body">
+            <form th:action="${user.id == null} ? @{/users/new} : @{/users/edit/{id}(id=${user.id})}"
+                  method="post">
+                <input type="hidden" name="redirect" th:value="${redirect}">
+                <div class="mb-3">
+                    <label class="form-label">氏名 <span class="text-danger">*</span></label>
+                    <input type="text" name="name" class="form-control" required th:value="${user.name}" placeholder="例：齋藤 和明">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">電話番号 <span class="text-danger">*</span></label>
+                    <input type="text" name="phoneNumber" class="form-control" required th:value="${user.phoneNumber}" placeholder="例：090-5288-9928">
+                </div>
+                <div class="d-flex gap-2">
+                    <button type="submit" class="btn btn-primary">保存</button>
+                    <a th:href="${redirect}" class="btn btn-outline-secondary">キャンセル</a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+</body>
+</html>

@@ -154,6 +154,19 @@ body {
     border-right-color: #6c757d;
 }
 
+/* Name column width */
+#rosterTable th.name-col,
+#rosterTable td.name-col,
+#expenseTable th.name-col,
+#expenseTable td.name-col {
+    min-width: 160px;
+}
+
+#rosterTable .name-input,
+#expenseTable .name-mirror {
+    min-width: 140px;
+}
+
 /* Sticky header gap fix */
 #rosterTable,
 #expenseTable {
