@@ -14,13 +14,13 @@
             <a class="navbar-brand" href="/">宮崎アイスホッケー連盟 県予算システム <span class="badge bg-secondary ms-2" th:text="${@environment.getProperty('app.version')}">v1.5.0</span></a>
             <div class="dropdown ms-auto me-2">
                 <button class="btn btn-outline-light btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown">
-                    <span th:text="${activeUser != null} ? '操作: ' + ${activeUser.name} : '操作ユーザー未設定'">操作ユーザー</span>
+                    <span th:text="${activeUser != null ? '操作: ' + activeUser.name : '操作ユーザー未設定'}">操作ユーザー</span>
                 </button>
                 <ul class="dropdown-menu dropdown-menu-end">
                     <li th:each="u : ${users}">
                         <form method="post" th:action="@{/users/switch}" style="display:inline;">
                             <input type="hidden" name="userId" th:value="${u.id}">
-                            <input type="hidden" name="redirect" th:value="${#request.requestURI}">
+                            <input type="hidden" name="redirect" th:value="${currentRequestUri}">
                             <button type="submit" class="dropdown-item"
                                     th:classappend="${activeUser != null and activeUser.id == u.id} ? 'fw-bold'"
                                     th:text="${u.name}">ユーザー名</button>
@@ -29,11 +29,11 @@
                     <li><hr class="dropdown-divider"></li>
                     <li>
                         <a class="dropdown-item text-success"
-                           th:href="@{/users/new(redirect=${#request.requestURI})}">＋ 新規登録</a>
+                           th:href="@{/users/new(redirect=${currentRequestUri})}">＋ 新規登録</a>
                     </li>
                     <li th:if="${activeUser != null}">
                         <a class="dropdown-item text-primary"
-                           th:href="@{/users/edit/{id}(id=${activeUser.id},redirect=${#request.requestURI})}">編集</a>
+                           th:href="@{/users/edit/{id}(id=${activeUser.id},redirect=${currentRequestUri})}">編集</a>
                     </li>
                 </ul>
             </div>

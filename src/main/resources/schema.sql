@@ -105,12 +105,23 @@ CREATE TABLE IF NOT EXISTS system_settings (
     setting_value VARCHAR(255) NOT NULL
 );
 
--- 初期ユーザー登録（重複なし）
-INSERT IGNORE INTO users (id, name, phone_number) VALUES (1, '齋藤 和明', '090-5288-9928');
+-- 初期ユーザー登録（id固定なし・氏名+電話番号が未登録の場合のみ）
+INSERT INTO users (name, phone_number)
+SELECT '齋藤 和明', '090-5288-9928'
+WHERE NOT EXISTS (
+    SELECT 1 FROM users
+    WHERE name = '齋藤 和明'
+      AND phone_number = '090-5288-9928'
+);
 
--- active_user_id の初期設定（未設定の場合のみ）
+-- active_user_id の初期設定（未設定の場合のみ・既存値は維持）
 INSERT INTO system_settings (setting_key, setting_value)
-SELECT 'active_user_id', CAST(id AS CHAR) FROM users WHERE name = '齋藤 和明' LIMIT 1
+SELECT 'active_user_id', CAST(id AS CHAR)
+FROM users
+WHERE name = '齋藤 和明'
+  AND phone_number = '090-5288-9928'
+ORDER BY id
+LIMIT 1
 ON DUPLICATE KEY UPDATE setting_value = setting_value;
 
 -- 過去データの交通手段マイグレーション（旧複合値 → 新単体値）
