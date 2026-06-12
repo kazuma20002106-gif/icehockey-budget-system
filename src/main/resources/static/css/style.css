@@ -126,11 +126,16 @@ body {
     --bs-tooltip-padding-x: 12px;
     --bs-tooltip-padding-y: 8px;
     --bs-tooltip-border-radius: 6px;
+    --bs-tooltip-opacity: 1;
+}
+.tooltip.show {
+    opacity: 1 !important;
 }
 .tooltip .tooltip-inner {
     text-align: left;
     box-shadow: 0 2px 8px rgba(0,0,0,0.15);
     border: 1px solid #6c757d;
+    opacity: 1 !important;
 }
 .bs-tooltip-top .tooltip-arrow::before,
 .bs-tooltip-auto[data-popper-placement^="top"] .tooltip-arrow::before {

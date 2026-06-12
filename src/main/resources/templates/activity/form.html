@@ -54,13 +54,13 @@
                     </div>
                     <div class="col-md-3">
                         <label class="form-label">年度／活動日／受領日 <span class="text-danger">*</span>
-                            <i class="bi bi-info-circle ms-1"
+                            <i style="cursor:help; font-style:normal;"
                                tabindex="0"
                                role="button"
                                data-bs-toggle="tooltip"
-                               data-bs-trigger="hover focus"
+                               data-bs-trigger="hover focus click"
                                data-bs-html="true"
-                               title="年度（4月始まり）は活動日から自動判定されます。<br>受領日はエクセル出力時に、活動日と同じ日付が自動印字されます。"></i>
+                               title="年度（4月始まり）は活動日から自動判定されます。<br>受領日はエクセル出力時に、活動日と同じ日付が自動印字されます。">&#9432;</i>
                         </label>
                         <input type="date" name="project.eventDate" id="eventDate" class="form-control" required
                                th:value="${activityForm.project.eventDate}">
