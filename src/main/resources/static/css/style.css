@@ -119,8 +119,8 @@ body {
 
 /* Tooltip */
 .tooltip {
-    --bs-tooltip-bg: #fff;
-    --bs-tooltip-color: #333;
+    --bs-tooltip-bg: #f8f9fa;
+    --bs-tooltip-color: #212529;
     --bs-tooltip-max-width: 350px;
     --bs-tooltip-font-size: 0.95rem;
     --bs-tooltip-padding-x: 12px;
@@ -130,5 +130,37 @@ body {
 .tooltip .tooltip-inner {
     text-align: left;
     box-shadow: 0 2px 8px rgba(0,0,0,0.15);
-    border: 1px solid #dee2e6;
+    border: 1px solid #6c757d;
+}
+.bs-tooltip-top .tooltip-arrow::before,
+.bs-tooltip-auto[data-popper-placement^="top"] .tooltip-arrow::before {
+    border-top-color: #6c757d;
+}
+.bs-tooltip-bottom .tooltip-arrow::before,
+.bs-tooltip-auto[data-popper-placement^="bottom"] .tooltip-arrow::before {
+    border-bottom-color: #6c757d;
+}
+.bs-tooltip-start .tooltip-arrow::before,
+.bs-tooltip-auto[data-popper-placement^="left"] .tooltip-arrow::before {
+    border-left-color: #6c757d;
+}
+.bs-tooltip-end .tooltip-arrow::before,
+.bs-tooltip-auto[data-popper-placement^="right"] .tooltip-arrow::before {
+    border-right-color: #6c757d;
+}
+
+/* Sticky header gap fix */
+#rosterTable,
+#expenseTable {
+    border-collapse: separate;
+    border-spacing: 0;
+}
+#rosterTable thead th,
+#expenseTable thead th {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background-color: #f8f9fa;
+    background-clip: padding-box;
+    box-shadow: 0 1px 0 #dee2e6;
 }

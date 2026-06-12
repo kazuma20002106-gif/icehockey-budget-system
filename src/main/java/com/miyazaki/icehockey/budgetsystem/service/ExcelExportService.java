@@ -231,29 +231,26 @@ public class ExcelExportService {
             writeSafe(sheet, r, 2, p.getMemberName()); // 氏名 [C]
             writeSafe(sheet, r, 9, (e != null && e.getExpenseDate() != null) ? e.getExpenseDate().toString() : ""); // 期日 [J]
 
-            // 交通: 1行目「航空機・バス」、2行目「電車・車(  )km」の元テキストは消さない。
-            // 電車・車のときは ( ) 内に距離を埋め込み、3行目に区間を書く。
+            // 交通: 1行目に交通手段（距離付き）、3行目に区間を出力。2行目はクリア。
             String method = (e != null) ? e.getTransportMethod() : null;
             Integer distKm = (e != null) ? e.getTransportDistanceKm() : null;
-            String distStr = ("電車・車".equals(method) && distKm != null) ? String.valueOf(distKm) : "　　";
 
-            ensureLabel(sheet, r, 13, "航空機・ﾊﾞｽ"); // 1行目（空なら補完、既存は維持）
-
-            String line2 = getCellString(sheet, r + 1, 13);
-            if (line2 == null || !line2.contains("電車")) {
-                line2 = "電車・車(" + distStr + ")㎞"; // 元テキストが無い行は基本書式を補完
-            } else {
-                line2 = line2.replaceFirst("[（(][^）)]*[）)]", "(" + distStr + ")"); // ( ) の中だけ差し替え
-            }
-            writeSafe(sheet, r + 1, 13, line2); // 2行目
-
-            writeSafe(sheet, r + 2, 13, (e != null && e.getTransportRoute() != null) ? e.getTransportRoute() : ""); // 3行目=区間
+            clearCell(sheet, r, 13);       // 1行目クリア
+            clearCell(sheet, r + 1, 13);   // 2行目クリア
+            writeSafe(sheet, r, 13, buildTransportLabel(method, distKm));                                            // 1行目: 交通手段
+            writeSafe(sheet, r + 2, 13, (e != null && e.getTransportRoute() != null) ? e.getTransportRoute() : ""); // 3行目: 区間
 
             // 支払額はブロック先頭行
             writeSafeNumeric(sheet, r, 19, (e != null) ? nz(e.getTransportCost()) : 0);     // 交通費 [T]
             writeSafeNumeric(sheet, r, 23, (e != null) ? nz(e.getAccommodationCost()) : 0);  // 宿泊費 [X]
             writeSafe(sheet, r, 27, "-");  // 雑費 [AB] は今後全て「-」表示
-            writeSafe(sheet, r, 31, (e != null && e.getReceiptDate() != null) ? e.getReceiptDate().toString() : ""); // 受領日 [AF]
+            String receiptDateStr = "";
+            if (e != null && e.getReceiptDate() != null) {
+                receiptDateStr = e.getReceiptDate().toString();
+            } else if (project.getEventDate() != null) {
+                receiptDateStr = project.getEventDate().toString();
+            }
+            writeSafe(sheet, r, 31, receiptDateStr); // 受領日 [AF]
         }
 
         // 参加者数以降の余り行（テンプレートのダミー）をクリア
@@ -485,6 +482,24 @@ public class ExcelExportService {
         org.apache.poi.ss.usermodel.Cell cell = row.getCell(colIndex);
         if (cell == null) return;
         cell.setBlank();
+    }
+
+    // 交通手段表示文字列を組み立てる
+    private String buildTransportLabel(String method, Integer distKm) {
+        if (method == null || method.isEmpty()) return "";
+        switch (method) {
+            case "航空機": return "航空機";
+            case "バス":   return "バス";
+            case "電車": {
+                String d = (distKm != null) ? String.valueOf(distKm) : "    ";
+                return "電車( " + d + " )㎞";
+            }
+            case "自家用車": {
+                String d = (distKm != null) ? String.valueOf(distKm) : "    ";
+                return "自家用車( " + d + " )㎞";
+            }
+            default: return method;
+        }
     }
 
     // ラベルが空のときだけ補完（既存テキストは消さない）
