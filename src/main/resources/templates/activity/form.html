@@ -494,15 +494,16 @@
         }
 
         // ===== 交通費単価・距離自動取得 =====
-        function recalculateTransportCosts(){
+        function calculateTransportCostForRow(row){
             const rate=parseInt(document.getElementById('transportRate').value,10)||17;
-            expenseBody.querySelectorAll('tr').forEach(row=>{
-                const distInput=row.querySelector('.distance-input');
-                const costInput=row.querySelector('input[name*=".transportCost"]');
-                if(!distInput||!costInput) return;
-                const dist=parseInt(distInput.value,10);
-                if(!isNaN(dist)&&dist>0) costInput.value=dist*rate;
-            });
+            const distInput=row.querySelector('.distance-input');
+            const costInput=row.querySelector('input[name*=".transportCost"]');
+            if(!distInput||!costInput) return;
+            const dist=parseInt(distInput.value,10);
+            costInput.value=(!isNaN(dist)&&dist>0)?dist*rate:0;
+        }
+        function recalculateTransportCosts(){
+            expenseBody.querySelectorAll('tr').forEach(row=>calculateTransportCostForRow(row));
             calculateTotals();
         }
         async function autoFetchDistance(expenseRowIndex, departure, venue){
@@ -555,11 +556,7 @@
         expenseBody.addEventListener('input', function(e){
             if(e.target.classList.contains('distance-input')){
                 const row=e.target.closest('tr');
-                const costInput=row ? row.querySelector('input[name*=".transportCost"]') : null;
-                if(!costInput) return;
-                const rate=parseInt(document.getElementById('transportRate').value,10)||17;
-                const dist=parseInt(e.target.value,10);
-                costInput.value=(!isNaN(dist)&&dist>=0)?dist*rate:costInput.value;
+                if(row) calculateTransportCostForRow(row);
                 calculateTotals();
             }
         });
