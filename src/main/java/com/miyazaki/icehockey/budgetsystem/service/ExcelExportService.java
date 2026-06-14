@@ -84,14 +84,22 @@ public class ExcelExportService {
         clearCell(sheet, 14, 3 + colOffset);  // 期日
         clearCell(sheet, 15, 3 + colOffset);  // 会場
         clearCell(sheet, 16, 3 + colOffset);  // 宿舎名
-        clearCell(sheet, 17, 6 + (colOffset > 0 ? 17 : 0)); // 指導者数
-        clearCell(sheet, 17, 12 + (colOffset > 0 ? 17 : 0)); // 選手数
+        clearCell(sheet, 17, 6 + (colOffset > 0 ? 17 : 0)); // 指導者数 (R18C7/R18C24)
+        clearCell(sheet, 17, 12 + (colOffset > 0 ? 17 : 0)); // 選手数 (R18C13/R18C30)
         for (int r = 20; r <= 27; r++) {
-            clearCell(sheet, r, 3 + colOffset);
+            clearCell(sheet, r, 3 + colOffset); // 交通費〜報償費
         }
         clearCell(sheet, 33, 3 + colOffset);  // 計
         clearCell(sheet, 34, 3 + colOffset);  // 日程及び内容
         clearCell(sheet, 40, 3 + colOffset);  // 事業の成果
+
+        // 右側専用: テンプレート由来のダミーデータを追加クリア
+        if (colOffset > 0) {
+            clearCell(sheet, 18, 34); // 参加人員 計の式 (R19C35)
+            clearCell(sheet, 22, 25); // 旅行雑費 単価 (R23C26)
+            clearCell(sheet, 22, 30); // 旅行雑費 人数 (R23C31)
+            clearCell(sheet, 22, 34); // 旅行雑費 日数 (R23C35)
+        }
     }
 
     public void exportProjectForms(Project project, ProjectSummaryExpense summary, List<ProjectParticipant> participants, OutputStream outputStream) throws Exception {
@@ -183,21 +191,24 @@ public class ExcelExportService {
         }
 
         // Draw ellipse for Project Name
+        // dy1=100000 EMU で行内上部の余白分を下にシフトし文字に合わせる
         if ("強化練習".equals(project.getName())) {
-            drawEllipse(sheet, 6, 4 + colOffset, 7, 9 + colOffset);
+            drawEllipse(sheet, 6, 4 + colOffset, 7, 9 + colOffset, 0, 100000, 0, 100000);
         } else if ("遠征試合".equals(project.getName())) {
-            drawEllipse(sheet, 6, 12 + colOffset, 7, 17 + colOffset);
+            drawEllipse(sheet, 6, 12 + colOffset, 7, 17 + colOffset, 0, 100000, 0, 100000);
         }
 
         // Draw ellipse for Category
+        // 成年行 (row10-11): dy オフセットで文字中心に合わせる
+        // 少年行: セル内テキスト3行目(row12-13)に行番号を修正
         if ("成年男子".equals(project.getTargetCategory())) {
-            drawEllipse(sheet, 10, 4 + colOffset, 11, 8 + colOffset);
+            drawEllipse(sheet, 10, 4 + colOffset, 11, 8 + colOffset, 0, 100000, 0, 100000);
         } else if ("成年女子".equals(project.getTargetCategory())) {
-            drawEllipse(sheet, 10, 12 + colOffset, 11, 16 + colOffset);
+            drawEllipse(sheet, 10, 12 + colOffset, 11, 16 + colOffset, 0, 100000, 0, 100000);
         } else if ("少年男子".equals(project.getTargetCategory())) {
-            drawEllipse(sheet, 11, 4 + colOffset, 12, 8 + colOffset);
+            drawEllipse(sheet, 12, 4 + colOffset, 13, 8 + colOffset, 0, 100000, 0, 100000);
         } else if ("少年女子".equals(project.getTargetCategory())) {
-            drawEllipse(sheet, 11, 12 + colOffset, 12, 16 + colOffset);
+            drawEllipse(sheet, 12, 12 + colOffset, 13, 16 + colOffset, 0, 100000, 0, 100000);
         }
 
         // 期日: 令和X年Y月Z日(曜) 形式
@@ -269,10 +280,16 @@ public class ExcelExportService {
     }
 
     private void drawEllipse(Sheet sheet, int row1, int col1, int row2, int col2) {
+        drawEllipse(sheet, row1, col1, row2, col2, 0, 0, 0, 0);
+    }
+
+    private void drawEllipse(Sheet sheet, int row1, int col1, int row2, int col2,
+                             int dx1, int dy1, int dx2, int dy2) {
         if (sheet instanceof org.apache.poi.xssf.usermodel.XSSFSheet) {
             org.apache.poi.xssf.usermodel.XSSFSheet xssfSheet = (org.apache.poi.xssf.usermodel.XSSFSheet) sheet;
             org.apache.poi.xssf.usermodel.XSSFDrawing drawing = xssfSheet.createDrawingPatriarch();
-            org.apache.poi.xssf.usermodel.XSSFClientAnchor anchor = drawing.createAnchor(0, 0, 0, 0, col1, row1, col2, row2);
+            org.apache.poi.xssf.usermodel.XSSFClientAnchor anchor =
+                    drawing.createAnchor(dx1, dy1, dx2, dy2, col1, row1, col2, row2);
             org.apache.poi.xssf.usermodel.XSSFSimpleShape shape = drawing.createSimpleShape(anchor);
             shape.setShapeType(org.apache.poi.ss.usermodel.ShapeTypes.ELLIPSE);
             shape.setLineStyleColor(0, 0, 0);
