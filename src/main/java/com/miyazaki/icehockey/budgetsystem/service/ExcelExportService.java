@@ -293,14 +293,25 @@ public class ExcelExportService {
             writeSafeNumeric(sheet, 2, 2, getReiwaYear(fy));
         }
 
-        // 事業実施日: 令和X年Y月Z日 (R6C3, 0-based row=5 col=2)
+        // 宿泊あり判定（事業実施日・ヘッダー・参加者印字で共通使用）
+        boolean hasAccommodation = participants.stream().anyMatch(p ->
+                p.getExpense() != null && nz(p.getExpense().getAccommodationCost()) > 0);
+
+        // 事業実施日: 令和X年Y月Z日 / 宿泊あり: ～W日 (R6C3, 0-based row=5 col=2)
         if (project.getEventDate() != null) {
-            writeSafe(sheet, 5, 2, formatJapaneseDate(project.getEventDate()));
+            String eventDateText = formatJapaneseDate(project.getEventDate());
+            if (hasAccommodation) {
+                LocalDate endDate = project.getEventDate().plusDays(1);
+                if (endDate.getMonthValue() == project.getEventDate().getMonthValue()) {
+                    eventDateText += "～" + endDate.getDayOfMonth() + "日";
+                } else {
+                    eventDateText += "～" + endDate.getMonthValue() + "月" + endDate.getDayOfMonth() + "日";
+                }
+            }
+            writeSafe(sheet, 5, 2, eventDateText);
         }
 
         // 宿泊対象者ヘッダーと参加者の〇印
-        boolean hasAccommodation = participants.stream().anyMatch(p ->
-                p.getExpense() != null && nz(p.getExpense().getAccommodationCost()) > 0);
         if (hasAccommodation && project.getEventDate() != null) {
             // 宿泊日ヘッダー (R8C8, 0-based row=7 col=7)
             LocalDate stayDate = project.getEventDate();
@@ -318,7 +329,7 @@ public class ExcelExportService {
             else clearCell(sheet, r, 6);
             // 宿泊費が1円以上の参加者に〇 (旧: isAccommodated)
             boolean accommodated = p.getExpense() != null && nz(p.getExpense().getAccommodationCost()) > 0;
-            writeSafe(sheet, r, 7, accommodated ? "○" : "");
+            writeSafe(sheet, r, 7, accommodated ? "〇" : "");
         }
         for (int r = startRow + participants.size(); r <= lastRow; r++) {
             clearCell(sheet, r, 1);
@@ -407,7 +418,7 @@ public class ExcelExportService {
 
             writeSafeNumeric(sheet, r, 19, tc);
             writeSafeNumeric(sheet, r, 23, ac);
-            writeSafe(sheet, r, 27, "-");
+            writeSafeNumeric(sheet, r, 27, mc);
 
             totalTransport += tc;
             totalAccommodation += ac;
@@ -437,7 +448,7 @@ public class ExcelExportService {
         // 合計金額の強制上書き (R40, 0-based row=39)
         writeSafeNumeric(sheet, 39, 19, totalTransport);
         writeSafeNumeric(sheet, 39, 23, totalAccommodation);
-        writeSafeNumeric(sheet, 39, 27, 0); // 雑費は「-」表示のため0
+        writeSafeNumeric(sheet, 39, 27, totalMisc);
         writeSafeNumeric(sheet, 39, 37, totalTransport + totalAccommodation + totalMisc);
 
         // 作成者名 (R7C29, 0-based row=6 col=28)
