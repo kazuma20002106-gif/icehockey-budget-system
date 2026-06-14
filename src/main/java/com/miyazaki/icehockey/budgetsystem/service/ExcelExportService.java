@@ -95,7 +95,11 @@ public class ExcelExportService {
 
         // 右側専用: テンプレート由来のダミーデータを追加クリア
         if (colOffset > 0) {
+            clearCell(sheet, 18, 17); // R19: 参加人員ダミー値 3
+            clearCell(sheet, 18, 19); // T19: 名
             clearCell(sheet, 18, 34); // 参加人員 計の式 (R19C35)
+            clearCell(sheet, 22, 17); // R23: 旅行雑費 日数ダミー値 2
+            clearCell(sheet, 22, 19); // T23: 日
             clearCell(sheet, 22, 25); // 旅行雑費 単価 (R23C26)
             clearCell(sheet, 22, 30); // 旅行雑費 人数 (R23C31)
             clearCell(sheet, 22, 34); // 旅行雑費 日数 (R23C35)
