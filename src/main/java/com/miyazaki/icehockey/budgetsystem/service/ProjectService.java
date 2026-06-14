@@ -81,6 +81,10 @@ public class ProjectService {
 
             participantMapper.insert(p);
 
+            // 自家用車以外は距離をDB保存しない
+            if (!"自家用車".equals(e.getTransportMethod())) {
+                e.setTransportDistanceKm(null);
+            }
             e.setProjectParticipantId(p.getId());
             expenseMapper.insert(e);
         }

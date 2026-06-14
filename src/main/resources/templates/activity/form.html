@@ -179,12 +179,12 @@
                                 </td>
                                 <td><input type="date" class="form-control" th:name="|expenses[${stat.index}].expenseDate|" th:value="${e.expenseDate}"></td>
                                 <td>
-                                    <select class="form-select" th:name="|expenses[${stat.index}].transportMethod|">
+                                    <select class="form-select transport-method-select" th:name="|expenses[${stat.index}].transportMethod|" onchange="syncDistanceLock(this.closest('.expense-row'))">
                                         <option value="">選択...</option>
                                         <option value="航空機"   th:selected="${e.transportMethod == '航空機'}">航空機</option>
                                         <option value="バス"     th:selected="${e.transportMethod == 'バス'}">バス</option>
                                         <option value="電車"     th:selected="${e.transportMethod == '電車'}">電車</option>
-                                        <option value="自家用車" th:selected="${e.transportMethod == '自家用車'}">自家用車</option>
+                                        <option value="自家用車" th:selected="${e.transportMethod == '自家用車' or e.transportMethod == null or #strings.isEmpty(e.transportMethod)}">自家用車</option>
                                     </select>
                                 </td>
                                 <td>
@@ -301,12 +301,12 @@
             </td>
             <td><input type="date" class="form-control" name="expenses[IDX].expenseDate"></td>
             <td>
-                <select class="form-select" name="expenses[IDX].transportMethod">
+                <select class="form-select transport-method-select" name="expenses[IDX].transportMethod" onchange="syncDistanceLock(this.closest('.expense-row'))">
                     <option value="">選択...</option>
                     <option value="航空機">航空機</option>
                     <option value="バス">バス</option>
                     <option value="電車">電車</option>
-                    <option value="自家用車">自家用車</option>
+                    <option value="自家用車" selected>自家用車</option>
                 </select>
             </td>
             <td>
@@ -361,7 +361,7 @@
         let currentSpinnerTarget = null;
         function openDigitSpinner(el){ closeDistanceSpinner(); currentSpinnerTarget = el; const s=document.getElementById('digitSpinner'); const r=el.getBoundingClientRect(); s.style.top=(window.scrollY+r.bottom+2)+'px'; let leftX=window.scrollX+r.left-50; if(leftX<0) leftX=10; s.style.left=leftX+'px'; s.style.display='block'; }
         function closeDigitSpinner(){ const s=document.getElementById('digitSpinner'); if(s) s.style.display='none'; }
-        function openDistanceSpinner(el){ closeDigitSpinner(); currentSpinnerTarget = el; const s=document.getElementById('distanceSpinner'); const r=el.getBoundingClientRect(); s.style.top=(window.scrollY+r.bottom+2)+'px'; let leftX=window.scrollX+r.left-30; if(leftX<0) leftX=10; s.style.left=leftX+'px'; s.style.display='block'; }
+        function openDistanceSpinner(el){ if(el.disabled) return; closeDigitSpinner(); currentSpinnerTarget = el; const s=document.getElementById('distanceSpinner'); const r=el.getBoundingClientRect(); s.style.top=(window.scrollY+r.bottom+2)+'px'; let leftX=window.scrollX+r.left-30; if(leftX<0) leftX=10; s.style.left=leftX+'px'; s.style.display='block'; }
         function closeDistanceSpinner(){ const s=document.getElementById('distanceSpinner'); if(s) s.style.display='none'; }
         function spinDigit(amount, dir){ if(!currentSpinnerTarget) return; let v=parseInt(currentSpinnerTarget.value,10); if(isNaN(v)) v=0; v+=amount*dir; if(v<0) v=0; currentSpinnerTarget.value=v; if(currentSpinnerTarget.classList.contains('distance-input')) recalculateTransportCosts(); else calculateTotals(); }
         document.addEventListener('click', function(e){
@@ -452,6 +452,8 @@
             rosterBody.insertAdjacentHTML('beforeend', document.getElementById('rosterTemplate').innerHTML.replace(/IDX/g,'0'));
             expenseBody.insertAdjacentHTML('beforeend', document.getElementById('expenseTemplate').innerHTML.replace(/IDX/g,'0'));
             reindexAll();
+            const newExpenseRow=expenseBody.lastElementChild;
+            if(newExpenseRow) syncDistanceLock(newExpenseRow);
             const rWrap = rosterBody.closest('.table-responsive');
             if (rWrap) rWrap.scrollTop = rWrap.scrollHeight;
             const eWrap = expenseBody.closest('.table-responsive');
@@ -493,12 +495,36 @@
             document.getElementById('grandTotal').textContent=(t+a).toLocaleString();
         }
 
+        // ===== 交通手段ロック =====
+        function getTransportMethod(row){
+            const sel=row.querySelector('select[name*=".transportMethod"]');
+            return sel ? sel.value : '';
+        }
+        function syncDistanceLock(row){
+            const method=getTransportMethod(row);
+            const distInput=row.querySelector('.distance-input');
+            if(!distInput) return;
+            if(method && method!=='自家用車'){
+                distInput.value='';
+                distInput.disabled=true;
+                closeDistanceSpinner();
+            } else {
+                distInput.disabled=false;
+            }
+            calculateTransportCostForRow(row);
+            calculateTotals();
+        }
+        function syncAllDistanceLocks(){
+            expenseBody.querySelectorAll('.expense-row').forEach(syncDistanceLock);
+        }
+
         // ===== 交通費単価・距離自動取得 =====
         function calculateTransportCostForRow(row){
             const rate=parseInt(document.getElementById('transportRate').value,10)||17;
             const distInput=row.querySelector('.distance-input');
             const costInput=row.querySelector('input[name*=".transportCost"]');
             if(!distInput||!costInput) return;
+            if(distInput.disabled) return;
             const dist=parseInt(distInput.value,10);
             costInput.value=(!isNaN(dist)&&dist>0)?dist*rate:0;
         }
@@ -514,6 +540,7 @@
                     const data=await response.json();
                     const expenseRow=expenseBody.querySelectorAll('tr')[expenseRowIndex];
                     if(!expenseRow) return;
+                    if(getTransportMethod(expenseRow)!=='自家用車') return;
                     const routeGroup=expenseRow.querySelector('.route-hidden').closest('.input-group');
                     const routeInputs=routeGroup.querySelectorAll('input[type="text"]');
                     routeInputs[1].value=venue;
@@ -544,6 +571,7 @@
             initRoutes();
             // 既存行の氏名ミラーを同期
             rosterBody.querySelectorAll('.name-input').forEach(mirrorName);
+            syncAllDistanceLocks();
             calculateTotals();
         })();
 

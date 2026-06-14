@@ -10,8 +10,13 @@ import com.miyazaki.icehockey.budgetsystem.model.ProjectParticipant;
 import com.miyazaki.icehockey.budgetsystem.model.ProjectSummaryExpense;
 import com.miyazaki.icehockey.budgetsystem.model.User;
 import com.miyazaki.icehockey.budgetsystem.service.UserSettingService;
+import org.apache.poi.ss.util.CellRangeAddress;
+import org.apache.poi.ss.usermodel.CellStyle;
+import org.apache.poi.ss.usermodel.Font;
+import org.apache.poi.ss.usermodel.HorizontalAlignment;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
+import org.apache.poi.ss.usermodel.VerticalAlignment;
 import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.ss.usermodel.WorkbookFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -195,24 +200,24 @@ public class ExcelExportService {
         }
 
         // Draw ellipse for Project Name
-        // dy1=100000 EMU で行内上部の余白分を下にシフトし文字に合わせる
+        // 左側項目(強化練習): dx1=50000, 右側項目(遠征試合): dx1=200000 でさらに右へ。dy1=200000 でさらに下へ。
         if ("強化練習".equals(project.getName())) {
-            drawEllipse(sheet, 6, 4 + colOffset, 7, 9 + colOffset, 0, 100000, 0, 100000);
+            drawEllipse(sheet, 6, 4 + colOffset, 7, 9 + colOffset, 50000, 200000, 50000, 200000);
         } else if ("遠征試合".equals(project.getName())) {
-            drawEllipse(sheet, 6, 12 + colOffset, 7, 17 + colOffset, 0, 100000, 0, 100000);
+            drawEllipse(sheet, 6, 12 + colOffset, 7, 17 + colOffset, 200000, 200000, 200000, 200000);
         }
 
         // Draw ellipse for Category
-        // 成年行 (row10-11): dy オフセットで文字中心に合わせる
-        // 少年行: セル内テキスト3行目(row12-13)に行番号を修正
+        // 左側項目(成年男子/少年男子): dx1=50000、右側項目(成年女子/少年女子): dx1=200000。dy1=200000。
+        // 少年行: セル内テキスト3行目(row12-13)。
         if ("成年男子".equals(project.getTargetCategory())) {
-            drawEllipse(sheet, 10, 4 + colOffset, 11, 8 + colOffset, 0, 100000, 0, 100000);
+            drawEllipse(sheet, 10, 4 + colOffset, 11, 8 + colOffset, 50000, 200000, 50000, 200000);
         } else if ("成年女子".equals(project.getTargetCategory())) {
-            drawEllipse(sheet, 10, 12 + colOffset, 11, 16 + colOffset, 0, 100000, 0, 100000);
+            drawEllipse(sheet, 10, 12 + colOffset, 11, 16 + colOffset, 200000, 200000, 200000, 200000);
         } else if ("少年男子".equals(project.getTargetCategory())) {
-            drawEllipse(sheet, 12, 4 + colOffset, 13, 8 + colOffset, 0, 100000, 0, 100000);
+            drawEllipse(sheet, 12, 4 + colOffset, 13, 8 + colOffset, 50000, 200000, 50000, 200000);
         } else if ("少年女子".equals(project.getTargetCategory())) {
-            drawEllipse(sheet, 12, 12 + colOffset, 13, 16 + colOffset, 0, 100000, 0, 100000);
+            drawEllipse(sheet, 12, 12 + colOffset, 13, 16 + colOffset, 200000, 200000, 200000, 200000);
         }
 
         // 期日: 令和X年Y月Z日(曜) 形式
@@ -428,10 +433,17 @@ public class ExcelExportService {
             String method = (e != null) ? e.getTransportMethod() : null;
             Integer distKm = (e != null) ? e.getTransportDistanceKm() : null;
 
-            clearCell(sheet, r, 13);
-            clearCell(sheet, r + 1, 13);
-            writeSafe(sheet, r, 13, buildTransportLabel(method, distKm));
-            writeSafe(sheet, r + 2, 13, (e != null && e.getTransportRoute() != null) ? e.getTransportRoute() : "");
+            String route = (e != null && e.getTransportRoute() != null) ? e.getTransportRoute() : "";
+            if (shouldMergeTransportMethod(method, route)) {
+                writeMergedTransportMethod(sheet, r, 13, method);
+                clearCell(sheet, r + 2, 13);
+            } else {
+                removeMergedRegionsOverlapping(sheet, r, r + 1, 13, 13);
+                clearCell(sheet, r, 13);
+                clearCell(sheet, r + 1, 13);
+                writeSafe(sheet, r, 13, buildTransportLabel(method, distKm));
+                writeSafe(sheet, r + 2, 13, hasRouteSeparator(route) ? route : "");
+            }
 
             int tc = (e != null) ? nz(e.getTransportCost()) : 0;
             int ac = (e != null) ? nz(e.getAccommodationCost()) : 0;
@@ -455,6 +467,7 @@ public class ExcelExportService {
         // 余り行のクリア
         for (int i = validParticipants.size(); i < maxSlots; i++) {
             int r = startRow + (i * block);
+            removeMergedRegionsOverlapping(sheet, r, r + 1, 13, 13);
             clearCell(sheet, r, 2);
             clearCell(sheet, r, 9);
             clearCell(sheet, r, 13);
@@ -712,15 +725,57 @@ public class ExcelExportService {
         cell.setBlank();
     }
 
+    private boolean hasRouteSeparator(String route) {
+        return route != null && (route.contains("～") || route.contains("〜"));
+    }
+
+    private boolean shouldMergeTransportMethod(String method, String route) {
+        if (method == null) return false;
+        switch (method) {
+            case "航空機":
+            case "バス":
+            case "電車":
+                return !hasRouteSeparator(route);
+            default:
+                return false;
+        }
+    }
+
+    private void removeMergedRegionsOverlapping(Sheet sheet, int firstRow, int lastRow, int firstCol, int lastCol) {
+        for (int i = sheet.getNumMergedRegions() - 1; i >= 0; i--) {
+            CellRangeAddress region = sheet.getMergedRegion(i);
+            if (region.getFirstRow() <= lastRow && region.getLastRow() >= firstRow
+                    && region.getFirstColumn() <= lastCol && region.getLastColumn() >= firstCol) {
+                sheet.removeMergedRegion(i);
+            }
+        }
+    }
+
+    private void writeMergedTransportMethod(Sheet sheet, int row, int col, String text) {
+        removeMergedRegionsOverlapping(sheet, row, row + 1, col, col);
+        sheet.addMergedRegion(new CellRangeAddress(row, row + 1, col, col));
+        Row r = sheet.getRow(row);
+        if (r == null) r = sheet.createRow(row);
+        org.apache.poi.ss.usermodel.Cell cell = r.getCell(col);
+        if (cell == null) cell = r.createCell(col);
+        cell.setCellValue(text);
+        Workbook wb = sheet.getWorkbook();
+        CellStyle style = wb.createCellStyle();
+        style.cloneStyleFrom(cell.getCellStyle());
+        style.setAlignment(HorizontalAlignment.CENTER);
+        style.setVerticalAlignment(VerticalAlignment.CENTER);
+        Font font = wb.createFont();
+        font.setFontHeightInPoints((short) 14);
+        style.setFont(font);
+        cell.setCellStyle(style);
+    }
+
     private String buildTransportLabel(String method, Integer distKm) {
         if (method == null || method.isEmpty()) return "";
         switch (method) {
             case "航空機": return "航空機";
             case "バス":   return "バス";
-            case "電車": {
-                String d = (distKm != null) ? String.valueOf(distKm) : "    ";
-                return "電車( " + d + " )㎞";
-            }
+            case "電車":   return "電車";
             case "自家用車": {
                 String d = (distKm != null) ? String.valueOf(distKm) : "    ";
                 return "自家用車( " + d + " )㎞";
