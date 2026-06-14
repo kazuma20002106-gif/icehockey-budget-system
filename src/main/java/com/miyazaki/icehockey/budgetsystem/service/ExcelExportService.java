@@ -435,10 +435,11 @@ public class ExcelExportService {
 
             String route = (e != null && e.getTransportRoute() != null) ? e.getTransportRoute() : "";
             if (shouldMergeTransportMethod(method, route)) {
-                writeMergedTransportMethod(sheet, r, 13, method);
+                // 航空機等: N:S幅で2行結合し大きく中央印字
+                writeMergedTransportMethod(sheet, r, method);
                 clearCell(sheet, r + 2, 13);
             } else {
-                removeMergedRegionsOverlapping(sheet, r, r + 1, 13, 13);
+                // 通常ケース: 横結合(N:S)は維持したまま左上セル(col13)に書き込む
                 clearCell(sheet, r, 13);
                 clearCell(sheet, r + 1, 13);
                 writeSafe(sheet, r, 13, buildTransportLabel(method, distKm));
@@ -464,10 +465,9 @@ public class ExcelExportService {
             writeSafe(sheet, r, 31, formatMonthDay(receiptDate));
         }
 
-        // 余り行のクリア
+        // 余り行のクリア (横結合N:Sは維持したまま左上セルをブランク)
         for (int i = validParticipants.size(); i < maxSlots; i++) {
             int r = startRow + (i * block);
-            removeMergedRegionsOverlapping(sheet, r, r + 1, 13, 13);
             clearCell(sheet, r, 2);
             clearCell(sheet, r, 9);
             clearCell(sheet, r, 13);
@@ -751,13 +751,18 @@ public class ExcelExportService {
         }
     }
 
-    private void writeMergedTransportMethod(Sheet sheet, int row, int col, String text) {
-        removeMergedRegionsOverlapping(sheet, row, row + 1, col, col);
-        sheet.addMergedRegion(new CellRangeAddress(row, row + 1, col, col));
+    private static final int FORM26_TRANSPORT_COL_START = 13; // N列
+    private static final int FORM26_TRANSPORT_COL_END   = 18; // S列
+
+    private void writeMergedTransportMethod(Sheet sheet, int row, String text) {
+        removeMergedRegionsOverlapping(sheet, row, row + 1,
+                FORM26_TRANSPORT_COL_START, FORM26_TRANSPORT_COL_END);
+        sheet.addMergedRegion(new CellRangeAddress(row, row + 1,
+                FORM26_TRANSPORT_COL_START, FORM26_TRANSPORT_COL_END));
         Row r = sheet.getRow(row);
         if (r == null) r = sheet.createRow(row);
-        org.apache.poi.ss.usermodel.Cell cell = r.getCell(col);
-        if (cell == null) cell = r.createCell(col);
+        org.apache.poi.ss.usermodel.Cell cell = r.getCell(FORM26_TRANSPORT_COL_START);
+        if (cell == null) cell = r.createCell(FORM26_TRANSPORT_COL_START);
         cell.setCellValue(text);
         Workbook wb = sheet.getWorkbook();
         CellStyle style = wb.createCellStyle();
