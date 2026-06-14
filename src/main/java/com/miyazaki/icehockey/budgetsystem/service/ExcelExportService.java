@@ -204,14 +204,16 @@ public class ExcelExportService {
         if ("強化練習".equals(project.getName())) {
             drawEllipse(sheet, 6, 4 + colOffset, 7, 9 + colOffset, 50000, 200000, 50000, 200000);
         } else if ("遠征試合".equals(project.getName())) {
-            drawEllipse(sheet, 6, 12 + colOffset, 7, 17 + colOffset, 200000, 200000, 200000, 200000);
+            // col2: 17→16 (幅を1列縮小)、dx1/dx2: 200000→100000 (右シフト量を調整)
+            drawEllipse(sheet, 6, 12 + colOffset, 7, 16 + colOffset, 100000, 200000, 100000, 200000);
         }
 
         // Draw ellipse for Category
-        // 左側項目(成年男子/少年男子): dx1=50000、右側項目(成年女子/少年女子): dx1=200000。dy1=200000。
+        // 成年男子: col1 4→6, col2 8→10 で右に2列移動(Kazumax指摘: 左側に大きくズレ)
+        // 右側項目(成年女子/少年女子): dx1=200000。dy1=200000。
         // 少年行: セル内テキスト3行目(row12-13)。
         if ("成年男子".equals(project.getTargetCategory())) {
-            drawEllipse(sheet, 10, 4 + colOffset, 11, 8 + colOffset, 50000, 200000, 50000, 200000);
+            drawEllipse(sheet, 10, 6 + colOffset, 11, 10 + colOffset, 50000, 200000, 50000, 200000);
         } else if ("成年女子".equals(project.getTargetCategory())) {
             drawEllipse(sheet, 10, 12 + colOffset, 11, 16 + colOffset, 200000, 200000, 200000, 200000);
         } else if ("少年男子".equals(project.getTargetCategory())) {
@@ -435,9 +437,8 @@ public class ExcelExportService {
 
             String route = (e != null && e.getTransportRoute() != null) ? e.getTransportRoute() : "";
             if (shouldMergeTransportMethod(method, route)) {
-                // 航空機等: N:S幅で2行結合し大きく中央印字
+                // 航空機等: N:S幅で3行ブロック全体を結合し大きく中央印字
                 writeMergedTransportMethod(sheet, r, method);
-                clearCell(sheet, r + 2, 13);
             } else {
                 // 通常ケース: 横結合(N:S)は維持したまま左上セル(col13)に書き込む
                 clearCell(sheet, r, 13);
@@ -755,9 +756,9 @@ public class ExcelExportService {
     private static final int FORM26_TRANSPORT_COL_END   = 18; // S列
 
     private void writeMergedTransportMethod(Sheet sheet, int row, String text) {
-        removeMergedRegionsOverlapping(sheet, row, row + 1,
+        removeMergedRegionsOverlapping(sheet, row, row + 2,
                 FORM26_TRANSPORT_COL_START, FORM26_TRANSPORT_COL_END);
-        sheet.addMergedRegion(new CellRangeAddress(row, row + 1,
+        sheet.addMergedRegion(new CellRangeAddress(row, row + 2,
                 FORM26_TRANSPORT_COL_START, FORM26_TRANSPORT_COL_END));
         Row r = sheet.getRow(row);
         if (r == null) r = sheet.createRow(row);
