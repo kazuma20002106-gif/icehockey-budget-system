@@ -200,22 +200,25 @@ public class ExcelExportService {
         }
 
         // Draw ellipse for Project Name
-        // dy1=dy2+同量 でサイズ維持のまま円を下にシフト
+        // 事業名マージセル D7:T9 (0-based rows 6-8, cols 3-19)
+        // drawEllipseAtCenter(sheet, centerCol, centerRow, halfWidthCols, halfHeightRows)
         if ("強化練習".equals(project.getName())) {
-            drawEllipse(sheet, 6, 4 + colOffset, 7, 10 + colOffset, 50000, 300000, 50000, 1000000);
+            drawEllipseAtCenter(sheet, 8.33 + colOffset, 9.23, 3.0, 1.97);
         } else if ("遠征試合".equals(project.getName())) {
-            drawEllipse(sheet, 6, 12 + colOffset, 7, 17 + colOffset, 50000, 300000, 50000, 1000000);
+            drawEllipseAtCenter(sheet, 14.83 + colOffset, 9.23, 2.5, 1.97);
         }
 
         // Draw ellipse for Category
+        // 種別マージセル D11:T13 (0-based rows 10-12, cols 3-19)
+        // 成年: rows 10-11 = 上段, 少年: rows 11-12 = 下段
         if ("成年男子".equals(project.getTargetCategory())) {
-            drawEllipse(sheet, 10, 7 + colOffset, 11, 12 + colOffset, 50000, 300000, 50000, 800000);
+            drawEllipseAtCenter(sheet, 7.0 + colOffset, 11.55, 2.5, 1.55);
         } else if ("成年女子".equals(project.getTargetCategory())) {
-            drawEllipse(sheet, 10, 12 + colOffset, 11, 16 + colOffset, 50000, 300000, 50000, 800000);
+            drawEllipseAtCenter(sheet, 14.33 + colOffset, 11.55, 2.5, 1.55);
         } else if ("少年男子".equals(project.getTargetCategory())) {
-            drawEllipse(sheet, 12, 4 + colOffset, 13, 8 + colOffset, 50000, 300000, 50000, 800000);
+            drawEllipseAtCenter(sheet, 6.33 + colOffset, 13.55, 2.0, 1.55);
         } else if ("少年女子".equals(project.getTargetCategory())) {
-            drawEllipse(sheet, 12, 12 + colOffset, 13, 16 + colOffset, 50000, 300000, 50000, 800000);
+            drawEllipseAtCenter(sheet, 14.33 + colOffset, 13.55, 2.0, 1.55);
         }
 
         // 期日: 令和X年Y月Z日(曜) 形式
@@ -284,6 +287,29 @@ public class ExcelExportService {
         } catch (Exception e) {
             // ユーザー取得失敗時は空欄のまま
         }
+    }
+
+    // EMU定数: 列幅2.25文字 * 7px * 9525EMU/px, 行高18.75pt * 12700EMU/pt (様式2-4 rows6-14)
+    private static final double COL_EMU = 150019.0;
+    private static final double ROW_EMU = 238125.0;
+
+    private void drawEllipseAtCenter(Sheet sheet, double centerCol, double centerRow,
+                                     double halfWidthCols, double halfHeightRows) {
+        double leftEdge  = centerCol - halfWidthCols;
+        double rightEdge = centerCol + halfWidthCols;
+        double topEdge   = centerRow - halfHeightRows;
+        double botEdge   = centerRow + halfHeightRows;
+
+        int col1 = (int) leftEdge;
+        int dx1  = (int) ((leftEdge  - col1) * COL_EMU);
+        int col2 = (int) rightEdge;
+        int dx2  = (int) ((rightEdge - col2) * COL_EMU);
+        int row1 = (int) topEdge;
+        int dy1  = (int) ((topEdge   - row1) * ROW_EMU);
+        int row2 = (int) botEdge;
+        int dy2  = (int) ((botEdge   - row2) * ROW_EMU);
+
+        drawEllipse(sheet, row1, col1, row2, col2, dx1, dy1, dx2, dy2);
     }
 
     private void drawEllipse(Sheet sheet, int row1, int col1, int row2, int col2) {
