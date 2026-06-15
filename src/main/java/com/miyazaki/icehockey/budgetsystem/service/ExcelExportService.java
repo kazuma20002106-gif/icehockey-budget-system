@@ -414,7 +414,7 @@ public class ExcelExportService {
 
         final int startRow = 9;
         final int block = 3;
-        final int maxSlots = 8;
+        final int maxSlots = 10;
 
         int totalTransport = 0, totalAccommodation = 0, totalMisc = 0;
 
