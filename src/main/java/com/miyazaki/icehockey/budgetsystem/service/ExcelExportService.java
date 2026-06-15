@@ -200,25 +200,24 @@ public class ExcelExportService {
         }
 
         // Draw ellipse for Project Name
+        // dy1=0(行頭から), dy2=700000(下方向に伸ばす) で縦方向を確保
+        // dx1=dx2 が等しいと横幅が打ち消されないよう col範囲で幅を確保
         if ("強化練習".equals(project.getName())) {
-            // Take8: col1:4→5, col2:9→10, dx:50000→300000 (右方向へシフト)
-            drawEllipse(sheet, 6, 5 + colOffset, 7, 10 + colOffset, 300000, 200000, 300000, 200000);
+            drawEllipse(sheet, 6, 4 + colOffset, 7, 10 + colOffset, 50000, 0, 50000, 700000);
         } else if ("遠征試合".equals(project.getName())) {
-            // Take8: col2:16→17(Take7変更を戻す), dx:100000→200000 (Take7変更を戻す)
-            drawEllipse(sheet, 6, 12 + colOffset, 7, 17 + colOffset, 200000, 200000, 200000, 200000);
+            drawEllipse(sheet, 6, 12 + colOffset, 7, 17 + colOffset, 50000, 0, 50000, 700000);
         }
 
         // Draw ellipse for Category
-        // 少年行: セル内テキスト3行目(row12-13)。
+        // 事業名と同様に dy1=0, dy2=500000 で縦を確保（少年行に被らない範囲）
         if ("成年男子".equals(project.getTargetCategory())) {
-            // Take8: col1:6→8, col2:10→12 (さらに右へ2列), dy:200000→50000 (上方向へ補正)
-            drawEllipse(sheet, 10, 8 + colOffset, 11, 12 + colOffset, 50000, 50000, 50000, 50000);
+            drawEllipse(sheet, 10, 7 + colOffset, 11, 12 + colOffset, 50000, 0, 50000, 500000);
         } else if ("成年女子".equals(project.getTargetCategory())) {
-            drawEllipse(sheet, 10, 12 + colOffset, 11, 16 + colOffset, 200000, 200000, 200000, 200000);
+            drawEllipse(sheet, 10, 12 + colOffset, 11, 16 + colOffset, 50000, 0, 50000, 500000);
         } else if ("少年男子".equals(project.getTargetCategory())) {
-            drawEllipse(sheet, 12, 4 + colOffset, 13, 8 + colOffset, 50000, 200000, 50000, 200000);
+            drawEllipse(sheet, 12, 4 + colOffset, 13, 8 + colOffset, 50000, 0, 50000, 500000);
         } else if ("少年女子".equals(project.getTargetCategory())) {
-            drawEllipse(sheet, 12, 12 + colOffset, 13, 16 + colOffset, 200000, 200000, 200000, 200000);
+            drawEllipse(sheet, 12, 12 + colOffset, 13, 16 + colOffset, 50000, 0, 50000, 500000);
         }
 
         // 期日: 令和X年Y月Z日(曜) 形式
