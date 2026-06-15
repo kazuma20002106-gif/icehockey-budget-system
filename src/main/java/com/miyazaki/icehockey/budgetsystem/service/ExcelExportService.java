@@ -71,19 +71,6 @@ public class ExcelExportService {
         return participants;
     }
 
-    // ===== 既存図形の削除 =====
-    private void clearExistingShapes(Sheet sheet) {
-        if (sheet instanceof org.apache.poi.xssf.usermodel.XSSFSheet) {
-            org.apache.poi.xssf.usermodel.XSSFSheet xSheet = (org.apache.poi.xssf.usermodel.XSSFSheet) sheet;
-            org.apache.poi.xssf.usermodel.XSSFDrawing drawing = xSheet.getDrawingPatriarch();
-            if (drawing != null) {
-                org.openxmlformats.schemas.drawingml.x2006.spreadsheetDrawing.CTDrawing ctd = drawing.getCTDrawing();
-                while (ctd.sizeOfTwoCellAnchorArray() > 0) ctd.removeTwoCellAnchor(0);
-                while (ctd.sizeOfOneCellAnchorArray() > 0) ctd.removeOneCellAnchor(0);
-            }
-        }
-    }
-
     // 様式2-4の右/左の一方をクリアする（空欄表示用）
     private void clearSide24(Sheet sheet, int colOffset) {
         clearCell(sheet, 14, 3 + colOffset);  // 期日
@@ -142,20 +129,24 @@ public class ExcelExportService {
 
                 Sheet newSheet = workbook.cloneSheet(templateIndex);
                 workbook.setSheetName(workbook.getSheetIndex(newSheet), "2-4_" + id);
-                clearExistingShapes(newSheet);
 
                 if (position % 2 == 1) {
                     // 奇数回目: 左=対象, 右=空欄
                     populate24Side(newSheet, id, 0);
+                    pruneTemplateEllipses24Side(newSheet, 0, projectMapper.findById(id));
                     clearSide24(newSheet, 17);
+                    pruneTemplateEllipses24Side(newSheet, 17, null);
                 } else {
                     // 偶数回目: 右=対象, 左=1つ前の活動
                     populate24Side(newSheet, id, 17);
+                    pruneTemplateEllipses24Side(newSheet, 17, projectMapper.findById(id));
                     if (position >= 2) {
                         int prevId = yearProjects.get(position - 2).getId();
                         populate24Side(newSheet, prevId, 0);
+                        pruneTemplateEllipses24Side(newSheet, 0, projectMapper.findById(prevId));
                     } else {
                         clearSide24(newSheet, 0);
+                        pruneTemplateEllipses24Side(newSheet, 0, null);
                     }
                 }
             } else {
@@ -165,13 +156,15 @@ public class ExcelExportService {
 
                     Sheet newSheet = workbook.cloneSheet(templateIndex);
                     workbook.setSheetName(workbook.getSheetIndex(newSheet), "2-4_" + id1 + (id2 != null ? "_" + id2 : ""));
-                    clearExistingShapes(newSheet);
 
                     populate24Side(newSheet, id1, 0);
+                    pruneTemplateEllipses24Side(newSheet, 0, projectMapper.findById(id1));
                     if (id2 != null) {
                         populate24Side(newSheet, id2, 17);
+                        pruneTemplateEllipses24Side(newSheet, 17, projectMapper.findById(id2));
                     } else {
                         clearSide24(newSheet, 17);
+                        pruneTemplateEllipses24Side(newSheet, 17, null);
                     }
                 }
             }
@@ -197,28 +190,6 @@ public class ExcelExportService {
             int rYear = getReiwaYear(project.getFiscalYear() != null
                     ? project.getFiscalYear() : project.getEventDate().getYear());
             writeSafe(sheet, 1, 0, "令和" + rYear + "年度　国スポ選手強化プロジェクト（①選手強化費）事業実施報告書");
-        }
-
-        // Draw ellipse for Project Name
-        // 事業名マージセル D7:T9 (0-based rows 6-8, cols 3-19)
-        // drawEllipseAtCenter(sheet, centerCol, centerRow, halfWidthCols, halfHeightRows)
-        if ("強化練習".equals(project.getName())) {
-            drawEllipseAtCenter(sheet, 8.33 + colOffset, 9.23, 3.0, 1.97);
-        } else if ("遠征試合".equals(project.getName())) {
-            drawEllipseAtCenter(sheet, 14.83 + colOffset, 9.23, 2.5, 1.97);
-        }
-
-        // Draw ellipse for Category
-        // 種別マージセル D11:T13 (0-based rows 10-12, cols 3-19)
-        // 成年: rows 10-11 = 上段, 少年: rows 11-12 = 下段
-        if ("成年男子".equals(project.getTargetCategory())) {
-            drawEllipseAtCenter(sheet, 7.0 + colOffset, 11.55, 2.5, 1.55);
-        } else if ("成年女子".equals(project.getTargetCategory())) {
-            drawEllipseAtCenter(sheet, 14.33 + colOffset, 11.55, 2.5, 1.55);
-        } else if ("少年男子".equals(project.getTargetCategory())) {
-            drawEllipseAtCenter(sheet, 6.33 + colOffset, 13.55, 2.0, 1.55);
-        } else if ("少年女子".equals(project.getTargetCategory())) {
-            drawEllipseAtCenter(sheet, 14.33 + colOffset, 13.55, 2.0, 1.55);
         }
 
         // 期日: 令和X年Y月Z日(曜) 形式
@@ -286,48 +257,6 @@ public class ExcelExportService {
             }
         } catch (Exception e) {
             // ユーザー取得失敗時は空欄のまま
-        }
-    }
-
-    // EMU定数: 列幅2.25文字 * 7px * 9525EMU/px, 行高18.75pt * 12700EMU/pt (様式2-4 rows6-14)
-    private static final double COL_EMU = 150019.0;
-    private static final double ROW_EMU = 238125.0;
-
-    private void drawEllipseAtCenter(Sheet sheet, double centerCol, double centerRow,
-                                     double halfWidthCols, double halfHeightRows) {
-        double leftEdge  = centerCol - halfWidthCols;
-        double rightEdge = centerCol + halfWidthCols;
-        double topEdge   = centerRow - halfHeightRows;
-        double botEdge   = centerRow + halfHeightRows;
-
-        int col1 = (int) leftEdge;
-        int dx1  = (int) ((leftEdge  - col1) * COL_EMU);
-        int col2 = (int) rightEdge;
-        int dx2  = (int) ((rightEdge - col2) * COL_EMU);
-        int row1 = (int) topEdge;
-        int dy1  = (int) ((topEdge   - row1) * ROW_EMU);
-        int row2 = (int) botEdge;
-        int dy2  = (int) ((botEdge   - row2) * ROW_EMU);
-
-        drawEllipse(sheet, row1, col1, row2, col2, dx1, dy1, dx2, dy2);
-    }
-
-    private void drawEllipse(Sheet sheet, int row1, int col1, int row2, int col2) {
-        drawEllipse(sheet, row1, col1, row2, col2, 0, 0, 0, 0);
-    }
-
-    private void drawEllipse(Sheet sheet, int row1, int col1, int row2, int col2,
-                             int dx1, int dy1, int dx2, int dy2) {
-        if (sheet instanceof org.apache.poi.xssf.usermodel.XSSFSheet) {
-            org.apache.poi.xssf.usermodel.XSSFSheet xssfSheet = (org.apache.poi.xssf.usermodel.XSSFSheet) sheet;
-            org.apache.poi.xssf.usermodel.XSSFDrawing drawing = xssfSheet.createDrawingPatriarch();
-            org.apache.poi.xssf.usermodel.XSSFClientAnchor anchor =
-                    drawing.createAnchor(dx1, dy1, dx2, dy2, col1, row1, col2, row2);
-            org.apache.poi.xssf.usermodel.XSSFSimpleShape shape = drawing.createSimpleShape(anchor);
-            shape.setShapeType(org.apache.poi.ss.usermodel.ShapeTypes.ELLIPSE);
-            shape.setLineStyleColor(0, 0, 0);
-            shape.setLineWidth(1.5);
-            shape.setNoFill(true);
         }
     }
 
@@ -611,12 +540,14 @@ public class ExcelExportService {
                     Integer id2 = (i + 1 < projectIds.size()) ? projectIds.get(i + 1) : null;
                     Sheet s = workbook.cloneSheet(idx24);
                     workbook.setSheetName(workbook.getSheetIndex(s), uniqueName(workbook, "2-4_" + id1));
-                    clearExistingShapes(s);
                     populate24Side(s, id1, 0);
+                    pruneTemplateEllipses24Side(s, 0, projectMapper.findById(id1));
                     if (id2 != null) {
                         populate24Side(s, id2, 17);
+                        pruneTemplateEllipses24Side(s, 17, projectMapper.findById(id2));
                     } else {
                         clearSide24(s, 17);
+                        pruneTemplateEllipses24Side(s, 17, null);
                     }
                 }
             }
@@ -793,5 +724,51 @@ public class ExcelExportService {
     private void ensureLabel(Sheet sheet, int rowIndex, int colIndex, String label) {
         String cur = getCellString(sheet, rowIndex, colIndex);
         if (cur == null || cur.trim().isEmpty()) writeSafe(sheet, rowIndex, colIndex, label);
+    }
+
+    // ===== 様式2-4 テンプレート丸の選択削除 =====
+
+    private String classifyTemplateEllipse24(int row1, int localCol) {
+        if (row1 == 7 && localCol >= 4 && localCol <= 7)   return "PROJECT:強化練習";
+        if (row1 == 7 && localCol >= 11 && localCol <= 14) return "PROJECT:遠征試合";
+        if (row1 == 10 && localCol >= 4 && localCol <= 7)   return "CATEGORY:成年男子";
+        if (row1 == 10 && localCol >= 11 && localCol <= 14) return "CATEGORY:成年女子";
+        if (row1 == 11 && localCol >= 4 && localCol <= 7)   return "CATEGORY:少年男子";
+        if (row1 == 11 && localCol >= 11 && localCol <= 14) return "CATEGORY:少年女子";
+        return null;
+    }
+
+    private void pruneTemplateEllipses24Side(Sheet sheet, int colOffset, Project project) {
+        if (!(sheet instanceof org.apache.poi.xssf.usermodel.XSSFSheet)) return;
+        org.apache.poi.xssf.usermodel.XSSFSheet xssfSheet = (org.apache.poi.xssf.usermodel.XSSFSheet) sheet;
+        org.apache.poi.xssf.usermodel.XSSFDrawing drawing = xssfSheet.getDrawingPatriarch();
+        if (drawing == null) return;
+
+        int colMin = colOffset + 4;
+        int colMax = colOffset + 17;
+
+        String keepProject  = (project != null) ? "PROJECT:"  + project.getName()           : null;
+        String keepCategory = (project != null) ? "CATEGORY:" + project.getTargetCategory() : null;
+
+        org.openxmlformats.schemas.drawingml.x2006.spreadsheetDrawing.CTDrawing ctd = drawing.getCTDrawing();
+
+        // 後ろから削除してインデックスずれを防ぐ
+        for (int i = ctd.sizeOfTwoCellAnchorArray() - 1; i >= 0; i--) {
+            org.openxmlformats.schemas.drawingml.x2006.spreadsheetDrawing.CTTwoCellAnchor anchor =
+                    ctd.getTwoCellAnchorArray(i);
+            int col1 = anchor.getFrom().getCol();
+            int row1 = anchor.getFrom().getRow();
+
+            if (col1 < colMin || col1 > colMax) continue;
+
+            int localCol = col1 - colOffset;
+            String label = classifyTemplateEllipse24(row1, localCol);
+            if (label == null) continue;
+
+            boolean keep = label.equals(keepProject) || label.equals(keepCategory);
+            if (!keep) {
+                ctd.removeTwoCellAnchor(i);
+            }
+        }
     }
 }
