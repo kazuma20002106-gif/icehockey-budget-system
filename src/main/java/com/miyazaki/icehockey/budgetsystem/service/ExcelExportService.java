@@ -200,24 +200,22 @@ public class ExcelExportService {
         }
 
         // Draw ellipse for Project Name
-        // dy1=0(行頭から), dy2=700000(下方向に伸ばす) で縦方向を確保
-        // dx1=dx2 が等しいと横幅が打ち消されないよう col範囲で幅を確保
+        // dy1=dy2+同量 でサイズ維持のまま円を下にシフト
         if ("強化練習".equals(project.getName())) {
-            drawEllipse(sheet, 6, 4 + colOffset, 7, 10 + colOffset, 50000, 0, 50000, 700000);
+            drawEllipse(sheet, 6, 4 + colOffset, 7, 10 + colOffset, 50000, 300000, 50000, 1000000);
         } else if ("遠征試合".equals(project.getName())) {
-            drawEllipse(sheet, 6, 12 + colOffset, 7, 17 + colOffset, 50000, 0, 50000, 700000);
+            drawEllipse(sheet, 6, 12 + colOffset, 7, 17 + colOffset, 50000, 300000, 50000, 1000000);
         }
 
         // Draw ellipse for Category
-        // 事業名と同様に dy1=0, dy2=500000 で縦を確保（少年行に被らない範囲）
         if ("成年男子".equals(project.getTargetCategory())) {
-            drawEllipse(sheet, 10, 7 + colOffset, 11, 12 + colOffset, 50000, 0, 50000, 500000);
+            drawEllipse(sheet, 10, 7 + colOffset, 11, 12 + colOffset, 50000, 300000, 50000, 800000);
         } else if ("成年女子".equals(project.getTargetCategory())) {
-            drawEllipse(sheet, 10, 12 + colOffset, 11, 16 + colOffset, 50000, 0, 50000, 500000);
+            drawEllipse(sheet, 10, 12 + colOffset, 11, 16 + colOffset, 50000, 300000, 50000, 800000);
         } else if ("少年男子".equals(project.getTargetCategory())) {
-            drawEllipse(sheet, 12, 4 + colOffset, 13, 8 + colOffset, 50000, 0, 50000, 500000);
+            drawEllipse(sheet, 12, 4 + colOffset, 13, 8 + colOffset, 50000, 300000, 50000, 800000);
         } else if ("少年女子".equals(project.getTargetCategory())) {
-            drawEllipse(sheet, 12, 12 + colOffset, 13, 16 + colOffset, 50000, 0, 50000, 500000);
+            drawEllipse(sheet, 12, 12 + colOffset, 13, 16 + colOffset, 50000, 300000, 50000, 800000);
         }
 
         // 期日: 令和X年Y月Z日(曜) 形式
