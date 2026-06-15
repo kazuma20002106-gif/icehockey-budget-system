@@ -200,20 +200,19 @@ public class ExcelExportService {
         }
 
         // Draw ellipse for Project Name
-        // 左側項目(強化練習): dx1=50000, 右側項目(遠征試合): dx1=200000 でさらに右へ。dy1=200000 でさらに下へ。
         if ("強化練習".equals(project.getName())) {
-            drawEllipse(sheet, 6, 4 + colOffset, 7, 9 + colOffset, 50000, 200000, 50000, 200000);
+            // Take8: col1:4→5, col2:9→10, dx:50000→300000 (右方向へシフト)
+            drawEllipse(sheet, 6, 5 + colOffset, 7, 10 + colOffset, 300000, 200000, 300000, 200000);
         } else if ("遠征試合".equals(project.getName())) {
-            // col2: 17→16 (幅を1列縮小)、dx1/dx2: 200000→100000 (右シフト量を調整)
-            drawEllipse(sheet, 6, 12 + colOffset, 7, 16 + colOffset, 100000, 200000, 100000, 200000);
+            // Take8: col2:16→17(Take7変更を戻す), dx:100000→200000 (Take7変更を戻す)
+            drawEllipse(sheet, 6, 12 + colOffset, 7, 17 + colOffset, 200000, 200000, 200000, 200000);
         }
 
         // Draw ellipse for Category
-        // 成年男子: col1 4→6, col2 8→10 で右に2列移動(Kazumax指摘: 左側に大きくズレ)
-        // 右側項目(成年女子/少年女子): dx1=200000。dy1=200000。
         // 少年行: セル内テキスト3行目(row12-13)。
         if ("成年男子".equals(project.getTargetCategory())) {
-            drawEllipse(sheet, 10, 6 + colOffset, 11, 10 + colOffset, 50000, 200000, 50000, 200000);
+            // Take8: col1:6→8, col2:10→12 (さらに右へ2列), dy:200000→50000 (上方向へ補正)
+            drawEllipse(sheet, 10, 8 + colOffset, 11, 12 + colOffset, 50000, 50000, 50000, 50000);
         } else if ("成年女子".equals(project.getTargetCategory())) {
             drawEllipse(sheet, 10, 12 + colOffset, 11, 16 + colOffset, 200000, 200000, 200000, 200000);
         } else if ("少年男子".equals(project.getTargetCategory())) {
@@ -436,16 +435,8 @@ public class ExcelExportService {
             Integer distKm = (e != null) ? e.getTransportDistanceKm() : null;
 
             String route = (e != null && e.getTransportRoute() != null) ? e.getTransportRoute() : "";
-            if (shouldMergeTransportMethod(method, route)) {
-                // 航空機等: N:S幅で3行ブロック全体を結合し大きく中央印字
-                writeMergedTransportMethod(sheet, r, method);
-            } else {
-                // 通常ケース: 横結合(N:S)は維持したまま左上セル(col13)に書き込む
-                clearCell(sheet, r, 13);
-                clearCell(sheet, r + 1, 13);
-                writeSafe(sheet, r, 13, buildTransportLabel(method, distKm));
-                writeSafe(sheet, r + 2, 13, hasRouteSeparator(route) ? route : "");
-            }
+            // 全交通手段を N:S x 3行ブロック結合に統一（航空機・自家用車・電車・バス等すべて）
+            writeMergedTransportText(sheet, r, buildTransportDisplayText(method, distKm, route));
 
             int tc = (e != null) ? nz(e.getTransportCost()) : 0;
             int ac = (e != null) ? nz(e.getAccommodationCost()) : 0;
@@ -466,14 +457,12 @@ public class ExcelExportService {
             writeSafe(sheet, r, 31, formatMonthDay(receiptDate));
         }
 
-        // 余り行のクリア (横結合N:Sは維持したまま左上セルをブランク)
+        // 余り行のクリア (交通欄も3行結合に統一して空文字で上書き)
         for (int i = validParticipants.size(); i < maxSlots; i++) {
             int r = startRow + (i * block);
             clearCell(sheet, r, 2);
             clearCell(sheet, r, 9);
-            clearCell(sheet, r, 13);
-            clearCell(sheet, r + 1, 13);
-            clearCell(sheet, r + 2, 13);
+            writeMergedTransportText(sheet, r, "");
             clearCell(sheet, r, 19);
             clearCell(sheet, r, 23);
             clearCell(sheet, r, 27);
@@ -726,20 +715,21 @@ public class ExcelExportService {
         cell.setBlank();
     }
 
-    private boolean hasRouteSeparator(String route) {
-        return route != null && (route.contains("～") || route.contains("〜"));
-    }
-
-    private boolean shouldMergeTransportMethod(String method, String route) {
-        if (method == null) return false;
+    private String buildTransportDisplayText(String method, Integer distKm, String route) {
+        if (method == null || method.isEmpty()) return "";
+        String label;
         switch (method) {
-            case "航空機":
-            case "バス":
-            case "電車":
-                return !hasRouteSeparator(route);
-            default:
-                return false;
+            case "航空機": label = "航空機"; break;
+            case "バス":   label = "バス"; break;
+            case "電車":   label = "電車"; break;
+            case "自家用車": {
+                String d = (distKm != null) ? String.valueOf(distKm) : "    ";
+                label = "自家用車( " + d + " )㎞";
+                break;
+            }
+            default: label = method; break;
         }
+        return (route != null && !route.isEmpty()) ? label + "\n" + route : label;
     }
 
     private void removeMergedRegionsOverlapping(Sheet sheet, int firstRow, int lastRow, int firstCol, int lastCol) {
@@ -755,7 +745,7 @@ public class ExcelExportService {
     private static final int FORM26_TRANSPORT_COL_START = 13; // N列
     private static final int FORM26_TRANSPORT_COL_END   = 18; // S列
 
-    private void writeMergedTransportMethod(Sheet sheet, int row, String text) {
+    private void writeMergedTransportText(Sheet sheet, int row, String text) {
         removeMergedRegionsOverlapping(sheet, row, row + 2,
                 FORM26_TRANSPORT_COL_START, FORM26_TRANSPORT_COL_END);
         sheet.addMergedRegion(new CellRangeAddress(row, row + 2,
@@ -770,24 +760,11 @@ public class ExcelExportService {
         style.cloneStyleFrom(cell.getCellStyle());
         style.setAlignment(HorizontalAlignment.CENTER);
         style.setVerticalAlignment(VerticalAlignment.CENTER);
+        style.setWrapText(true);
         Font font = wb.createFont();
         font.setFontHeightInPoints((short) 14);
         style.setFont(font);
         cell.setCellStyle(style);
-    }
-
-    private String buildTransportLabel(String method, Integer distKm) {
-        if (method == null || method.isEmpty()) return "";
-        switch (method) {
-            case "航空機": return "航空機";
-            case "バス":   return "バス";
-            case "電車":   return "電車";
-            case "自家用車": {
-                String d = (distKm != null) ? String.valueOf(distKm) : "    ";
-                return "自家用車( " + d + " )㎞";
-            }
-            default: return method;
-        }
     }
 
     private void ensureLabel(Sheet sheet, int rowIndex, int colIndex, String label) {
