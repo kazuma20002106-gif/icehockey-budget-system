@@ -9,6 +9,7 @@ import com.miyazaki.icehockey.budgetsystem.model.Project;
 import com.miyazaki.icehockey.budgetsystem.model.ProjectParticipant;
 import com.miyazaki.icehockey.budgetsystem.model.ProjectSummaryExpense;
 import com.miyazaki.icehockey.budgetsystem.service.ExcelExportService;
+import com.miyazaki.icehockey.budgetsystem.service.UserSettingService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -29,6 +30,7 @@ public class ExportController {
     @Autowired private ProjectSummaryExpenseMapper summaryMapper;
     @Autowired private ProjectParticipantMapper participantMapper;
     @Autowired private ExpenseMapper expenseMapper;
+    @Autowired private UserSettingService userSettingService;
 
     @GetMapping
     public String index(Model model) {
@@ -46,6 +48,7 @@ public class ExportController {
 
         model.addAttribute("exportType", exportType);
         model.addAttribute("projectIds", projectIds);
+        model.addAttribute("activeUser", userSettingService.getActiveUser());
 
         if ("2-2".equals(exportType)) {
             int totalRental = 0, totalSupplies = 0, totalParking = 0, totalCompensation = 0, totalService = 0;

@@ -156,10 +156,23 @@
     <form id="deleteForm" method="post" style="display:none;"></form>
     <script>
         function confirmDelete(id) {
-            if (!confirm('この活動を削除します。よろしいですか？')) return;
-            const f = document.getElementById('deleteForm');
-            f.action = '/activity/' + id + '/delete';
-            f.submit();
+            Swal.fire({
+                title: '本当に削除しますか？',
+                text: 'この操作は元に戻せません。',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#dc3545',
+                cancelButtonColor: '#6c757d',
+                confirmButtonText: '削除する',
+                cancelButtonText: 'キャンセル',
+                reverseButtons: true
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    const f = document.getElementById('deleteForm');
+                    f.action = '/activity/' + id + '/delete';
+                    f.submit();
+                }
+            });
         }
     </script>
 </div>
