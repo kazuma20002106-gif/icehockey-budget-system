@@ -16,7 +16,7 @@
             <div>
                 <strong>📝 今回印字される記入責任者：</strong>
                 <span th:text="${activeUser.name}">氏名</span>
-                （<span th:text="${activeUser.phoneNumber}">電話番号</span>）
+                （<span th:text="${activeUser.formattedPhoneNumber}">電話番号</span>）
             </div>
         </div>
         <div th:if="${activeUser == null}" class="alert alert-warning d-flex align-items-center mb-4">

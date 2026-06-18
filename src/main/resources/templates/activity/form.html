@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org"
-      th:replace="~{activity/layout :: html(title='活動日入力', content=~{::div}, activePage='new')}">
+      th:replace="~{layout :: html(title='活動日入力', content=~{::div}, activePage='projects')}">
 <body>
 <div>
     <style>
@@ -176,14 +176,14 @@
                 </div>
             </div>
             <div class="card-body">
-                <div class="table-responsive" style="max-height: 350px; overflow-y: auto;">
+                <div class="table-responsive p-0" style="max-height: 350px; overflow-y: auto;">
                     <table class="table table-bordered align-middle mb-2" id="expenseTable" style="min-width:1100px;">
                         <thead class="table-light text-center text-nowrap">
                             <tr>
                                 <th style="width:5%;">No.</th>
                                 <th class="name-col" style="width:12%;">氏名</th>
                                 <th style="width:10%;">期日</th>
-                                <th style="width:10%;">交通手段</th>
+                                <th style="width:12%; min-width: 110px;">交通手段</th>
                                 <th style="width:16%;">交通区間</th>
                                 <th style="width:7%;">距離(km)</th>
                                 <th>交通費(円)</th>
@@ -640,6 +640,8 @@
                 document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el => new bootstrap.Tooltip(el));
             }
         });
+
+        document.addEventListener('keydown', function(event) { if (event.key === 'Enter' && event.target.tagName !== 'TEXTAREA' && event.target.tagName !== 'BUTTON') { event.preventDefault(); } });
     </script>
 </div>
 </body>

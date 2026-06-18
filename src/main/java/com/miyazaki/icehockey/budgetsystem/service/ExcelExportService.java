@@ -252,7 +252,7 @@ public class ExcelExportService {
             User activeUser = userSettingService.getActiveUser();
             if (activeUser != null) {
                 String responsible = "記入責任者氏名（　" + activeUser.getName()
-                        + "　）　　電話番号（　" + activeUser.getPhoneNumber() + "　）";
+                        + "　）　　電話番号（　" + activeUser.getFormattedPhoneNumber() + "　）";
                 writeSafe(sheet, 46, 0, responsible);
             }
         } catch (Exception e) {
@@ -322,7 +322,7 @@ public class ExcelExportService {
             User activeUser = userSettingService.getActiveUser();
             if (activeUser != null) {
                 String line = "記入責任者氏名（　" + activeUser.getName()
-                        + "　）　電話番号（　" + activeUser.getPhoneNumber() + "　）";
+                        + "　）　電話番号（　" + activeUser.getFormattedPhoneNumber() + "　）";
                 writeSafe(sheet, 36, 0, line);
             } else {
                 writeSafe(sheet, 36, 0, "");
@@ -434,7 +434,7 @@ public class ExcelExportService {
             if (activeUser != null) {
                 writeSafe(sheet, 6, 28, "作成者名（　" + activeUser.getName() + "　　）");
                 writeSafe(sheet, 40, 0, "記入責任者氏名(　" + activeUser.getName() + "　　)");
-                writeSafe(sheet, 40, 27, "電話番号(" + activeUser.getPhoneNumber() + "　)");
+                writeSafe(sheet, 40, 27, "電話番号(" + activeUser.getFormattedPhoneNumber() + "　)");
             } else {
                 writeSafe(sheet, 6, 28, "作成者名（　　）");
                 writeSafe(sheet, 40, 0, "記入責任者氏名(　　)");
