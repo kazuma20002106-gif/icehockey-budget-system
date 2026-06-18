@@ -250,17 +250,20 @@ public class ExcelExportService {
             writeSafeNumeric(sheet, 17, 29, playerCount);
         }
 
-        // 旅行雑費・宿泊費の計算セルを左右両側から書き込む（clearSide24では消さない）
-        // row 22: 旅行雑費 → cols 17(日数), 25(単価), 30(人数), 34(日数)
-        // row 21: 宿泊費   → cols 17(泊数), 25(単価), 30(宿泊対象人数), 34(泊数)
-        writeSafeNumeric(sheet, 22, 17, travelMiscDaysVal);
-        writeSafeNumeric(sheet, 22, 25, travelMiscCostVal);
-        writeSafeNumeric(sheet, 22, 30, coachCount + playerCount);
-        writeSafeNumeric(sheet, 22, 34, travelMiscDaysVal);
-        writeSafeNumeric(sheet, 21, 17, accNights);
-        writeSafeNumeric(sheet, 21, 25, accRate);
-        writeSafeNumeric(sheet, 21, 30, accommodatedCount);
-        writeSafeNumeric(sheet, 21, 34, accNights);
+        // 旅行雑費・宿泊費の計算内訳を左右それぞれのセルへ書く
+        // LEFT(colOffset=0):  単価→col8(I), 人数→col13(N), 日数/泊数→col17(R)
+        // RIGHT(colOffset=17): 単価→col25(Z), 人数→col30(AE), 日数/泊数→col34(AI)
+        int rateCol  = 8  + colOffset;
+        int countCol = 13 + colOffset;
+        int daysCol  = 17 + colOffset;
+        // 旅行雑費の計算内訳
+        writeSafeNumeric(sheet, 22, rateCol,  travelMiscCostVal);
+        writeSafeNumeric(sheet, 22, countCol, coachCount + playerCount);
+        writeSafeNumeric(sheet, 22, daysCol,  travelMiscDaysVal);
+        // 宿泊費の計算内訳
+        writeSafeNumeric(sheet, 21, rateCol,  accRate);
+        writeSafeNumeric(sheet, 21, countCol, accommodatedCount);
+        writeSafeNumeric(sheet, 21, daysCol,  accNights);
 
         // 合計金額の強制上書き (R34C4 or R34C21, 0-based row=33)
         int total = transportSum + accommodationSum + travelMiscTotal
@@ -742,7 +745,8 @@ public class ExcelExportService {
         s1.setAlignment(HorizontalAlignment.CENTER); s1.setVerticalAlignment(VerticalAlignment.CENTER);
         c1.setCellStyle(s1);
 
-        // 下段: row+2 → 区間
+        // 下段: row+2, N:S 結合 → 区間
+        sheet.addMergedRegion(new CellRangeAddress(row + 2, row + 2, FORM26_TRANSPORT_COL_START, FORM26_TRANSPORT_COL_END));
         Row r2 = sheet.getRow(row + 2); if (r2 == null) r2 = sheet.createRow(row + 2);
         org.apache.poi.ss.usermodel.Cell c2 = r2.getCell(FORM26_TRANSPORT_COL_START);
         if (c2 == null) c2 = r2.createCell(FORM26_TRANSPORT_COL_START);

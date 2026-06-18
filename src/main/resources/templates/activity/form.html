@@ -74,13 +74,14 @@
                     </div>
                     <div class="col-md-3">
                         <label class="form-label">年度／活動日／受領日 <span class="text-danger">*</span>
-                            <i style="cursor:help; font-style:normal;"
+                            <i class="bi bi-question-circle-fill"
+                               style="cursor:help;"
                                tabindex="0"
                                role="button"
                                data-bs-toggle="tooltip"
                                data-bs-trigger="hover focus click"
                                data-bs-html="true"
-                               title="年度（4月始まり）は活動日から自動判定されます。<br>受領日はエクセル出力時に、活動日と同じ日付が自動印字されます。"><i class="bi bi-question-circle-fill"></i></i>
+                               title="年度（4月始まり）は活動日から自動判定されます。<br>受領日はエクセル出力時に、活動日と同じ日付が自動印字されます。"></i>
                         </label>
                         <input type="date" name="project.eventDate" id="eventDate" class="form-control" required
                                th:value="${activityForm.project.eventDate}">
@@ -125,8 +126,11 @@
             <div class="card-header hdr-roster d-flex justify-content-between align-items-center">
                 <span>
                     参加者名簿（様式２－５）
-                    <i style="cursor:help; font-style:normal;" data-bs-toggle="tooltip" data-bs-html="true"
-                       title="氏名に<b>新しい人</b>を入力して保存すると、名簿に自動登録され、次回から氏名欄の候補に出ます。<br><b>登録済みの人</b>は氏名を選ぶと年齢・出発地点が自動入力されます。<br>年齢・出発地点を変えて保存すると、名簿側も自動で上書きされます。"><i class="bi bi-question-circle-fill"></i></i>
+                    <i class="bi bi-question-circle-fill"
+                       style="cursor:help;"
+                       data-bs-toggle="tooltip"
+                       data-bs-html="true"
+                       title="氏名に<b>新しい人</b>を入力して保存すると、名簿に自動登録され、次回から氏名欄の候補に出ます。<br><b>登録済みの人</b>は氏名を選ぶと年齢・出発地点が自動入力されます。<br>年齢・出発地点を変えて保存すると、名簿側も自動で上書きされます。"></i>
                 </span>
             </div>
             <div class="card-body roster-card-body">
