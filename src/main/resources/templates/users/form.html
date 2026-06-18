@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org"
-      th:replace="~{activity/layout :: html(title='操作ユーザー設定', content=~{::div}, activePage='')}">
+      th:replace="~{layout :: html(title='操作ユーザー設定', content=~{::div}, activePage='')}">
 <body>
 <div>
     <h4 class="fw-bold mb-3" th:text="${user.id == null} ? '操作ユーザー 新規登録' : '操作ユーザー 編集'">操作ユーザー</h4>
