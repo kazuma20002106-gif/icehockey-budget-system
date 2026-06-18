@@ -40,8 +40,8 @@
     </select>
 
     <insert id="insert" useGeneratedKeys="true" keyProperty="id">
-        INSERT INTO projects (name, budget_type_id, target_category, event_date, location_venue, location_accommodation, schedule_content, project_outcome)
-        VALUES (#{name}, #{budgetTypeId}, #{targetCategory}, #{eventDate}, #{locationVenue}, #{locationAccommodation}, #{scheduleContent}, #{projectOutcome})
+        INSERT INTO projects (name, budget_type_id, target_category, event_date, location_venue, location_accommodation, schedule_content, project_outcome, accommodation_nights)
+        VALUES (#{name}, #{budgetTypeId}, #{targetCategory}, #{eventDate}, #{locationVenue}, #{locationAccommodation}, #{scheduleContent}, #{projectOutcome}, #{accommodationNights})
     </insert>
 
     <update id="update">
@@ -53,7 +53,8 @@
             location_venue = #{locationVenue},
             location_accommodation = #{locationAccommodation},
             schedule_content = #{scheduleContent},
-            project_outcome = #{projectOutcome}
+            project_outcome = #{projectOutcome},
+            accommodation_nights = #{accommodationNights}
         WHERE id = #{id}
     </update>
 

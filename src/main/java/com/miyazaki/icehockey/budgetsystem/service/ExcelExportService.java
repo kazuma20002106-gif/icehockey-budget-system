@@ -12,7 +12,6 @@ import com.miyazaki.icehockey.budgetsystem.model.User;
 import com.miyazaki.icehockey.budgetsystem.service.UserSettingService;
 import org.apache.poi.ss.util.CellRangeAddress;
 import org.apache.poi.ss.usermodel.CellStyle;
-import org.apache.poi.ss.usermodel.Font;
 import org.apache.poi.ss.usermodel.HorizontalAlignment;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
@@ -215,7 +214,6 @@ public class ExcelExportService {
 
         int transportSum = 0;
         int accommodationSum = 0;
-        int miscSum = 0;
         int coachCount = 0;
         int playerCount = 0;
 
@@ -226,13 +224,16 @@ public class ExcelExportService {
             if (p.getExpense() != null) {
                 transportSum += nz(p.getExpense().getTransportCost());
                 accommodationSum += nz(p.getExpense().getAccommodationCost());
-                miscSum += nz(p.getExpense().getMiscellaneousCost());
             }
         }
 
+        int travelMiscCostVal = (summary != null) ? nz(summary.getTravelMiscCost()) : 0;
+        int travelMiscDaysVal = (summary != null) ? nz(summary.getTravelMiscDays()) : 0;
+        int travelMiscTotal = travelMiscCostVal * (coachCount + playerCount) * travelMiscDaysVal;
+
         writeSafeNumeric(sheet, 20, 3 + colOffset, transportSum);
         writeSafeNumeric(sheet, 21, 3 + colOffset, accommodationSum);
-        writeSafeNumeric(sheet, 22, 3 + colOffset, miscSum);
+        writeSafeNumeric(sheet, 22, 3 + colOffset, travelMiscTotal);
 
         if (colOffset == 0) {
             writeSafeNumeric(sheet, 17, 6, coachCount);
@@ -240,10 +241,14 @@ public class ExcelExportService {
         } else {
             writeSafeNumeric(sheet, 17, 23, coachCount);
             writeSafeNumeric(sheet, 17, 29, playerCount);
+            writeSafeNumeric(sheet, 22, 17, travelMiscDaysVal);
+            writeSafeNumeric(sheet, 22, 25, travelMiscCostVal);
+            writeSafeNumeric(sheet, 22, 30, coachCount + playerCount);
+            writeSafeNumeric(sheet, 22, 34, travelMiscDaysVal);
         }
 
         // 合計金額の強制上書き (R34C4 or R34C21, 0-based row=33)
-        int total = transportSum + accommodationSum + miscSum
+        int total = transportSum + accommodationSum + travelMiscTotal
                 + parkingCost + rentalCost + suppliesCost + serviceCost + compensationCost;
         writeSafeNumeric(sheet, 33, 3 + colOffset, total);
 
@@ -276,11 +281,15 @@ public class ExcelExportService {
         boolean hasAccommodation = participants.stream().anyMatch(p ->
                 p.getExpense() != null && nz(p.getExpense().getAccommodationCost()) > 0);
 
+        int accommodationNights = (project.getAccommodationNights() != null && project.getAccommodationNights() > 0)
+                ? project.getAccommodationNights() : (hasAccommodation ? 1 : 0);
+        int nightCols = Math.min(accommodationNights, 3);
+
         // 事業実施日: 令和X年Y月Z日 / 宿泊あり: ～W日 (R6C3, 0-based row=5 col=2)
         if (project.getEventDate() != null) {
             String eventDateText = formatJapaneseDate(project.getEventDate());
-            if (hasAccommodation) {
-                LocalDate endDate = project.getEventDate().plusDays(1);
+            if (hasAccommodation && accommodationNights > 0) {
+                LocalDate endDate = project.getEventDate().plusDays(accommodationNights);
                 if (endDate.getMonthValue() == project.getEventDate().getMonthValue()) {
                     eventDateText += "～" + endDate.getDayOfMonth() + "日";
                 } else {
@@ -290,11 +299,12 @@ public class ExcelExportService {
             writeSafe(sheet, 5, 2, eventDateText);
         }
 
-        // 宿泊対象者ヘッダーと参加者の〇印
+        // 宿泊対象者ヘッダー（最大3泊分）
         if (hasAccommodation && project.getEventDate() != null) {
-            // 宿泊日ヘッダー (R8C8, 0-based row=7 col=7)
-            LocalDate stayDate = project.getEventDate();
-            writeSafe(sheet, 7, 7, stayDate.getMonthValue() + "月" + stayDate.getDayOfMonth() + "日");
+            for (int n = 0; n < nightCols; n++) {
+                LocalDate stayDate = project.getEventDate().plusDays(n);
+                writeSafe(sheet, 7, 7 + n, stayDate.getMonthValue() + "月" + stayDate.getDayOfMonth() + "日");
+            }
         }
 
         int startRow = 8;
@@ -306,15 +316,20 @@ public class ExcelExportService {
             writeSafe(sheet, r, 3, p.getMemberName());
             if (p.getMemberAge() != null) writeSafeNumeric(sheet, r, 6, p.getMemberAge());
             else clearCell(sheet, r, 6);
-            // 宿泊費が1円以上の参加者に〇 (旧: isAccommodated)
+            // 宿泊費が1円以上の参加者に〇（各泊分の列へ）
             boolean accommodated = p.getExpense() != null && nz(p.getExpense().getAccommodationCost()) > 0;
-            writeSafe(sheet, r, 7, accommodated ? "〇" : "");
+            for (int n = 0; n < nightCols; n++) {
+                writeSafe(sheet, r, 7 + n, accommodated ? "〇" : "");
+            }
+            for (int n = nightCols; n < 3; n++) {
+                clearCell(sheet, r, 7 + n);
+            }
         }
         for (int r = startRow + participants.size(); r <= lastRow; r++) {
             clearCell(sheet, r, 1);
             clearCell(sheet, r, 3);
             clearCell(sheet, r, 6);
-            clearCell(sheet, r, 7);
+            for (int n = 0; n < 3; n++) clearCell(sheet, r, 7 + n);
         }
 
         // 記入責任者氏名・電話番号 (R37C1, 0-based row=36 col=0)
@@ -715,9 +730,6 @@ public class ExcelExportService {
         style.setAlignment(HorizontalAlignment.CENTER);
         style.setVerticalAlignment(VerticalAlignment.CENTER);
         style.setWrapText(true);
-        Font font = wb.createFont();
-        font.setFontHeightInPoints((short) 14);
-        style.setFont(font);
         cell.setCellStyle(style);
     }
 

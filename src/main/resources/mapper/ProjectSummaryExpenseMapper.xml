@@ -3,8 +3,8 @@
 <mapper namespace="com.miyazaki.icehockey.budgetsystem.mapper.ProjectSummaryExpenseMapper">
 
     <insert id="insert" useGeneratedKeys="true" keyProperty="id">
-        INSERT INTO project_summary_expenses (project_id, rental_cost, supplies_cost, parking_cost, compensation_cost, service_cost)
-        VALUES (#{projectId}, #{rentalCost}, #{suppliesCost}, #{parkingCost}, #{compensationCost}, #{serviceCost})
+        INSERT INTO project_summary_expenses (project_id, rental_cost, supplies_cost, parking_cost, compensation_cost, service_cost, travel_misc_cost, travel_misc_days)
+        VALUES (#{projectId}, #{rentalCost}, #{suppliesCost}, #{parkingCost}, #{compensationCost}, #{serviceCost}, #{travelMiscCost}, #{travelMiscDays})
     </insert>
 
     <select id="findByProjectId" resultType="com.miyazaki.icehockey.budgetsystem.model.ProjectSummaryExpense">
@@ -17,7 +17,9 @@
             supplies_cost = #{suppliesCost},
             parking_cost = #{parkingCost},
             compensation_cost = #{compensationCost},
-            service_cost = #{serviceCost}
+            service_cost = #{serviceCost},
+            travel_misc_cost = #{travelMiscCost},
+            travel_misc_days = #{travelMiscDays}
         WHERE id = #{id}
     </update>
 

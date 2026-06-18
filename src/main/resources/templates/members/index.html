@@ -127,12 +127,21 @@
         }
         // ===== 削除 =====
         function deleteMember(btn) {
-            if (!confirm('削除しますか？')) return;
-            const row = btn.closest('tr');
-            const id = row.getAttribute('data-id');
-            fetch('/members/' + id + '/delete', { method: 'POST' })
-                .then(() => { row.remove(); })
-                .catch(() => {});
+            Swal.fire({
+                title: '削除しますか？',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonText: '削除',
+                cancelButtonText: 'キャンセル',
+                confirmButtonColor: '#dc3545'
+            }).then((result) => {
+                if (!result.isConfirmed) return;
+                const row = btn.closest('tr');
+                const id = row.getAttribute('data-id');
+                fetch('/members/' + id + '/delete', { method: 'POST' })
+                    .then(() => { row.remove(); })
+                    .catch(() => {});
+            });
         }
         // ===== ツールチップ初期化（bootstrapバンドル読込後に実行） =====
         window.addEventListener('load', function () {

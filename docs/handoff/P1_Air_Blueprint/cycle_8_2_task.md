@@ -1,0 +1,29 @@
+# Cycle 8: 実装タスクリスト (Assigned to: CC)
+
+- `[ ]` **データベース改修（schema.sql）**
+  - `[ ]` `project_summary_expenses` に `travel_misc_cost`, `travel_misc_days` を追加
+  - `[ ]` `projects` に `accommodation_nights` を追加
+- `[ ]` **バックエンド改修（Model & Mapper）**
+  - `[ ]` `Project.java`, `ProjectSummaryExpense.java` にフィールドと getter/setter を追加
+  - `[ ]` `ProjectMapper.xml` の INSERT / UPDATE クエリを修正
+  - `[ ]` `ProjectSummaryExpenseMapper.xml` の INSERT / UPDATE クエリを修正
+- `[ ]` **UI追加（activity/form.html）**
+  - `[ ]` 基本情報セクションに「宿泊数（泊）」の入力欄を追加
+  - `[ ]` 施設・その他経費セクションに「旅行雑費（単価）」「旅行雑費（日数）」の入力欄を追加
+  - `[ ]` 個人別支出セクションに「宿泊費単価（円/泊）」の入力欄を追加
+- `[ ]` **UX改善フロントエンド処理（activity/form.html, activity/list.html 等）**
+  - `[ ]` 宿泊費単価 × 泊数 を宿泊対象者に自動反映するJSロジックを追加
+  - `[ ]` 金額・距離スピナーの位置を入力欄の「上」に表示するようJS修正
+  - `[ ]` 名簿サジェストの最適化（入力済みの人を候補から除外）
+  - `[ ]` 名簿行の削除ボタン（×）に SweetAlert 確認を追加
+  - `[ ]` 人数自動計算フィールド（指導者・選手）の横に「※下部の名簿から自動計算」の案内を追加
+  - `[ ]` 未保存時のページ離脱警告（beforeunload）を追加
+  - `[ ]` 活動一覧画面の「新規入力」ボタンを大型化し目立たせる
+  - `[ ]` 提出データ出力画面（export/index.html）のヘッダーチェックボックスを全件選択仕様に変更
+  - `[ ]` ヘッダー固定（position-sticky）の適用
+  - `[ ]` ヘルプアイコン（ⓘ）をBootstrapの綺麗で分かりやすいアイコンに変更
+- `[ ]` **エクセル出力ロジック改修（ExcelExportService.java）**
+  - `[ ]` **【至急】** 様式2-6：交通手段と区間が重ならないように `writeMergedTransportText` を上下段に修正
+  - `[ ]` 様式2-4：旅行雑費の「単価×人数×日数」を指定セルへ印字
+  - `[ ]` 様式2-4：宿泊費の「単価×人数×泊数」を指定セルへ印字
+  - `[ ]` 様式2-5：泊数に応じて宿泊対象者の日付を展開し「〇」を印字

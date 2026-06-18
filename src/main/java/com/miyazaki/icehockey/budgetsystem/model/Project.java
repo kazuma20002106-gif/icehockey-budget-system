@@ -10,6 +10,7 @@ public class Project {
     private String locationAccommodation;
     private String scheduleContent; // 日程及び内容
     private String projectOutcome; // 事業の成果
+    private Integer accommodationNights; // 宿泊日数（泊数）
     private java.time.LocalDateTime createdAt;
 
     public Integer getId() { return id; }
@@ -38,6 +39,9 @@ public class Project {
 
     public String getProjectOutcome() { return projectOutcome; }
     public void setProjectOutcome(String projectOutcome) { this.projectOutcome = projectOutcome; }
+
+    public Integer getAccommodationNights() { return accommodationNights; }
+    public void setAccommodationNights(Integer accommodationNights) { this.accommodationNights = accommodationNights; }
 
     // 年度（日本の会計年度：4月始まり）を活動日から導出
     public Integer getFiscalYear() {

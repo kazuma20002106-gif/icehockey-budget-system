@@ -85,8 +85,8 @@
 
     <script th:inline="javascript">
         function toggleAll(source) {
-            checkboxes = document.getElementsByClassName('project-cb');
-            for(var i=0, n=checkboxes.length;i<n;i++) {
+            const checkboxes = document.getElementsByClassName('project-cb');
+            for(let i=0, n=checkboxes.length;i<n;i++) {
                 checkboxes[i].checked = source.checked;
             }
         }

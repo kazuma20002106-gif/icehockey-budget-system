@@ -8,6 +8,8 @@ public class ProjectSummaryExpense {
     private Integer parkingCost;
     private Integer compensationCost;
     private Integer serviceCost;
+    private Integer travelMiscCost;  // 旅行雑費 単価（1人1日あたり）
+    private Integer travelMiscDays;  // 旅行雑費 日数
 
     public Integer getId() { return id; }
     public void setId(Integer id) { this.id = id; }
@@ -29,4 +31,10 @@ public class ProjectSummaryExpense {
 
     public Integer getServiceCost() { return serviceCost; }
     public void setServiceCost(Integer serviceCost) { this.serviceCost = serviceCost; }
+
+    public Integer getTravelMiscCost() { return travelMiscCost; }
+    public void setTravelMiscCost(Integer travelMiscCost) { this.travelMiscCost = travelMiscCost; }
+
+    public Integer getTravelMiscDays() { return travelMiscDays; }
+    public void setTravelMiscDays(Integer travelMiscDays) { this.travelMiscDays = travelMiscDays; }
 }

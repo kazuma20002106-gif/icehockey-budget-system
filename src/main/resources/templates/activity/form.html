@@ -95,15 +95,23 @@
                         <input type="text" name="project.locationAccommodation" class="form-control"
                                placeholder="宿泊なし" th:value="${activityForm.project.locationAccommodation}">
                     </div>
-                    <div class="col-md-3">
+                    <div class="col-md-2">
+                        <label class="form-label">宿泊数（泊）</label>
+                        <input type="number" name="project.accommodationNights" class="form-control text-end" id="accommodationNights" min="0" value="0"
+                               th:value="${activityForm.project.accommodationNights != null ? activityForm.project.accommodationNights : 0}"
+                               oninput="recalculateAccommodationCosts()">
+                    </div>
+                    <div class="col-md-2">
                         <label class="form-label">指導者（名）</label>
                         <input type="number" class="form-control text-end" id="coachCount" readonly value="0">
+                        <small class="text-muted" style="font-size:0.72rem;">※名簿から自動計算</small>
                     </div>
-                    <div class="col-md-3">
+                    <div class="col-md-2">
                         <label class="form-label">選手（名）</label>
                         <input type="number" class="form-control text-end" id="playerCount" readonly value="0">
+                        <small class="text-muted" style="font-size:0.72rem;">※名簿から自動計算</small>
                     </div>
-                    <div class="col-md-3">
+                    <div class="col-md-2">
                         <label class="form-label">合計</label>
                         <input type="text" class="form-control text-end bg-light" id="totalCount" readonly value="0 名">
                     </div>
@@ -170,9 +178,15 @@
         <div class="card card-section border-0 shadow-sm mb-4">
             <div class="card-header hdr-expense d-flex justify-content-between align-items-center">
                 <span>個人別支出（様式２－６）</span>
-                <div class="d-flex align-items-center gap-2">
-                    <label class="form-label mb-0 text-white small fw-normal">交通費単価（円/km）</label>
-                    <input type="number" id="transportRate" class="form-control text-end" value="17" style="width:80px;" oninput="recalculateTransportCosts()">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="d-flex align-items-center gap-1">
+                        <label class="form-label mb-0 text-white small fw-normal">交通費単価（円/km）</label>
+                        <input type="number" id="transportRate" class="form-control text-end" value="17" style="width:80px;" oninput="recalculateTransportCosts()">
+                    </div>
+                    <div class="d-flex align-items-center gap-1">
+                        <label class="form-label mb-0 text-white small fw-normal">宿泊費単価（円/泊）</label>
+                        <input type="number" id="accommodationRate" class="form-control text-end" value="0" style="width:90px;" oninput="recalculateAccommodationCosts()">
+                    </div>
                 </div>
             </div>
             <div class="card-body">
@@ -262,6 +276,18 @@
                         <input type="number" class="form-control text-end cost-input" name="summary.parkingCost" min="0"
                                th:value="${activityForm.summary.parkingCost != null ? activityForm.summary.parkingCost : 0}"
                                onclick="openDigitSpinner(this)" onfocus="openDigitSpinner(this)">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">旅行雑費 単価（円/人/日）</label>
+                        <input type="number" class="form-control text-end cost-input" name="summary.travelMiscCost" min="0"
+                               th:value="${activityForm.summary.travelMiscCost != null ? activityForm.summary.travelMiscCost : 0}"
+                               onclick="openDigitSpinner(this)" onfocus="openDigitSpinner(this)">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">旅行雑費 日数（日）</label>
+                        <input type="number" class="form-control text-end" name="summary.travelMiscDays" min="0"
+                               th:value="${activityForm.summary.travelMiscDays != null ? activityForm.summary.travelMiscDays : 0}">
+                        <small class="text-muted">合計 = 単価 × 参加人数 × 日数</small>
                     </div>
                     <input type="hidden" name="summary.compensationCost"
                            th:value="${activityForm.summary.compensationCost != null ? activityForm.summary.compensationCost : 0}">
@@ -377,11 +403,11 @@
         const rosterBody = document.getElementById('rosterBody');
         const expenseBody = document.getElementById('expenseBody');
 
-        // ===== 金額スピナー =====
+        // ===== 金額スピナー（入力欄の上方に表示） =====
         let currentSpinnerTarget = null;
-        function openDigitSpinner(el){ closeDistanceSpinner(); currentSpinnerTarget = el; const s=document.getElementById('digitSpinner'); const r=el.getBoundingClientRect(); s.style.top=(window.scrollY+r.bottom+2)+'px'; let leftX=window.scrollX+r.left-50; if(leftX<0) leftX=10; s.style.left=leftX+'px'; s.style.display='block'; }
+        function openDigitSpinner(el){ closeDistanceSpinner(); currentSpinnerTarget = el; const s=document.getElementById('digitSpinner'); s.style.display='block'; const r=el.getBoundingClientRect(); const sh=s.offsetHeight; s.style.top=(window.scrollY+r.top-sh-4)+'px'; let leftX=window.scrollX+r.left-50; if(leftX<0) leftX=10; s.style.left=leftX+'px'; }
         function closeDigitSpinner(){ const s=document.getElementById('digitSpinner'); if(s) s.style.display='none'; }
-        function openDistanceSpinner(el){ if(el.disabled) return; closeDigitSpinner(); currentSpinnerTarget = el; const s=document.getElementById('distanceSpinner'); const r=el.getBoundingClientRect(); s.style.top=(window.scrollY+r.bottom+2)+'px'; let leftX=window.scrollX+r.left-30; if(leftX<0) leftX=10; s.style.left=leftX+'px'; s.style.display='block'; }
+        function openDistanceSpinner(el){ if(el.disabled) return; closeDigitSpinner(); currentSpinnerTarget = el; const s=document.getElementById('distanceSpinner'); s.style.display='block'; const r=el.getBoundingClientRect(); const sh=s.offsetHeight; s.style.top=(window.scrollY+r.top-sh-4)+'px'; let leftX=window.scrollX+r.left-30; if(leftX<0) leftX=10; s.style.left=leftX+'px'; }
         function closeDistanceSpinner(){ const s=document.getElementById('distanceSpinner'); if(s) s.style.display='none'; }
         function spinDigit(amount, dir){ if(!currentSpinnerTarget) return; let v=parseInt(currentSpinnerTarget.value,10); if(isNaN(v)) v=0; v+=amount*dir; if(v<0) v=0; currentSpinnerTarget.value=v; if(currentSpinnerTarget.classList.contains('distance-input')) recalculateTransportCosts(); else calculateTotals(); }
         document.addEventListener('click', function(e){
@@ -421,8 +447,37 @@
 
         // ===== 名簿⇔支出 連動 =====
         function rowIndex(row){ const parent=row.parentElement; return Array.prototype.indexOf.call(parent.children, row); }
-        function mirrorName(el){ const idx=rowIndex(el.closest('tr')); const eRow=expenseBody.querySelectorAll('tr')[idx]; if(eRow){ const m=eRow.querySelector('.name-mirror'); if(m) m.value=el.value; } }
-        function toggleAccom(chk){ const h=chk.closest('td').querySelector('.accom-hidden'); if(h) h.value = chk.checked ? 'true' : 'false'; }
+        function mirrorName(el){ const idx=rowIndex(el.closest('tr')); const eRow=expenseBody.querySelectorAll('tr')[idx]; if(eRow){ const m=eRow.querySelector('.name-mirror'); if(m) m.value=el.value; } updateMemberList(); }
+        function toggleAccom(chk){ const h=chk.closest('td').querySelector('.accom-hidden'); if(h) h.value = chk.checked ? 'true' : 'false'; recalculateAccommodationCosts(); }
+
+        // ===== 宿泊費自動計算 =====
+        function recalculateAccommodationCosts(){
+            const rate=parseInt(document.getElementById('accommodationRate').value,10)||0;
+            const nights=parseInt(document.getElementById('accommodationNights').value,10)||0;
+            const total=rate*nights;
+            expenseBody.querySelectorAll('.expense-row').forEach(eRow=>{
+                const idx=rowIndex(eRow);
+                const rRow=rosterBody.querySelectorAll('tr')[idx];
+                if(!rRow) return;
+                const chk=rRow.querySelector('.accom-check');
+                const ac=eRow.querySelector('input[name*=".accommodationCost"]');
+                if(ac && !ac.disabled){ ac.value = (chk && chk.checked) ? total : 0; }
+            });
+            calculateTotals();
+        }
+
+        // ===== 名簿サジェスト最適化（入力済み名前を候補から除外） =====
+        function updateMemberList(){
+            const used=new Set();
+            rosterBody.querySelectorAll('.name-input').forEach(inp=>{ if(inp.value.trim()) used.add(inp.value.trim()); });
+            const dl=document.getElementById('memberList');
+            if(!dl) return;
+            const allOptions=Array.from(dl.querySelectorAll('option[data-original]'));
+            if(allOptions.length===0){
+                dl.querySelectorAll('option').forEach(o=>o.setAttribute('data-original','1'));
+            }
+            dl.querySelectorAll('option').forEach(o=>{ o.style.display = used.has(o.value) ? 'none' : ''; });
+        }
         function handleRoleChange(sel){
             updateCounts();
         }
@@ -480,12 +535,23 @@
             if (eWrap) eWrap.scrollTop = eWrap.scrollHeight;
         }
         function removeRow(btn){
-            const row=btn.closest('tr'); const idx=rowIndex(row);
-            const eRows=expenseBody.querySelectorAll('tr');
-            row.remove();
-            if(eRows[idx]) eRows[idx].remove();
-            reindexAll();
-            calculateTotals();
+            Swal.fire({
+                title: '削除しますか？',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonText: '削除',
+                cancelButtonText: 'キャンセル',
+                confirmButtonColor: '#dc3545'
+            }).then((result) => {
+                if (!result.isConfirmed) return;
+                const row=btn.closest('tr'); const idx=rowIndex(row);
+                const eRows=expenseBody.querySelectorAll('tr');
+                row.remove();
+                if(eRows[idx]) eRows[idx].remove();
+                reindexAll();
+                calculateTotals();
+                updateMemberList();
+            });
         }
 
         // ===== 人数カウント =====
@@ -642,6 +708,15 @@
         });
 
         document.addEventListener('keydown', function(event) { if (event.key === 'Enter' && event.target.tagName !== 'TEXTAREA' && event.target.tagName !== 'BUTTON') { event.preventDefault(); } });
+
+        // ===== 未保存変更の離脱警告 =====
+        let formDirty = false;
+        document.getElementById('activityForm').addEventListener('input', () => { formDirty = true; });
+        document.getElementById('activityForm').addEventListener('change', () => { formDirty = true; });
+        document.getElementById('activityForm').addEventListener('submit', () => { formDirty = false; });
+        window.addEventListener('beforeunload', function(e){
+            if(formDirty){ e.preventDefault(); e.returnValue = ''; }
+        });
     </script>
 </div>
 </body>

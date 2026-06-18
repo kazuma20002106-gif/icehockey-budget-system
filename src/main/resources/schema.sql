@@ -127,3 +127,8 @@ ON DUPLICATE KEY UPDATE setting_value = setting_value;
 -- 過去データの交通手段マイグレーション（旧複合値 → 新単体値）
 UPDATE expenses SET transport_method = '電車'  WHERE transport_method = '電車・車';
 UPDATE expenses SET transport_method = '航空機' WHERE transport_method = '航空機・バス';
+
+-- Cycle 8: 新規カラム追加（IF NOT EXISTS で安全に追加）
+ALTER TABLE projects ADD COLUMN IF NOT EXISTS accommodation_nights INT DEFAULT 0;
+ALTER TABLE project_summary_expenses ADD COLUMN IF NOT EXISTS travel_misc_cost INT DEFAULT 0;
+ALTER TABLE project_summary_expenses ADD COLUMN IF NOT EXISTS travel_misc_days INT DEFAULT 0;
