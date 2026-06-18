@@ -2,6 +2,10 @@
 <html xmlns:th="http://www.thymeleaf.org"
       th:replace="~{layout :: html(title='提出データ出力・集計', content=~{::div}, activePage='export')}">
 <body>
+    <style>
+    .sticky-table-wrap { max-height: 55vh; overflow-y: auto; }
+    .sticky-table-wrap thead th { position: sticky; top: 0; z-index: 2; background: #f8f9fa; box-shadow: 0 1px 0 #dee2e6; }
+    </style>
     <div>
         <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-4 border-bottom">
             <h1 class="h2">提出データ出力・集計</h1>
@@ -26,7 +30,7 @@
             </div>
             <div class="card-body">
                 <form th:action="@{/export/download}" method="post" id="exportForm">
-                    <div class="table-responsive mb-4">
+                    <div class="table-responsive sticky-table-wrap mb-4">
                         <table class="table table-hover table-striped border">
                             <thead class="table-light">
                                 <tr>

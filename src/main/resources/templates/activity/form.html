@@ -80,7 +80,7 @@
                                data-bs-toggle="tooltip"
                                data-bs-trigger="hover focus click"
                                data-bs-html="true"
-                               title="年度（4月始まり）は活動日から自動判定されます。<br>受領日はエクセル出力時に、活動日と同じ日付が自動印字されます。">&#9432;</i>
+                               title="年度（4月始まり）は活動日から自動判定されます。<br>受領日はエクセル出力時に、活動日と同じ日付が自動印字されます。"><i class="bi bi-question-circle-fill"></i></i>
                         </label>
                         <input type="date" name="project.eventDate" id="eventDate" class="form-control" required
                                th:value="${activityForm.project.eventDate}">
@@ -97,9 +97,10 @@
                     </div>
                     <div class="col-md-2">
                         <label class="form-label">宿泊数（泊）</label>
-                        <input type="number" name="project.accommodationNights" class="form-control text-end" id="accommodationNights" min="0" value="0"
+                        <input type="number" name="project.accommodationNights" class="form-control text-end" id="accommodationNights" min="0" max="3" value="0"
                                th:value="${activityForm.project.accommodationNights != null ? activityForm.project.accommodationNights : 0}"
                                oninput="recalculateAccommodationCosts()">
+                        <small class="text-muted" style="font-size:0.72rem;">最大3泊（様式2-5上限）</small>
                     </div>
                     <div class="col-md-2">
                         <label class="form-label">指導者（名）</label>
@@ -125,7 +126,7 @@
                 <span>
                     参加者名簿（様式２－５）
                     <i style="cursor:help; font-style:normal;" data-bs-toggle="tooltip" data-bs-html="true"
-                       title="氏名に<b>新しい人</b>を入力して保存すると、名簿に自動登録され、次回から氏名欄の候補に出ます。<br><b>登録済みの人</b>は氏名を選ぶと年齢・出発地点が自動入力されます。<br>年齢・出発地点を変えて保存すると、名簿側も自動で上書きされます。">&#9432;</i>
+                       title="氏名に<b>新しい人</b>を入力して保存すると、名簿に自動登録され、次回から氏名欄の候補に出ます。<br><b>登録済みの人</b>は氏名を選ぶと年齢・出発地点が自動入力されます。<br>年齢・出発地点を変えて保存すると、名簿側も自動で上書きされます。"><i class="bi bi-question-circle-fill"></i></i>
                 </span>
             </div>
             <div class="card-body roster-card-body">
@@ -461,9 +462,35 @@
                 if(!rRow) return;
                 const chk=rRow.querySelector('.accom-check');
                 const ac=eRow.querySelector('input[name*=".accommodationCost"]');
-                if(ac && !ac.disabled){ ac.value = (chk && chk.checked) ? total : 0; }
+                if(!ac || ac.disabled) return;
+                if(chk && !chk.checked){
+                    ac.value = 0;           // 宿泊なしは常に0へ
+                } else if(rate > 0){
+                    ac.value = total;       // 単価入力済みの場合のみ上書き
+                }
+                // rate===0 かつ checked の場合は保存済み値を維持
             });
             calculateTotals();
+        }
+
+        // 編集時: 保存済み宿泊費から単価を逆算して accommodationRate に初期値を入れる
+        function initAccommodationRate(){
+            const nights=parseInt(document.getElementById('accommodationNights').value,10)||0;
+            if(nights <= 0) return;
+            let derived=0;
+            expenseBody.querySelectorAll('.expense-row').forEach(eRow=>{
+                if(derived > 0) return;
+                const idx=rowIndex(eRow);
+                const rRow=rosterBody.querySelectorAll('tr')[idx];
+                if(!rRow) return;
+                const chk=rRow.querySelector('.accom-check');
+                if(chk && chk.checked){
+                    const ac=eRow.querySelector('input[name*=".accommodationCost"]');
+                    const v=parseInt(ac && ac.value, 10)||0;
+                    if(v > 0) derived=Math.round(v/nights);
+                }
+            });
+            if(derived > 0) document.getElementById('accommodationRate').value=derived;
         }
 
         // ===== 名簿サジェスト最適化（入力済み名前を候補から除外） =====
@@ -647,6 +674,7 @@
             let count=0;
             names.forEach(n=>{ if(n.value.trim()) count++; });
             if(count===0){ alert('参加者を1名以上入力してください。'); return false; }
+            formDirty = false; // 送信成功時のみ離脱警告を解除
             return true;
         }
 
@@ -655,10 +683,10 @@
             if(rosterBody.querySelectorAll('tr').length===0){ addRow(); }
             else { reindexAll(); }
             initRoutes();
-            // 既存行の氏名ミラーを同期
             rosterBody.querySelectorAll('.name-input').forEach(mirrorName);
             syncAllDistanceLocks();
             calculateTotals();
+            initAccommodationRate(); // 編集時: 保存済み宿泊費から単価を逆算して表示
         })();
 
         expenseBody.addEventListener('blur', function(e){
@@ -713,7 +741,7 @@
         let formDirty = false;
         document.getElementById('activityForm').addEventListener('input', () => { formDirty = true; });
         document.getElementById('activityForm').addEventListener('change', () => { formDirty = true; });
-        document.getElementById('activityForm').addEventListener('submit', () => { formDirty = false; });
+        // formDirty=false はバリデーション成功時（validateForm内）でのみ解除する
         window.addEventListener('beforeunload', function(e){
             if(formDirty){ e.preventDefault(); e.returnValue = ''; }
         });

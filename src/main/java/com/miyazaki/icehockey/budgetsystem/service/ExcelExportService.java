@@ -84,16 +84,13 @@ public class ExcelExportService {
         clearCell(sheet, 34, 3 + colOffset);  // 日程及び内容
         clearCell(sheet, 40, 3 + colOffset);  // 事業の成果
 
-        // 右側専用: テンプレート由来のダミーデータを追加クリア
+        // 右側専用: テンプレート由来の参加人員ダミーデータを追加クリア
+        // ※ 旅行雑費・宿泊費の計算セル(row21/22, cols 17/25/30/34)は
+        //    populate24Side から左右両側で上書きするためここでは消さない
         if (colOffset > 0) {
             clearCell(sheet, 18, 17); // R19: 参加人員ダミー値 3
             clearCell(sheet, 18, 19); // T19: 名
             clearCell(sheet, 18, 34); // 参加人員 計の式 (R19C35)
-            clearCell(sheet, 22, 17); // R23: 旅行雑費 日数ダミー値 2
-            clearCell(sheet, 22, 19); // T23: 日
-            clearCell(sheet, 22, 25); // 旅行雑費 単価 (R23C26)
-            clearCell(sheet, 22, 30); // 旅行雑費 人数 (R23C31)
-            clearCell(sheet, 22, 34); // 旅行雑費 日数 (R23C35)
         }
     }
 
@@ -137,8 +134,7 @@ public class ExcelExportService {
                     pruneTemplateEllipses24Side(newSheet, 17, null);
                 } else {
                     // 偶数回目: 右=対象, 左=1つ前の活動
-                    populate24Side(newSheet, id, 17);
-                    pruneTemplateEllipses24Side(newSheet, 17, projectMapper.findById(id));
+                    // LEFT を先に書き、RIGHT を後に書くことで計算セルは RIGHT(対象)の値で確定
                     if (position >= 2) {
                         int prevId = yearProjects.get(position - 2).getId();
                         populate24Side(newSheet, prevId, 0);
@@ -147,6 +143,8 @@ public class ExcelExportService {
                         clearSide24(newSheet, 0);
                         pruneTemplateEllipses24Side(newSheet, 0, null);
                     }
+                    populate24Side(newSheet, id, 17);
+                    pruneTemplateEllipses24Side(newSheet, 17, projectMapper.findById(id));
                 }
             } else {
                 for (int i = 0; i < projectIds.size(); i += 2) {
@@ -216,10 +214,13 @@ public class ExcelExportService {
         int accommodationSum = 0;
         int coachCount = 0;
         int playerCount = 0;
+        int accommodatedCount = 0;
 
         for (ProjectParticipant p : participants) {
             if ("指導者".equals(p.getMemberRole())) coachCount++;
             else playerCount++;
+
+            if (p.getIsAccommodated()) accommodatedCount++;
 
             if (p.getExpense() != null) {
                 transportSum += nz(p.getExpense().getTransportCost());
@@ -231,6 +232,12 @@ public class ExcelExportService {
         int travelMiscDaysVal = (summary != null) ? nz(summary.getTravelMiscDays()) : 0;
         int travelMiscTotal = travelMiscCostVal * (coachCount + playerCount) * travelMiscDaysVal;
 
+        int accNights = (project.getAccommodationNights() != null && project.getAccommodationNights() > 0)
+                ? project.getAccommodationNights() : (accommodationSum > 0 ? 1 : 0);
+        // 宿泊費単価を保存済み費用から逆算（accommodatedCount > 0 かつ泊数 > 0 の場合）
+        int accRate = (accommodatedCount > 0 && accNights > 0)
+                ? accommodationSum / accommodatedCount / accNights : 0;
+
         writeSafeNumeric(sheet, 20, 3 + colOffset, transportSum);
         writeSafeNumeric(sheet, 21, 3 + colOffset, accommodationSum);
         writeSafeNumeric(sheet, 22, 3 + colOffset, travelMiscTotal);
@@ -241,11 +248,19 @@ public class ExcelExportService {
         } else {
             writeSafeNumeric(sheet, 17, 23, coachCount);
             writeSafeNumeric(sheet, 17, 29, playerCount);
-            writeSafeNumeric(sheet, 22, 17, travelMiscDaysVal);
-            writeSafeNumeric(sheet, 22, 25, travelMiscCostVal);
-            writeSafeNumeric(sheet, 22, 30, coachCount + playerCount);
-            writeSafeNumeric(sheet, 22, 34, travelMiscDaysVal);
         }
+
+        // 旅行雑費・宿泊費の計算セルを左右両側から書き込む（clearSide24では消さない）
+        // row 22: 旅行雑費 → cols 17(日数), 25(単価), 30(人数), 34(日数)
+        // row 21: 宿泊費   → cols 17(泊数), 25(単価), 30(宿泊対象人数), 34(泊数)
+        writeSafeNumeric(sheet, 22, 17, travelMiscDaysVal);
+        writeSafeNumeric(sheet, 22, 25, travelMiscCostVal);
+        writeSafeNumeric(sheet, 22, 30, coachCount + playerCount);
+        writeSafeNumeric(sheet, 22, 34, travelMiscDaysVal);
+        writeSafeNumeric(sheet, 21, 17, accNights);
+        writeSafeNumeric(sheet, 21, 25, accRate);
+        writeSafeNumeric(sheet, 21, 30, accommodatedCount);
+        writeSafeNumeric(sheet, 21, 34, accNights);
 
         // 合計金額の強制上書き (R34C4 or R34C21, 0-based row=33)
         int total = transportSum + accommodationSum + travelMiscTotal
@@ -277,9 +292,8 @@ public class ExcelExportService {
             writeSafeNumeric(sheet, 2, 2, getReiwaYear(fy));
         }
 
-        // 宿泊あり判定（事業実施日・ヘッダー・参加者印字で共通使用）
-        boolean hasAccommodation = participants.stream().anyMatch(p ->
-                p.getExpense() != null && nz(p.getExpense().getAccommodationCost()) > 0);
+        // 宿泊あり判定: 画面の「宿泊あり」チェックを基準にする
+        boolean hasAccommodation = participants.stream().anyMatch(p -> p.getIsAccommodated());
 
         int accommodationNights = (project.getAccommodationNights() != null && project.getAccommodationNights() > 0)
                 ? project.getAccommodationNights() : (hasAccommodation ? 1 : 0);
@@ -299,11 +313,13 @@ public class ExcelExportService {
             writeSafe(sheet, 5, 2, eventDateText);
         }
 
-        // 宿泊対象者ヘッダー（最大3泊分）
-        if (hasAccommodation && project.getEventDate() != null) {
-            for (int n = 0; n < nightCols; n++) {
+        // 宿泊対象者ヘッダー（最大3泊分）。未使用列はクリア
+        for (int n = 0; n < 3; n++) {
+            if (n < nightCols && hasAccommodation && project.getEventDate() != null) {
                 LocalDate stayDate = project.getEventDate().plusDays(n);
                 writeSafe(sheet, 7, 7 + n, stayDate.getMonthValue() + "月" + stayDate.getDayOfMonth() + "日");
+            } else {
+                clearCell(sheet, 7, 7 + n);
             }
         }
 
@@ -316,8 +332,8 @@ public class ExcelExportService {
             writeSafe(sheet, r, 3, p.getMemberName());
             if (p.getMemberAge() != null) writeSafeNumeric(sheet, r, 6, p.getMemberAge());
             else clearCell(sheet, r, 6);
-            // 宿泊費が1円以上の参加者に〇（各泊分の列へ）
-            boolean accommodated = p.getExpense() != null && nz(p.getExpense().getAccommodationCost()) > 0;
+            // 宿泊チェック済み参加者に〇（各泊分の列へ）
+            boolean accommodated = p.getIsAccommodated();
             for (int n = 0; n < nightCols; n++) {
                 writeSafe(sheet, r, 7 + n, accommodated ? "〇" : "");
             }
@@ -402,8 +418,8 @@ public class ExcelExportService {
             Integer distKm = (e != null) ? e.getTransportDistanceKm() : null;
 
             String route = (e != null && e.getTransportRoute() != null) ? e.getTransportRoute() : "";
-            // 全交通手段を N:S x 3行ブロック結合に統一（航空機・自家用車・電車・バス等すべて）
-            writeMergedTransportText(sheet, r, buildTransportDisplayText(method, distKm, route));
+            // 交通手段を上段、区間を下段に分割表示（N:S x 上2行=手段、下1行=区間）
+            writeSplitTransportText(sheet, r, buildMethodLabel(method, distKm), route);
 
             int tc = (e != null) ? nz(e.getTransportCost()) : 0;
             int ac = (e != null) ? nz(e.getAccommodationCost()) : 0;
@@ -429,7 +445,7 @@ public class ExcelExportService {
             int r = startRow + (i * block);
             clearCell(sheet, r, 2);
             clearCell(sheet, r, 9);
-            writeMergedTransportText(sheet, r, "");
+            writeSplitTransportText(sheet, r, "", "");
             clearCell(sheet, r, 19);
             clearCell(sheet, r, 23);
             clearCell(sheet, r, 27);
@@ -697,40 +713,44 @@ public class ExcelExportService {
         }
     }
 
-    private String buildTransportDisplayText(String method, Integer distKm, String route) {
+    private String buildMethodLabel(String method, Integer distKm) {
         if (method == null || method.isEmpty()) return "";
-        String label;
         switch (method) {
-            case "航空機": label = "航空機"; break;
-            case "バス":   label = "バス"; break;
-            case "電車":   label = "電車"; break;
+            case "航空機": return "航空機";
+            case "バス":   return "バス";
+            case "電車":   return "電車";
             case "自家用車": {
                 String d = (distKm != null) ? String.valueOf(distKm) : "    ";
-                label = "自家用車( " + d + " )㎞";
-                break;
+                return "自家用車( " + d + " )㎞";
             }
-            default: label = method; break;
+            default: return method;
         }
-        return (route != null && !route.isEmpty()) ? label + "\n" + route : label;
     }
 
-    private void writeMergedTransportText(Sheet sheet, int row, String text) {
-        removeMergedRegionsOverlapping(sheet, row, row + 2,
-                FORM26_TRANSPORT_COL_START, FORM26_TRANSPORT_COL_END);
-        sheet.addMergedRegion(new CellRangeAddress(row, row + 2,
-                FORM26_TRANSPORT_COL_START, FORM26_TRANSPORT_COL_END));
-        Row r = sheet.getRow(row);
-        if (r == null) r = sheet.createRow(row);
-        org.apache.poi.ss.usermodel.Cell cell = r.getCell(FORM26_TRANSPORT_COL_START);
-        if (cell == null) cell = r.createCell(FORM26_TRANSPORT_COL_START);
-        cell.setCellValue(text);
+    // 交通手段を上段（row..row+1）、区間を下段（row+2）に分割して書き込む
+    private void writeSplitTransportText(Sheet sheet, int row, String methodLabel, String route) {
         Workbook wb = sheet.getWorkbook();
-        CellStyle style = wb.createCellStyle();
-        style.cloneStyleFrom(cell.getCellStyle());
-        style.setAlignment(HorizontalAlignment.CENTER);
-        style.setVerticalAlignment(VerticalAlignment.CENTER);
-        style.setWrapText(true);
-        cell.setCellStyle(style);
+        removeMergedRegionsOverlapping(sheet, row, row + 2, FORM26_TRANSPORT_COL_START, FORM26_TRANSPORT_COL_END);
+
+        // 上段: row～row+1 結合 → 交通手段
+        sheet.addMergedRegion(new CellRangeAddress(row, row + 1, FORM26_TRANSPORT_COL_START, FORM26_TRANSPORT_COL_END));
+        Row r1 = sheet.getRow(row); if (r1 == null) r1 = sheet.createRow(row);
+        org.apache.poi.ss.usermodel.Cell c1 = r1.getCell(FORM26_TRANSPORT_COL_START);
+        if (c1 == null) c1 = r1.createCell(FORM26_TRANSPORT_COL_START);
+        c1.setCellValue(methodLabel != null ? methodLabel : "");
+        CellStyle s1 = wb.createCellStyle(); s1.cloneStyleFrom(c1.getCellStyle());
+        s1.setAlignment(HorizontalAlignment.CENTER); s1.setVerticalAlignment(VerticalAlignment.CENTER);
+        c1.setCellStyle(s1);
+
+        // 下段: row+2 → 区間
+        Row r2 = sheet.getRow(row + 2); if (r2 == null) r2 = sheet.createRow(row + 2);
+        org.apache.poi.ss.usermodel.Cell c2 = r2.getCell(FORM26_TRANSPORT_COL_START);
+        if (c2 == null) c2 = r2.createCell(FORM26_TRANSPORT_COL_START);
+        c2.setCellValue(route != null ? route : "");
+        CellStyle s2 = wb.createCellStyle(); s2.cloneStyleFrom(c2.getCellStyle());
+        s2.setAlignment(HorizontalAlignment.CENTER); s2.setVerticalAlignment(VerticalAlignment.CENTER);
+        s2.setWrapText(true);
+        c2.setCellStyle(s2);
     }
 
     private void ensureLabel(Sheet sheet, int rowIndex, int colIndex, String label) {

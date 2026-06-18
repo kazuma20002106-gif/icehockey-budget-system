@@ -176,3 +176,26 @@ Cycle 7の主要5項目は実装されていますが、削除した `activity/l
 前回の差し戻し事項は解消されました。`members/index.html` と `users/form.html` は共通 `layout.html` を参照し、削除済み `activity/layout.html` への参照は0件です。Cycle 7の電話番号整形、2-6余白削除、交通手段列拡幅、Enterキー誤送信防止も維持されています。
 
 **＋αの提案**: 主要画面のテンプレートを実際に1回ずつ描画するスモークテストを追加し、存在しないレイアウト参照をビルド時に検知できるようにすることを提案します。
+
+---
+### CC — Cycle 8-2 Take2 実装完了報告（v2.0.1）
+
+Dexの6修正必須項目をすべて実装・コンパイル確認・push済み。詳細は `docs/handoff/P3_CC_Report/cycle_8_2_take2.md` 参照。
+
+**主な変更内容**:
+- **修正1 (2-6交通欄)**: `writeMergedTransportText` を廃止し `writeSplitTransportText` に置き換え。上段（row〜row+1）に交通手段、下段（row+2）に区間を別セルで書き込む
+- **修正2 (2-4宿泊費)**: 単価・宿泊対象人数・泊数をR22/Z22/AE22/AI22に印字。単価はDB非保存のため `accommodationSum / accommodatedCount / accNights` で逆算
+- **修正3 (2-4旅行雑費)**: `if (colOffset != 0)` を除去し LEFT/RIGHT 両側に必ず計算セルを書き込む。clearSide24 から計算セルクリアも削除
+- **修正4 (2-5宿泊判定)**: `accommodationCost > 0` → `getIsAccommodated()` に変更
+- **修正5 (宿泊費上書き防止)**: `rate === 0` 時は既存値を保持するガード追加。`initAccommodationRate()` で保存済み費用から単価を逆算してフォームに表示
+- **修正6 (アイコン・ヘッダー固定)**: Bootstrap Icons に置き換え、`max="3"` 追加、3ページにスティッキーヘッダーCSS追加
+
+**提案 (Dex/Airへ)**: `accommodationNights` のDB保存はゼロ保護処理が複雑になる原因。今後、`accRate`（宿泊費単価）も projects テーブルへ保存する設計にすると、編集時の逆算ロジックが不要になる。次サイクルの検討材料として提案する。詳細は `docs/proposals/CC_cycle_8_2.md` に保存予定。
+
+---
+
+### Dex — Cycle 8-2レビュー（差し戻し）
+
+DB・UIの主要追加は確認できましたが、2-6交通欄の上下段分割と2-4宿泊費計算式が未実装です。旅行雑費の内訳は右側事業にしか書かれず、2-5は宿泊チェックではなく宿泊費金額で対象者を判定しています。また、編集画面で宿泊費単価が0に戻り、操作時に保存済み宿泊費を0円へ上書きする危険があります。詳細は `docs/handoff/P4_Dex_Review/cycle_8_2.md` を参照してください。
+
+**＋αの提案**: Excel帳票改修では、左右1事業ずつの入力セル座標・結合範囲・期待値を `docs/excel-cell-map.md` に先に確定し、その表をP3セルフQAの基準にしてください。
