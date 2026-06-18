@@ -61,11 +61,6 @@ public class ExcelExportService {
         return date.getMonthValue() + "/" + date.getDayOfMonth();
     }
 
-    private String formatPhoneNumber(String phone) {
-        if (phone == null) return "";
-        return phone;
-    }
-
     // Helper to get fully loaded participants
     private List<ProjectParticipant> getLoadedParticipants(int projectId) {
         List<ProjectParticipant> participants = participantMapper.findByProjectId(projectId);
@@ -257,7 +252,7 @@ public class ExcelExportService {
             User activeUser = userSettingService.getActiveUser();
             if (activeUser != null) {
                 String responsible = "記入責任者氏名（　" + activeUser.getName()
-                        + "　）　　電話番号（　" + formatPhoneNumber(activeUser.getPhoneNumber()) + "　）";
+                        + "　）　　電話番号（　" + activeUser.getPhoneNumber() + "　）";
                 writeSafe(sheet, 46, 0, responsible);
             }
         } catch (Exception e) {
@@ -327,7 +322,7 @@ public class ExcelExportService {
             User activeUser = userSettingService.getActiveUser();
             if (activeUser != null) {
                 String line = "記入責任者氏名（　" + activeUser.getName()
-                        + "　）　電話番号（　" + formatPhoneNumber(activeUser.getPhoneNumber()) + "　）";
+                        + "　）　電話番号（　" + activeUser.getPhoneNumber() + "　）";
                 writeSafe(sheet, 36, 0, line);
             } else {
                 writeSafe(sheet, 36, 0, "");
@@ -392,8 +387,8 @@ public class ExcelExportService {
             Integer distKm = (e != null) ? e.getTransportDistanceKm() : null;
 
             String route = (e != null && e.getTransportRoute() != null) ? e.getTransportRoute() : "";
-            // 交通手段を上段（2行）、区間を下段（1行）に分離して出力
-            writeMergedTransportText(sheet, r, method, distKm, route);
+            // 全交通手段を N:S x 3行ブロック結合に統一（航空機・自家用車・電車・バス等すべて）
+            writeMergedTransportText(sheet, r, buildTransportDisplayText(method, distKm, route));
 
             int tc = (e != null) ? nz(e.getTransportCost()) : 0;
             int ac = (e != null) ? nz(e.getAccommodationCost()) : 0;
@@ -419,7 +414,7 @@ public class ExcelExportService {
             int r = startRow + (i * block);
             clearCell(sheet, r, 2);
             clearCell(sheet, r, 9);
-            writeMergedTransportText(sheet, r, "", null, "");
+            writeMergedTransportText(sheet, r, "");
             clearCell(sheet, r, 19);
             clearCell(sheet, r, 23);
             clearCell(sheet, r, 27);
@@ -439,7 +434,7 @@ public class ExcelExportService {
             if (activeUser != null) {
                 writeSafe(sheet, 6, 28, "作成者名（　" + activeUser.getName() + "　　）");
                 writeSafe(sheet, 40, 0, "記入責任者氏名(　" + activeUser.getName() + "　　)");
-                writeSafe(sheet, 40, 27, "電話番号(" + formatPhoneNumber(activeUser.getPhoneNumber()) + "　)");
+                writeSafe(sheet, 40, 27, "電話番号(" + activeUser.getPhoneNumber() + "　)");
             } else {
                 writeSafe(sheet, 6, 28, "作成者名（　　）");
                 writeSafe(sheet, 40, 0, "記入責任者氏名(　　)");
@@ -687,67 +682,43 @@ public class ExcelExportService {
         }
     }
 
-    private void writeMergedTransportText(Sheet sheet, int row, String method, Integer distKm, String route) {
+    private String buildTransportDisplayText(String method, Integer distKm, String route) {
+        if (method == null || method.isEmpty()) return "";
+        String label;
+        switch (method) {
+            case "航空機": label = "航空機"; break;
+            case "バス":   label = "バス"; break;
+            case "電車":   label = "電車"; break;
+            case "自家用車": {
+                String d = (distKm != null) ? String.valueOf(distKm) : "    ";
+                label = "自家用車( " + d + " )㎞";
+                break;
+            }
+            default: label = method; break;
+        }
+        return (route != null && !route.isEmpty()) ? label + "\n" + route : label;
+    }
+
+    private void writeMergedTransportText(Sheet sheet, int row, String text) {
         removeMergedRegionsOverlapping(sheet, row, row + 2,
                 FORM26_TRANSPORT_COL_START, FORM26_TRANSPORT_COL_END);
-        
-        // 1-2行目（上段）：交通手段
-        sheet.addMergedRegion(new CellRangeAddress(row, row + 1,
+        sheet.addMergedRegion(new CellRangeAddress(row, row + 2,
                 FORM26_TRANSPORT_COL_START, FORM26_TRANSPORT_COL_END));
-        
-        // 3行目（下段）：交通区間
-        sheet.addMergedRegion(new CellRangeAddress(row + 2, row + 2,
-                FORM26_TRANSPORT_COL_START, FORM26_TRANSPORT_COL_END));
-
-        String methodText = "";
-        if (method != null && !method.isEmpty()) {
-            switch (method) {
-                case "航空機": methodText = "航空機"; break;
-                case "バス":   methodText = "バス"; break;
-                case "電車":   methodText = "電車"; break;
-                case "自家用車": {
-                    String d = (distKm != null) ? String.valueOf(distKm) : "    ";
-                    methodText = "自家用車( " + d + " )km";
-                    break;
-                }
-                default: methodText = method; break;
-            }
-        }
-
-        String routeText = (route != null) ? route : "";
-
-        // 上段の書き込み
-        Row rTop = sheet.getRow(row);
-        if (rTop == null) rTop = sheet.createRow(row);
-        org.apache.poi.ss.usermodel.Cell cTop = rTop.getCell(FORM26_TRANSPORT_COL_START);
-        if (cTop == null) cTop = rTop.createCell(FORM26_TRANSPORT_COL_START);
-        cTop.setCellValue(methodText);
-
+        Row r = sheet.getRow(row);
+        if (r == null) r = sheet.createRow(row);
+        org.apache.poi.ss.usermodel.Cell cell = r.getCell(FORM26_TRANSPORT_COL_START);
+        if (cell == null) cell = r.createCell(FORM26_TRANSPORT_COL_START);
+        cell.setCellValue(text);
         Workbook wb = sheet.getWorkbook();
-        CellStyle topStyle = wb.createCellStyle();
-        if (cTop.getCellStyle() != null) topStyle.cloneStyleFrom(cTop.getCellStyle());
-        topStyle.setAlignment(HorizontalAlignment.CENTER);
-        topStyle.setVerticalAlignment(VerticalAlignment.CENTER);
-        Font topFont = wb.createFont();
-        topFont.setFontHeightInPoints((short) 11);
-        topStyle.setFont(topFont);
-        cTop.setCellStyle(topStyle);
-
-        // 下段の書き込み
-        Row rBot = sheet.getRow(row + 2);
-        if (rBot == null) rBot = sheet.createRow(row + 2);
-        org.apache.poi.ss.usermodel.Cell cBot = rBot.getCell(FORM26_TRANSPORT_COL_START);
-        if (cBot == null) cBot = rBot.createCell(FORM26_TRANSPORT_COL_START);
-        cBot.setCellValue(routeText);
-
-        CellStyle botStyle = wb.createCellStyle();
-        if (cBot.getCellStyle() != null) botStyle.cloneStyleFrom(cBot.getCellStyle());
-        botStyle.setAlignment(HorizontalAlignment.CENTER);
-        botStyle.setVerticalAlignment(VerticalAlignment.CENTER);
-        Font botFont = wb.createFont();
-        botFont.setFontHeightInPoints((short) 10);
-        botStyle.setFont(botFont);
-        cBot.setCellStyle(botStyle);
+        CellStyle style = wb.createCellStyle();
+        style.cloneStyleFrom(cell.getCellStyle());
+        style.setAlignment(HorizontalAlignment.CENTER);
+        style.setVerticalAlignment(VerticalAlignment.CENTER);
+        style.setWrapText(true);
+        Font font = wb.createFont();
+        font.setFontHeightInPoints((short) 14);
+        style.setFont(font);
+        cell.setCellStyle(style);
     }
 
     private void ensureLabel(Sheet sheet, int rowIndex, int colIndex, String label) {
