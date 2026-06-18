@@ -138,16 +138,12 @@
                             <tr>
                                 <th style="width:10%;">No</th>
                                 <th class="text-start">氏名</th>
-                                <th style="width:15%;">種別</th>
-                                <th style="width:10%;">宿泊</th>
                             </tr>
                         </thead>
                         <tbody>
                             <tr th:each="part, stat : ${pd.participants}">
                                 <td th:text="${stat.count}"></td>
                                 <td class="text-start" th:text="${part.memberName}"></td>
-                                <td th:text="${part.memberRole}"></td>
-                                <td th:text="${part.isAccommodated ? '○' : '−'}"></td>
                             </tr>
                         </tbody>
                     </table>
