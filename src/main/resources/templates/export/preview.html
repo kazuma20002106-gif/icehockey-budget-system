@@ -136,20 +136,14 @@
                     <table class="table table-bordered mb-0 text-center align-middle">
                         <thead class="table-light">
                             <tr>
-                                <th style="width:8%;">No</th>
-                                <th style="width:16%;">監督・選手別</th>
+                                <th style="width:10%;">No</th>
                                 <th class="text-start">氏名</th>
-                                <th style="width:14%;">年齢・学年</th>
-                                <th style="width:14%;">宿泊対象者</th>
                             </tr>
                         </thead>
                         <tbody>
                             <tr th:each="part, stat : ${pd.participants}">
                                 <td th:text="${stat.count}"></td>
-                                <td th:text="${part.memberRole}"></td>
                                 <td class="text-start" th:text="${part.memberName}"></td>
-                                <td th:text="${part.memberAge}"></td>
-                                <td th:text="${part.isAccommodated ? '○' : ''}"></td>
                             </tr>
                         </tbody>
                     </table>
