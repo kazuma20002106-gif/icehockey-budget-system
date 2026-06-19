@@ -104,11 +104,13 @@ function Test-Paused {
 function New-PauseFile {
     param([string]$Reason)
     try {
-        New-Item -ItemType File -Path $PauseFile -Force | Out-Null
+        New-Item -ItemType File -Path $PauseFile -Force -ErrorAction Stop | Out-Null
         Write-Log "PAUSE 自動生成: $Reason" "PAUSE"
         Write-Log "Kazumax が確認後、PAUSE ファイルを削除すると再開します。" "PAUSE"
+        return $true
     } catch {
-        Write-Log "PAUSE ファイル生成失敗: $_" "WARN"
+        Write-Log "PAUSE ファイル生成失敗: $_" "ERROR"
+        return $false
     }
 }
 
@@ -127,16 +129,25 @@ function Initialize-ProcessedSet {
         $lines = Get-Content $ProcessedLog -Encoding UTF8 -ErrorAction Stop
     } catch {
         Write-Log "processed.log 読み込み失敗: $_" "ERROR"
-        New-PauseFile "processed.log 読み込み失敗: 手動確認後 PAUSE を削除してください。"
+        $null = New-PauseFile "processed.log 読み込み失敗: 手動確認後 PAUSE を削除してください。"
         return
     }
     $lineNum = 0
     foreach ($line in $lines) {
         $lineNum++
         if ([string]::IsNullOrWhiteSpace($line)) { continue }
-        if ($line -notmatch '^(\S+:r\d+)\|(validated|launched|done) at=.+$') {
+        # キー(cycle許可文字+:rN) | state at=<ISO8601>
+        if ($line -notmatch '^([A-Za-z0-9_.\-]+:r\d+)\|(validated|launched|done) at=(\S+)$') {
             Write-Log "processed.log 行 ${lineNum}: フォーマット不正 → PAUSE" "ERROR"
-            New-PauseFile "processed.log 整合性エラー (行 ${lineNum}): 手動確認後 PAUSE を削除してください。"
+            $null = New-PauseFile "processed.log 整合性エラー (行 ${lineNum}): 手動確認後 PAUSE を削除してください。"
+            return
+        }
+        # 日時部を ISO 8601 として厳密検証
+        $atStr = $Matches[3]
+        $dummy = [datetimeoffset]::MinValue
+        if (-not [datetimeoffset]::TryParse($atStr, [ref]$dummy)) {
+            Write-Log "processed.log 行 ${lineNum}: 日時が ISO 8601 ではありません → PAUSE" "ERROR"
+            $null = New-PauseFile "processed.log 日時不正 (行 ${lineNum}): 手動確認後 PAUSE を削除してください。"
             return
         }
         $Script:ProcessedSet[$Matches[1]] = $Matches[2]
@@ -202,7 +213,7 @@ function Mark-AsProcessed {
         Add-Content -Path $ProcessedLog -Value $line -Encoding UTF8 -ErrorAction Stop
     } catch {
         Write-Log "processed.log 追記失敗 → PAUSE: $_" "ERROR"
-        New-PauseFile "processed.log 書き込み失敗: $key を記録できません。ディスクを確認してください。"
+        $null = New-PauseFile "processed.log 書き込み失敗: $key を記録できません。ディスクを確認してください。"
         return $false
     }
     $Script:ProcessedSet[$key] = $State
@@ -211,27 +222,89 @@ function Mark-AsProcessed {
 }
 
 # ─────────────────────────────────────────────────────────────────────────
-# Deny-Manifest: 不正manifest を quarantine に移動（またはPAUSE）
-# 30秒ごとの無限再試行ループを防止する共通失敗処理
+# パス境界判定: quarantine 配下かどうかを FullPath で判定（文字列一致でなく境界）
+# ─────────────────────────────────────────────────────────────────────────
+function Test-UnderQuarantine {
+    param([string]$Path)
+    try {
+        $q = [System.IO.Path]::GetFullPath($QuarantineDir).TrimEnd([System.IO.Path]::DirectorySeparatorChar) + [System.IO.Path]::DirectorySeparatorChar
+        $p = [System.IO.Path]::GetFullPath($Path)
+        return $p.StartsWith($q, [System.StringComparison]::OrdinalIgnoreCase)
+    } catch {
+        return $false
+    }
+}
+
+# ─────────────────────────────────────────────────────────────────────────
+# Test-ReparseInPath: BoundaryRoot から LeafPath までの各ノード（leaf含む）に
+# reparse point / junction / symlink が無いかを確認（許可境界より上は確認不要）
+# ─────────────────────────────────────────────────────────────────────────
+function Test-ReparseInPath {
+    param([string]$LeafPath, [string]$BoundaryRoot)
+    $boundary = [System.IO.Path]::GetFullPath($BoundaryRoot).TrimEnd([System.IO.Path]::DirectorySeparatorChar)
+    $current  = [System.IO.Path]::GetFullPath($LeafPath)
+    while ($true) {
+        if (Test-Path -LiteralPath $current) {
+            $item = Get-Item -LiteralPath $current -Force -ErrorAction SilentlyContinue
+            if ($item -and ($item.Attributes -band [System.IO.FileAttributes]::ReparsePoint)) {
+                return $true
+            }
+        }
+        if ($current.TrimEnd([System.IO.Path]::DirectorySeparatorChar) -ieq $boundary) { break }
+        $parent = [System.IO.Path]::GetDirectoryName($current)
+        if ([string]::IsNullOrEmpty($parent) -or $parent -eq $current) { break }
+        $current = $parent
+    }
+    return $false
+}
+
+# ─────────────────────────────────────────────────────────────────────────
+# Deny-Manifest: 不正manifest を隔離（.rejected.json へ改名 = 監視Filter外）
+# 移動失敗時は原本を残して PAUSE し、致命異常は throw で監視ループを停止
 # ─────────────────────────────────────────────────────────────────────────
 function Deny-Manifest {
     param([string]$ManifestPath, [string]$Reason, [switch]$DoPause)
     $leaf = Split-Path -Leaf $ManifestPath
-    Write-Log "manifest 不合格 → quarantine: $leaf" "ERROR"
+    Write-Log "manifest 不合格 → 隔離: $leaf" "ERROR"
     Write-Log "  理由: $Reason" "ERROR"
+
     if (-not (Test-Path $QuarantineDir)) {
-        try { New-Item -ItemType Directory -Path $QuarantineDir -Force | Out-Null } catch {}
+        try {
+            New-Item -ItemType Directory -Path $QuarantineDir -Force -ErrorAction Stop | Out-Null
+        } catch {
+            Write-Log "  quarantine ディレクトリ作成失敗。原本を残し PAUSE します。" "ERROR"
+            if (-not (New-PauseFile "quarantine 作成失敗: $Reason")) {
+                throw "PAUSE 生成にも失敗しました。監視を停止します。"
+            }
+            throw "quarantine 作成失敗のため監視を停止します（原本は保全）。"
+        }
     }
+
+    # 監視Filter (*.ready.json) に一致しない拡張子へ改名し、再検知ループを根絶
+    # GUID で一意名を保証し、既存隔離ファイルを上書きしない
+    $baseName = $leaf -replace '\.ready\.json$', ''
+    $unique   = [System.Guid]::NewGuid().ToString("N").Substring(0, 8)
+    $ts       = Get-Date -Format "yyyyMMdd_HHmmss"
+    $dest     = Join-Path $QuarantineDir "${ts}_${unique}_${baseName}.rejected.json"
+
     try {
-        $ts   = Get-Date -Format "yyyyMMdd_HHmmss"
-        $dest = Join-Path $QuarantineDir "${ts}_${leaf}"
-        Move-Item -Path $ManifestPath -Destination $dest -Force -ErrorAction Stop
-        Write-Log "  quarantine 移動完了: quarantine\${ts}_${leaf}" "WARN"
+        # -Force を付けず、一意名により衝突しない前提で移動
+        Move-Item -Path $ManifestPath -Destination $dest -ErrorAction Stop
+        Write-Log "  隔離完了: quarantine\${ts}_${unique}_${baseName}.rejected.json" "WARN"
     } catch {
-        Write-Log "  quarantine 移動失敗 (削除試行): $_" "WARN"
-        try { Remove-Item $ManifestPath -Force -ErrorAction SilentlyContinue } catch {}
+        # 移動失敗: 原本を削除せず残し、PAUSE して停止（監査証跡を保全）
+        Write-Log "  隔離移動失敗。原本を残し PAUSE します: $_" "ERROR"
+        if (-not (New-PauseFile "quarantine 移動失敗（原本保全）: $Reason")) {
+            throw "PAUSE 生成にも失敗しました。監視を停止します。"
+        }
+        throw "quarantine 移動失敗のため監視を停止します（原本は保全）。"
     }
-    if ($DoPause) { New-PauseFile $Reason }
+
+    if ($DoPause) {
+        if (-not (New-PauseFile $Reason)) {
+            throw "PAUSE 生成に失敗しました。監視を停止します。"
+        }
+    }
 }
 
 # ─────────────────────────────────────────────────────────────────────────
@@ -287,14 +360,15 @@ function Process-Manifest {
         }
     }
 
-    # 4. schema_version: JSON整数型かつ値1のみ（Double・String・Boolean・null→quarantine）
+    # 4. schema_version: JSON Int32型かつ値1のみ
+    #    （Int64=Int32範囲外, Double, String, Boolean, null は全て→quarantine）
     $sv = $manifest.schema_version
     if ($null -eq $sv) {
         Deny-Manifest -ManifestPath $ManifestPath -Reason "schema_version が null です"
         return $null
     }
-    if ($sv -isnot [int] -and $sv -isnot [long]) {
-        Deny-Manifest -ManifestPath $ManifestPath -Reason "schema_version が整数型ではありません: 型=$($sv.GetType().Name), 値=$sv"
+    if ($sv -isnot [int]) {
+        Deny-Manifest -ManifestPath $ManifestPath -Reason "schema_version が Int32 整数ではありません: 型=$($sv.GetType().Name), 値=$sv"
         return $null
     }
     if ($sv -ne 1) {
@@ -308,21 +382,22 @@ function Process-Manifest {
         return $null
     }
 
-    # 6. cycle 非空（→quarantine）
+    # 6. cycle: 許可文字（英数 . _ -）のみ。改行・`|`・`:` 等で履歴形式へ干渉させない（→quarantine）
     $cycle = [string]$manifest.cycle
-    if ([string]::IsNullOrWhiteSpace($cycle)) {
-        Deny-Manifest -ManifestPath $ManifestPath -Reason "cycle が空または空白です"
+    if ($cycle -notmatch '^[A-Za-z0-9_.\-]+$') {
+        Deny-Manifest -ManifestPath $ManifestPath -Reason "cycle が許可文字(英数 . _ -)以外を含むか空です: '$cycle'"
         return $null
     }
 
-    # 7. revision: JSON整数型かつ1以上（Double・String・指数表記→quarantine）
+    # 7. revision: JSON Int32型かつ1以上
+    #    （Int64=Int32範囲外 2147483648以上, Double, String, 指数表記は全て→quarantine）
     $rv = $manifest.revision
     if ($null -eq $rv) {
         Deny-Manifest -ManifestPath $ManifestPath -Reason "revision が null です"
         return $null
     }
-    if ($rv -isnot [int] -and $rv -isnot [long]) {
-        Deny-Manifest -ManifestPath $ManifestPath -Reason "revision が整数型ではありません: 型=$($rv.GetType().Name), 値=$rv"
+    if ($rv -isnot [int]) {
+        Deny-Manifest -ManifestPath $ManifestPath -Reason "revision が Int32 整数ではありません（小数・文字列・Int32範囲外を含む）: 型=$($rv.GetType().Name), 値=$rv"
         return $null
     }
     $revision = [int]$rv
@@ -345,7 +420,7 @@ function Process-Manifest {
         Deny-Manifest -ManifestPath $ManifestPath -Reason "created_at がISO 8601+TZ形式ではありません: $createdAt"
         return $null
     }
-    $dtResult = [datetimeoffset]::new(0)
+    $dtResult = [datetimeoffset]::MinValue
     if (-not [datetimeoffset]::TryParse($createdAt, [ref]$dtResult)) {
         Deny-Manifest -ManifestPath $ManifestPath -Reason "created_at が解析できません: $createdAt"
         return $null
@@ -374,10 +449,11 @@ function Process-Manifest {
         Deny-Manifest -ManifestPath $ManifestPath -Reason "P1が存在しないかディレクトリです: $p1FullPath"
         return $null
     }
-    # シンボリックリンク / リパースポイント確認（→PAUSE: セキュリティ問題）
-    $p1Item = Get-Item $p1FullPath -Force -ErrorAction SilentlyContinue
-    if ($p1Item -and ($p1Item.Attributes -band [System.IO.FileAttributes]::ReparsePoint)) {
-        Deny-Manifest -ManifestPath $ManifestPath -Reason "P1ファイルがリパースポイント/シンボリックリンクです: $p1FullPath" -DoPause
+    # P1ファイル自身 + AllowedP1Root から対象までの親ディレクトリの
+    # reparse point / junction / symlink を確認（→PAUSE: セキュリティ問題）
+    # 親junction経由で許可外を参照する攻撃を防止
+    if (Test-ReparseInPath -LeafPath $p1FullPath -BoundaryRoot $AllowedP1Root) {
+        Deny-Manifest -ManifestPath $ManifestPath -Reason "P1ファイルまたは親ディレクトリに reparse point/junction があります: $p1FullPath" -DoPause
         return $null
     }
 
@@ -416,10 +492,10 @@ function Process-Manifest {
 # ─────────────────────────────────────────────────────────────────────────
 function Invoke-PendingScan {
     Write-Log "保留中の manifest をスキャン..."
-    $manifests = Get-ChildItem -Path $MaestroDir -Filter "*.ready.json" -Recurse -ErrorAction SilentlyContinue |
-        Where-Object { $_.FullName -notlike "*\quarantine\*" } |
-        Sort-Object LastWriteTime
-    if (-not $manifests -or $manifests.Count -eq 0) {
+    $manifests = @(Get-ChildItem -Path $MaestroDir -Filter "*.ready.json" -Recurse -ErrorAction SilentlyContinue |
+        Where-Object { -not (Test-UnderQuarantine $_.FullName) } |
+        Sort-Object LastWriteTime)
+    if ($manifests.Count -eq 0) {
         Write-Log "保留中の manifest はありません。"
         return
     }
@@ -657,6 +733,9 @@ function Start-Watching {
                 $fileName     = $event.Name
                 $manifestPath = Join-Path $MaestroDir $fileName
 
+                # quarantine 配下のイベントはパス境界判定で破棄（隔離→再検知ループ防止）
+                if (Test-UnderQuarantine $manifestPath) { continue }
+
                 if ($recentEvents.ContainsKey($fileName) -and
                     ((Get-Date) - $recentEvents[$fileName]).TotalMilliseconds -lt 100) { continue }
                 $recentEvents[$fileName] = Get-Date
@@ -711,7 +790,11 @@ docs/handoff/maestro/quarantine/
 
 # ─────────────────────────────────────────────────────────────────────────
 # メイン
+# テストハーネス(maestro_runner.tests.ps1)から dot-source する場合は
+# $env:MAESTRO_NO_MAIN を設定し、関数定義のみ読み込んでメインを実行しない
 # ─────────────────────────────────────────────────────────────────────────
+if ($env:MAESTRO_NO_MAIN) { return }
+
 if (-not (Test-Path $MaestroDir)) {
     New-Item -ItemType Directory -Path $MaestroDir -Force | Out-Null
 }
