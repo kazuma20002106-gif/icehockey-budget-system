@@ -35,3 +35,9 @@ build/
 # 実行時ログ（コミット対象外）
 app_run.log
 *.log
+
+# Maestro Runner runtime files
+docs/handoff/maestro/*.log
+docs/handoff/maestro/*.txt
+docs/handoff/maestro/PAUSE
+docs/handoff/maestro/maestro.lock
