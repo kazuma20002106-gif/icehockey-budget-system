@@ -1,38 +1,69 @@
-# Cycle 9 CC実装完了報告書 (Take 3)
+# Cycle 9 CC実装完了報告書 (Take 4)
 
 作成日: 2026-06-19
 実装者: CC (Claude Code)
-バージョン: v2.0.8
+バージョン: v2.0.9
 
-## Take 3 差分（Dex P4 全修正必須対応）
+## Take 4 差分（Dex P4 Take3 全修正必須対応）
 
-Dex の P4レビュー（差し戻しNG）で指摘された6件の修正必須をすべて対応した完全書き直し。
-
-| 修正必須 | 内容 | 対応方法 |
+| 修正必須 | 指摘内容 | 対応方法 |
 |---|---|---|
-| 修正必須1 | Renamed検知漏れ・起動時/PAUSE解除時の未処理manifest回収 | `Invoke-PendingScan` + `Renamed`イベント + 30秒定期走査 + サブディレクトリ再帰 |
-| 修正必須2 | processed.log未復元・単一起動非保証 | `Initialize-ProcessedSet` (起動時復元) + named mutex `Enter-SingleInstance` |
-| 修正必須3 | 疎通テストとresumeテストの前提矛盾 | Phase1 (`-Test`: no-persistence) と Phase2 (`-TestResume`: nonce付きresumeテスト) を完全分離 |
-| 修正必須4 | JSON失敗を成功扱い | 全catchで `$false` 返却。exit0 + JSONパース + 非空session_id + 期待応答のAND条件 |
-| 修正必須5 | manifest値・型・パス境界未検証 | 14ステップバリデーション（schema_version/producer/revision/SHA-256形式/created_at/AllowedP1Root境界チェック） |
-| 修正必須6 | ランタイム情報のgit混入・session_id露出 | session_id先頭8文字+「...」のみログ記録。CLI生出力を通常ログに書かない。`.gitignore`にマエストロruntime追加 |
+| 修正必須1 | processed.log書き込み失敗を成功扱い。再起動で同一manifest再処理。 | `Mark-AsProcessed`: ディスク書き込み先→メモリ更新の順に変更。失敗→PAUSE。`Initialize-ProcessedSet`: 不正行を厳密検証、欠損・未知state→即PAUSE。 |
+| 修正必須2 | `[int]`キャストは小数を丸める（1.4→1, 1.5→2）。`[datetime]::Parse`は非ISO表現を受理。 | `schema_version`/`revision`を`-is [int] -or -is [long]`で型チェック。`created_at`は正規表現＋`[datetimeoffset]::TryParse`で厳密検証。 |
+| 修正必須3 | 必須フィールド不足・値不正が`$null`返却のみ→30秒ごとの無限再試行ループ。 | `Deny-Manifest`関数を新設。全バリデーション失敗でquarantineに移動（セキュリティ問題はPAUSE）。`Test-Path -PathType Leaf`でディレクトリ禁止。リパースポイント確認追加。 |
+| 修正必須4 | Phase1がresult非空のみ確認。Phase2がnonce含有チェック（完全一致でない）。 | Phase1: `$result.Trim() -ne "OK"`で失敗。Phase2: `$response.Trim() -eq $nonce`のみ成功。nonceをメモリのみ保持（ファイル保存廃止）。CLI生出力のログ記録を廃止。 |
+| 修正必須5 | mutex取得後の起動時スキャン・FSW生成がtry/finallyの外。lockファイル失敗でmutex残留。 | `Enter-SingleInstance`: lockfile失敗時もmutexを解放。AbandonedMutexException対応追加。`Start-Watching`: mutex取得後の全処理を`try/finally`で囲む（外側でmutex解放・内側でwatcher破棄）。 |
+| 修正必須6 | P3に実測結果なし（構文チェックのみ）。`*.ready.json`がgitignore対象外。 | 下記「実機テスト結果」セクションに全項目を記録。`.gitignore`に`*.ready.json`・`quarantine/`パターンを追加。`git check-ignore`で全5パターンを確認。 |
 
 ---
 
-## Take 2 差分（Verification Plan 対応）
+## 実機テスト結果（修正必須6 対応）
 
-Air が Verification Plan（Section 3）を追加したため、以下2点を追加実装した。
+### テスト1: schema_version / revision 型チェック（実機実測）
 
-| 追加内容 | 対応テスト |
-|---|---|
-| `Test-ClaudeResume` 関数 + `-TestResume` モード | 第0段階 Step6: session_id を用いた `--resume` 文脈継続確認 |
-| SHA-256不一致時に PAUSE ファイル自動生成 | 第1段階 テスト3: ハッシュ不一致で処理を中断（PAUSE） |
+| 値 | JSON型 | isInt判定 | 合否 | 期待 | 判定 |
+|---|---|---|---|---|---|
+| `1` | Int32 | True | PASS | PASS | **OK** |
+| `1.0` | Decimal | False | FAIL | FAIL | **OK** |
+| `1.4` | Decimal | False | FAIL | FAIL | **OK** |
+| `1.5` | Decimal | False | FAIL | FAIL | **OK** |
+| `"1"` | String | False | FAIL | FAIL | **OK** |
+| `true` | Boolean | False | FAIL | FAIL | **OK** |
+| `null` | null | False | FAIL | FAIL | **OK** |
 
----
+補足: PowerShell 5.1では`ConvertFrom-Json`で`1.0`/`1.4`/`1.5`はDecimal型として返る（Doubleではなく）。`-is [int]`と`-is [long]`の両方をFalseとする型チェックで正確に弾ける。
 
-## 実装概要
+### テスト2: created_at ISO 8601+TZ 正規表現テスト（実機実測）
 
-`docs/proposals/自動化.md` と `docs/handoff/P1_Air_Blueprint/cycle_9_maestro_runner.md` の仕様に基づき、**Maestro Runner (第0段階＋第1段階の基盤)** を実装しました。
+正規表現: `^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})$`
+
+| 値 | 実際 | 期待 | 判定 |
+|---|---|---|---|
+| `2026-06-19T12:00:00Z` | PASS | PASS | **OK** |
+| `2026-06-19T12:00:00+09:00` | PASS | PASS | **OK** |
+| `2026-06-19T12:00:00.123Z` | PASS | PASS | **OK** |
+| `June 19, 2026` | FAIL | FAIL | **OK** |
+| `2026/6/19` | FAIL | FAIL | **OK** |
+| `2026-06-19T12:00:00` (TZなし) | FAIL | FAIL | **OK** |
+| `2026-06-19` (T以降なし) | FAIL | FAIL | **OK** |
+
+### テスト3: git check-ignore 実測（*.ready.json と quarantine/）
+
+コマンド: `git check-ignore -v <path>` を各パスで実行
+
+| テスト対象パス | 結果 | 適用パターン |
+|---|---|---|
+| `docs/handoff/maestro/test.ready.json` | **IGNORED** | `.gitignore:45: docs/handoff/maestro/**/*.ready.json` |
+| `docs/handoff/maestro/cycle_9/revision_1/air.ready.json` | **IGNORED** | `.gitignore:45: docs/handoff/maestro/**/*.ready.json` |
+| `docs/handoff/maestro/maestro.log` | **IGNORED** | `.gitignore:40: docs/handoff/maestro/*.log` |
+| `docs/handoff/maestro/PAUSE` | **IGNORED** | `.gitignore:42: docs/handoff/maestro/PAUSE` |
+| `docs/handoff/maestro/quarantine/20260619_test.ready.json` | **IGNORED** | `.gitignore:46: docs/handoff/maestro/quarantine/` |
+
+全5パターンが正しくignore対象になっていることを `git check-ignore -v` で確認済み。
+
+### テスト4: 外部Claude接続テスト（Phase1/Phase2）
+
+Kazumaxによる課金経路の目視確認が完了していないため未実施。
 
 ---
 
@@ -40,91 +71,56 @@ Air が Verification Plan（Section 3）を追加したため、以下2点を追
 
 | ファイル | 種別 | 説明 |
 |---|---|---|
-| `scripts/maestro_runner.ps1` | **新規作成** | Maestro Runner 本体（PowerShellスクリプト） |
-| `docs/handoff/maestro/.gitkeep` | **新規作成** | maestro監視ディレクトリの初期化（gitkeep） |
-| `.gitignore` | **更新** | `# Maestro Runner runtime files` セクション追加 |
+| `scripts/maestro_runner.ps1` | **更新** | Take4: Dex P4 Take3 全6修正必須対応 |
+| `docs/handoff/maestro/.gitkeep` | 既存 | maestro監視ディレクトリの初期化 |
+| `.gitignore` | **更新** | `*.ready.json`・`quarantine/`パターン追加 |
 
 ---
 
-## scripts/maestro_runner.ps1 の構成（Take 3）
+## scripts/maestro_runner.ps1 の構成（Take 4 最終版）
 
-### 起動方法
-```powershell
-# 第0段階 Phase1: 疎通テスト（--no-session-persistence）
-.\scripts\maestro_runner.ps1 -Test
+### 新設・変更した関数
 
-# 第0段階 Phase2: nonce resumeテスト（課金確認後に実行）
-.\scripts\maestro_runner.ps1 -TestResume
+#### `Deny-Manifest`（新設）
+- quarantine ディレクトリにタイムスタンプ付きでmanifestを移動
+- `-DoPause` スイッチでPAUSEも同時生成
+- 移動失敗時は削除を試みてリトライループを防止
 
-# 第1段階: manifest監視ループ開始
-.\scripts\maestro_runner.ps1 -Watch
+#### `Initialize-ProcessedSet`（強化）
+- `Get-Content ... -ErrorAction Stop` で読み込み失敗→PAUSE
+- 各行を `^(\S+:r\d+)\|(validated|launched|done) at=.+$` で厳密検証
+- 空白行はスキップ、不正行→即PAUSE
 
-# 使い方表示
-.\scripts\maestro_runner.ps1
-```
+#### `Mark-AsProcessed`（修正）
+- `Add-Content ... -ErrorAction Stop` を先に実行
+- 失敗→PAUSE（メモリ更新はディスク書き込み成功後のみ）
+- `return $true` / `return $false` で呼び出し元がPAUSE状態を判断
 
-### 実装した関数一覧
+#### `Enter-SingleInstance`（修正）
+- `AbandonedMutexException` をcatchして回復処理
+- lockファイル書き込み失敗時にmutexをRelease+Dispose
+- `$acquired` フラグでRollbackの有無を判定
 
-#### `Write-Log` / `Get-MaskedId`
-- レベル別色分けでコンソール＋ファイル出力
-- session_idは先頭8文字+「...」のみ記録（全文ログ禁止）
+#### `Process-Manifest`（強化）
+- schema_version/revision: `-is [int] -or -is [long]` で型チェック（小数・文字列・Boolean・null全拒否）
+- created_at: 正規表現で`T`・TZ必須チェック → `[datetimeoffset]::TryParse`で解析確認
+- P1ファイル: `Test-Path -PathType Leaf` でディレクトリ拒否
+- リパースポイント: `[System.IO.FileAttributes]::ReparsePoint` で確認→PAUSE
+- 全バリデーション失敗: `Deny-Manifest` でquarantineへ（JSONパース失敗・パス境界・SHA-256不一致はPAUSEも）
 
-#### `Get-ClaudeExe`
-- `[version]$_.Name` キャストで降順ソート → `2.1.9` と `2.1.181` が混在しても正しく `2.1.181` を選択
-- `^\d+\.\d+\.\d+$` フィルタで非バージョンディレクトリを除外
+#### `Test-ClaudeConnection` Phase1（修正）
+- `result.Trim() -ne "OK"` で完全一致チェック追加
+- CLI生出力をログに書かない。`Not logged in`パターンマッチでエラー分類のみ記録
 
-#### `Initialize-ProcessedSet`（修正必須2対応）
-- 起動時に `processed.log` を読み込み、`ProcessedSet` を完全復元
-- フォーマット: `key|state at=timestamp`
-- 状態管理: `validated` / `launched` / `done`
+#### `Test-ClaudeResume` Phase2（修正）
+- nonceをメモリのみ保持（`$NonceFile`廃止）
+- `$response.Trim() -eq $nonce` のみ成功条件（`-match`廃止）
 
-#### `Enter-SingleInstance` / `Exit-SingleInstance`（修正必須2対応）
-- named mutex `Global\MaestroRunnerBudgetSystem` で単一プロセス保証
-- PIDロックファイル（`maestro.lock`）で追加保護
-
-#### `Invoke-PendingScan`（修正必須1対応）
-- `docs/handoff/maestro/` 以下を再帰走査して `*.ready.json` を全列挙
-- 起動時・PAUSE解除時・30秒定期で呼び出し
-
-#### `Process-Manifest`（修正必須4・5対応）
-14ステップバリデーション:
-1. ファイル存在確認
-2. JSONパース（失敗→PAUSE）
-3. 必須フィールド存在確認
-4. `schema_version == 1`
-5. `producer == "air"`
-6. `cycle` 非空
-7. `revision` ≥ 1 の整数
-8. `p1_sha256` が64桁16進数 `^[0-9a-fA-F]{64}$`
-9. `created_at` 有効日時
-10. `p1_file` 正規化 + `AllowedP1Root` 境界チェック（`..` / 絶対パス攻撃を防止）
-11. P1ファイル存在確認
-12. SHA-256一致確認（不一致→PAUSE）
-13. 重複チェック（`ProcessedSet` で `validated` / `launched` / `done` 確認）
-14. `Mark-AsProcessed` で `validated` 記録
-
-#### `Test-ClaudeConnection` Phase1（修正必須3・4対応）
-- `--no-session-persistence --tools ""` の最小疎通のみ
-- exit0 + JSONパース成功 + 非空session_id + 非空result の全AND条件
-- session_idはログに先頭8文字のみ、ファイル保存なし
-
-#### `Test-ClaudeResume` Phase2（修正必須3・4対応）
-- `NONCE-XXXXXXXX` のランダムnonce生成 → セッションに記憶させる（persistence有効）
-- `--resume` で再開 → nonce完全一致を確認
-- 成功後にnonceファイル削除。失敗時は `$false` 返却
-- 「覚えていますか？」ではなくnonce完全一致で文脈継続を判定
-
-#### `Add-GitignoreEntries`（修正必須6対応）
-- `.gitignore` に `# Maestro Runner runtime files` マーカー+エントリを冪等追加
-- 対象: `*.log`, `*.txt`, `PAUSE`, `maestro.lock`
-
-#### `Start-Watching`（修正必須1対応）
-- `FileSystemWatcher` の `Created | Changed | Renamed` イベントを監視
-- `IncludeSubdirectories = $true` でサブディレクトリも対象
-- 100ms重複イベントデバウンス
-- 起動時 `Initialize-ProcessedSet` + `Enter-SingleInstance`
-- 30秒定期 `Invoke-PendingScan`
-- PAUSE解除検知後に `Invoke-PendingScan`
+#### `Start-Watching`（修正）
+- `Enter-SingleInstance`成功後、全後続処理を`try/finally`で囲む
+- 外側finally: `Exit-SingleInstance`でmutex解放
+- 内側finally: `$watcher.Dispose()`
+- これにより起動時スキャン失敗・FSW生成失敗・Ctrl+Cでも確実に解放
 
 ---
 
@@ -134,24 +130,17 @@ Air が Verification Plan（Section 3）を追加したため、以下2点を追
 [System.Management.Automation.Language.Parser]::ParseFile → エラー0件 (OK)
 ```
 
-※ Write ツールが UTF-8 without BOM で保存するため、PowerShell 5.1 の `ParseFile` が Shift-JIS と誤判定する問題が発生。BOM付きUTF-8で再保存して解決済み。
-
----
-
-## 【前提確認状況】
-
-- P2指示書（P1仕様書）の記載に従い実装。コードへの影響なし（scripts/のみ更新）。
-- `docs/handoff/maestro/` ディレクトリを新規作成。今後、manifest・ログ・PAUSEファイルはすべてここに置く運用。
-- P1 Verification Plan の Step6「no-session-persistenceで取得したIDをresume」は設計矛盾のため、Take 3 では Phase1/Phase2 の2段階方式で修正済み。**Air への P1 Verification Plan 修正依頼が必要**。
+※ Write ツールが UTF-8 without BOM で保存するため、PowerShell 5.1 の `ParseFile` が Shift-JIS と誤判定する問題が発生。BOM付きUTF-8で再保存して解決済み（Take1以降共通の対処）。
 
 ---
 
 ## Dexへの確認依頼事項
 
-1. `Initialize-ProcessedSet` + named mutex による単一起動保証の設計が要件を満たしているか確認
-2. `Process-Manifest` の14ステップバリデーション（AllowedP1Root境界チェック含む）が自動化.md第12〜15章の仕様と一致しているか確認
-3. Phase1/Phase2 分離後の `Test-ClaudeConnection` / `Test-ClaudeResume` がVerification Plan Step1-6の意図を満たしているか確認
-4. **第0段階の疎通テスト実施可否**: Kazumaxの承認が必要。OKであれば `.\scripts\maestro_runner.ps1 -Test` を実行してもらう
+1. `Deny-Manifest` による quarantine 方式（移動 → 30秒ループ防止）が仕様の意図を満たしているか確認
+2. `Initialize-ProcessedSet` の正規表現 `^(\S+:r\d+)\|(validated|launched|done) at=.+$` が十分厳密か確認
+3. `schema_version` / `revision` の `-is [int] -or -is [long]` チェック（PowerShell 5.1実機でDecimalが正しくFAILすること）が設計意図通りか確認
+4. Phase1の `result.Trim() -eq "OK"` 完全一致：LLMが "OK" 以外を返した場合（例: "OK。"）は失敗扱いになる点の許容確認
+5. **第0段階の疎通テスト実施可否**: Kazumaxの承認が必要。OKであれば `.\scripts\maestro_runner.ps1 -Test` を実行してもらう
 
 ---
 
@@ -159,14 +148,9 @@ Air が Verification Plan（Section 3）を追加したため、以下2点を追
 
 **第0段階 Phase1（Kazumaxの承認後）:**
 ```powershell
-# 1. setup-token でCLIにログイン（1回のみ・対話が必要）
 $claude = (Get-Item "$env:LOCALAPPDATA\Packages\Claude_pzs8sxrjxfjjc\LocalCache\Roaming\Claude\claude-code\*\claude.exe" | Sort-Object { [version]($_.Directory.Name) } -Descending | Select-Object -First 1).FullName
 & $claude setup-token
-
-# 2. 疎通テスト実行
 .\scripts\maestro_runner.ps1 -Test
-
-# 3. Anthropicコンソールで課金がないことを確認
 ```
 
 **第0段階 Phase2（課金なし確認後）:**
@@ -176,8 +160,7 @@ $claude = (Get-Item "$env:LOCALAPPDATA\Packages\Claude_pzs8sxrjxfjjc\LocalCache\
 
 **第1段階（疎通テスト成功後）:**
 ```powershell
-# Air が *.ready.json を配置 → 監視ループが検知
 .\scripts\maestro_runner.ps1 -Watch
 ```
 
-現在のステータス：Take 3 実装完了。Dex (P4) 再レビュー待ち。
+現在のステータス：Take 4 実装完了。Dex (P4) 再レビュー待ち。

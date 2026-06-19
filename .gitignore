@@ -41,3 +41,6 @@ docs/handoff/maestro/*.log
 docs/handoff/maestro/*.txt
 docs/handoff/maestro/PAUSE
 docs/handoff/maestro/maestro.lock
+docs/handoff/maestro/*.ready.json
+docs/handoff/maestro/**/*.ready.json
+docs/handoff/maestro/quarantine/
