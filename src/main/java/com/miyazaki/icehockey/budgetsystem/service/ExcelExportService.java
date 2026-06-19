@@ -84,9 +84,19 @@ public class ExcelExportService {
         clearCell(sheet, 34, 3 + colOffset);  // 日程及び内容
         clearCell(sheet, 40, 3 + colOffset);  // 事業の成果
 
+        // 計算内訳セルを colOffset 対応列でクリア（populate24Side と同じ式）
+        // LEFT(colOffset=0): 8/13/17列, RIGHT(colOffset=17): 25/30/34列
+        int rateCol  = 8  + colOffset;
+        int countCol = 13 + colOffset;
+        int daysCol  = 17 + colOffset;
+        clearCell(sheet, 21, rateCol);   // 宿泊費単価
+        clearCell(sheet, 21, countCol);  // 宿泊対象人数
+        clearCell(sheet, 21, daysCol);   // 宿泊泊数
+        clearCell(sheet, 22, rateCol);   // 旅行雑費単価
+        clearCell(sheet, 22, countCol);  // 旅行雑費人数
+        clearCell(sheet, 22, daysCol);   // 旅行雑費日数
+
         // 右側専用: テンプレート由来の参加人員ダミーデータを追加クリア
-        // ※ 旅行雑費・宿泊費の計算セル(row21/22, cols 17/25/30/34)は
-        //    populate24Side から左右両側で上書きするためここでは消さない
         if (colOffset > 0) {
             clearCell(sheet, 18, 17); // R19: 参加人員ダミー値 3
             clearCell(sheet, 18, 19); // T19: 名
