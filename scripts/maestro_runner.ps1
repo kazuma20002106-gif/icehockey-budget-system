@@ -22,6 +22,7 @@
 
 param (
     [switch]$Test,
+    [switch]$TestResume,
     [switch]$Watch
 )
 
@@ -136,14 +137,21 @@ function Test-ClaudeConnection {
         return $false
     }
 
+    $sessionId = $null
     try {
         $json = ($output | Where-Object { $_ -match '^\{' }) -join "" | ConvertFrom-Json
+        $sessionId = $json.session_id
         Write-Log "終了コード: 0 (成功)" "OK"
-        Write-Log "セッションID: $($json.session_id)" "OK"
+        Write-Log "セッションID: $sessionId" "OK"
         Write-Log "応答内容:     $($json.result)" "OK"
         if ($json.cost_usd) {
             Write-Log "cost_usd キー: 存在 (値の記録は省略)" "INFO"
         }
+        # Verification Plan 第0段階Step6: session_id をファイルに保存 (-TestResume で使用)
+        $sessionIdFile = Join-Path $MaestroDir "last_test_session.txt"
+        $sessionId | Set-Content -Path $sessionIdFile -Encoding UTF8
+        Write-Log "session_id を保存: $sessionIdFile" "INFO"
+        Write-Log "  次に -TestResume を実行するとセッション継続を確認できます。" "INFO"
     } catch {
         Write-Log "JSON パース失敗: $_" "WARN"
         Write-Log "生出力 (参考): $output" "INFO"
@@ -153,6 +161,63 @@ function Test-ClaudeConnection {
     Write-Log "【重要】APIの従量課金が発生していないか、Kazumax が" "WARN"
     Write-Log "        Anthropic コンソールで手動確認してください。" "WARN"
     Write-Log "─────────────────────────────────────────────" "INFO"
+    return $true
+}
+
+# ─────────────────────────────────────────────────────────────────────────
+# 第0段階: Test-ClaudeResume
+# Verification Plan Step6: 保存済みsession_idで --resume し文脈継続を確認
+# ─────────────────────────────────────────────────────────────────────────
+function Test-ClaudeResume {
+    Write-Log "=== 第0段階: セッション再開テスト ===" "HEADER"
+
+    $sessionIdFile = Join-Path $MaestroDir "last_test_session.txt"
+    if (-not (Test-Path $sessionIdFile)) {
+        Write-Log "session_id ファイルが見つかりません。先に -Test を実行してください。" "ERROR"
+        return $false
+    }
+
+    $sessionId = (Get-Content -Path $sessionIdFile -Encoding UTF8).Trim()
+    if (-not $sessionId) {
+        Write-Log "session_id が空です。先に -Test を実行してください。" "ERROR"
+        return $false
+    }
+    Write-Log "再開するセッションID: $sessionId" "INFO"
+
+    try {
+        $claudeExe = Get-ClaudeExe
+    } catch {
+        Write-Log "claude.exe 検出失敗: $_" "ERROR"
+        return $false
+    }
+
+    Write-Log "セッション再開中... (--resume)"
+
+    $output = & $claudeExe `
+        --print `
+        --output-format json `
+        --tools "" `
+        --resume $sessionId `
+        "直前の会話を覚えていますか？一言で答えてください。" 2>&1
+
+    $exitCode = $LASTEXITCODE
+
+    if ($exitCode -ne 0) {
+        Write-Log "セッション再開失敗 (Exit Code: $exitCode)" "ERROR"
+        Write-Log "出力: $output" "ERROR"
+        return $false
+    }
+
+    try {
+        $json = ($output | Where-Object { $_ -match '^\{' }) -join "" | ConvertFrom-Json
+        Write-Log "セッション再開成功！" "OK"
+        Write-Log "応答内容: $($json.result)" "OK"
+        Write-Log "新セッションID: $($json.session_id)" "INFO"
+    } catch {
+        Write-Log "JSON パース失敗（再開は成功した可能性あり）: $_" "WARN"
+        Write-Log "生出力: $output" "INFO"
+    }
+
     return $true
 }
 
@@ -279,7 +344,15 @@ function Process-Manifest {
         Write-Log "SHA-256 不一致！自動修正は行わず停止します。" "ERROR"
         Write-Log "  manifest 記載: $p1Sha256" "ERROR"
         Write-Log "  実際のハッシュ: $actualHash" "ERROR"
-        Write-Log "Kazumax に確認を依頼してください。Maestro Runner を停止します。" "ERROR"
+        Write-Log "改ざん・同期ズレの可能性があります。PAUSE ファイルを自動生成します。" "ERROR"
+        # Verification Plan 第1段階テスト3: ハッシュ不一致時は自動PAUSE（人手確認を強制）
+        try {
+            New-Item -ItemType File -Path $PauseFile -Force | Out-Null
+            Write-Log "PAUSE ファイルを作成: $PauseFile" "PAUSE"
+            Write-Log "Kazumax が確認後、PAUSE ファイルを削除すると監視を再開します。" "PAUSE"
+        } catch {
+            Write-Log "PAUSE ファイルの作成に失敗: $_" "WARN"
+        }
         return $null
     }
     Write-Log "SHA-256 一致確認OK" "OK"
@@ -410,6 +483,26 @@ if ($Test) {
     }
     Write-Host ""
 
+} elseif ($TestResume) {
+    Write-Host ""
+    Write-Host "==========================================" -ForegroundColor Cyan
+    Write-Host "  Maestro Runner - 第0段階: セッション再開テスト" -ForegroundColor Cyan
+    Write-Host "==========================================" -ForegroundColor Cyan
+    Write-Host ""
+
+    $ok = Test-ClaudeResume
+
+    Write-Host ""
+    if ($ok) {
+        Write-Host "[OK] セッション再開テスト完了！" -ForegroundColor Green
+        Write-Host "     文脈が継続されていることを確認できました。" -ForegroundColor Yellow
+        Write-Host "     第0段階の全テスト (Step1-6) が完了。-Watch で第1段階へ進めます。" -ForegroundColor Yellow
+    } else {
+        Write-Host "[NG] セッション再開テスト失敗。maestro.log を確認してください。" -ForegroundColor Red
+        Write-Host "     原因候補: session_id の期限切れ / 未ログイン" -ForegroundColor Yellow
+    }
+    Write-Host ""
+
 } elseif ($Watch) {
     Start-Watching
 
@@ -417,12 +510,15 @@ if ($Test) {
     Write-Host ""
     Write-Host "Maestro Runner - 使い方" -ForegroundColor Cyan
     Write-Host "─────────────────────────────────────────" -ForegroundColor Cyan
-    Write-Host "  -Test   第0段階: claude.exe の疎通テストを実行" -ForegroundColor White
-    Write-Host "  -Watch  第1段階: manifest (.ready.json) の監視ループを開始" -ForegroundColor White
+    Write-Host "  -Test         第0段階: claude.exe の疎通テスト (Step1-5)" -ForegroundColor White
+    Write-Host "  -TestResume   第0段階: セッション再開テスト (Step6)" -ForegroundColor White
+    Write-Host "  -Watch        第1段階: manifest (.ready.json) の監視ループ" -ForegroundColor White
     Write-Host ""
-    Write-Host "例:" -ForegroundColor Cyan
-    Write-Host "  .\scripts\maestro_runner.ps1 -Test"
-    Write-Host "  .\scripts\maestro_runner.ps1 -Watch"
+    Write-Host "実行順序 (Verification Plan):" -ForegroundColor Cyan
+    Write-Host "  1. .\scripts\maestro_runner.ps1 -Test"
+    Write-Host "  2. Anthropic コンソールで課金確認 (Kazumax)"
+    Write-Host "  3. .\scripts\maestro_runner.ps1 -TestResume"
+    Write-Host "  4. .\scripts\maestro_runner.ps1 -Watch"
     Write-Host ""
     Write-Host "緊急停止: $PauseFile を作成するか Ctrl+C" -ForegroundColor Yellow
     Write-Host ""
