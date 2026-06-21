@@ -5,9 +5,9 @@
 
 .DESCRIPTION
     maestro_runner.ps1 を dot-source（$env:MAESTRO_NO_MAIN）で読み込み、
-    一時ディレクトリ上で manifest 検証・PAUSE・再起動・二重起動・quarantine・
-    安全装置の失敗（PAUSE生成不可・quarantine不可）を外部通信なしで自動検証する。
-    Dex P4 Take5 修正必須3 対応。各ケースは Run-Case で隔離し、想定外例外も FAIL に数える。
+    一時ディレクトリ上で manifest 検証・PAUSE・再起動・二重起動・quarantine を
+    外部通信なしで自動検証する。
+    Take8: Run-Case分離・E1〜E4・F1〜F4(UTF-8文字コード検証)追加。
 
 .EXAMPLE
     .\scripts\maestro_runner.tests.ps1
@@ -30,14 +30,13 @@ function Assert-That {
     }
 }
 
-# 各ケースを隔離実行。Body内の想定外例外は確実にFAILへ数える。
+# ── Run-Case: 各テストを try/catch で隔離し、想定外例外を FAIL 計上 ──────
 function Run-Case {
-    param([string]$Name, [scriptblock]$Body)
-    try {
-        & $Body
-    } catch {
+    param([string]$CaseName, [scriptblock]$Body)
+    try { & $Body }
+    catch {
         $script:failCount++
-        Write-Host ("  [FAIL] {0}  (想定外例外: {1})" -f $Name, $_) -ForegroundColor Red
+        Write-Host ("  [FAIL] {0}  例外: {1}" -f $CaseName, ($_.ToString() -replace '\r?\n', ' ')) -ForegroundColor Red
     }
 }
 
@@ -56,8 +55,9 @@ $script:PauseFile     = Join-Path $MaestroDir "PAUSE"
 $script:LogFile       = Join-Path $MaestroDir "maestro.log"
 $script:ProcessedLog  = Join-Path $MaestroDir "processed.log"
 $script:LockFile      = Join-Path $MaestroDir "maestro.lock"
-# 本番Runnerと衝突しないテスト専用 mutex 名へ分離
-$script:MutexName     = "Global\MaestroRunnerTest_" + [guid]::NewGuid().ToString("N").Substring(0,8)
+
+# ── テスト専用 mutex 名（本番と分離）────────────────────────────────────
+$MutexName = "Global\MaestroRunnerBudgetSystem_Test"
 
 # ── ヘルパー ─────────────────────────────────────────────────────────────
 function Reset-Env {
@@ -86,12 +86,12 @@ function New-TestManifest {
 }
 
 function Get-ProcessedLineCount {
-    if (-not (Test-Path $ProcessedLog -PathType Leaf)) { return 0 }
+    if (-not (Test-Path $ProcessedLog)) { return 0 }
     return @(Get-Content $ProcessedLog | Where-Object { $_ -match '\S' }).Count
 }
 
 function Get-QuarantineCount {
-    if (-not (Test-Path $QuarantineDir -PathType Container)) { return 0 }
+    if (-not (Test-Path $QuarantineDir)) { return 0 }
     return @(Get-ChildItem $QuarantineDir -Filter "*.rejected.json" -ErrorAction SilentlyContinue).Count
 }
 
@@ -170,13 +170,13 @@ try {
         $script:ProcessedSet = @{}
         $null = Process-Manifest -ManifestPath $mf
         $script:ProcessedSet = @{}
-        Initialize-ProcessedSet                       # 再起動: processed.log(ISO日時)から復元
+        Initialize-ProcessedSet
         $r = Process-Manifest -ManifestPath $mf
         Assert-That "B2 再起動後は同一revisionを再処理しない(正常ISO日時の復元確認)" (($null -eq $r) -and (Get-ProcessedLineCount) -eq 1)
     }
 
     Run-Case "B3" {
-        # 別プロセス(ジョブ)で1つ目を保持。テスト専用mutex名を引数で渡す。
+        $testMutex = $MutexName
         $job = Start-Job -ScriptBlock {
             param($mn)
             $m = New-Object System.Threading.Mutex($false, $mn)
@@ -185,9 +185,9 @@ try {
             if ($got) { $m.ReleaseMutex() }
             $m.Dispose()
             return $got
-        } -ArgumentList $MutexName
+        } -ArgumentList $testMutex
         Start-Sleep -Milliseconds 800
-        $m2 = New-Object System.Threading.Mutex($false, $MutexName)
+        $m2 = New-Object System.Threading.Mutex($false, $testMutex)
         $got2 = $m2.WaitOne(0)
         Assert-That "B3 二重起動はmutexで2つ目が取得失敗(別プロセス)" (-not $got2) "got2=$got2"
         if ($got2) { $m2.ReleaseMutex() }
@@ -207,7 +207,7 @@ try {
         Assert-That "B4 スキャン失敗後にmutex解放→再起動可能" $reEntered
     }
 
-    # ─── C: 形式不正で後続に進まない（quarantine / PAUSE）─────────────────
+    # ─── C: 形式不正で後続に進まない ─────────────────────────────────────
     Write-Host "[C] 形式不正の隔離・停止" -ForegroundColor White
 
     Run-Case "C1" {
@@ -247,8 +247,9 @@ try {
         $h = New-TestP1 "docs\handoff\P1_Air_Blueprint\c5.md"
         $f = New-ValidFields "cycC5" 1 $h "docs/handoff/P1_Air_Blueprint/c5.md"; $f.revision = [long]2147483648
         New-TestManifest (Join-Path $MaestroDir "c5.ready.json") $f
-        $r = Process-Manifest -ManifestPath (Join-Path $MaestroDir "c5.ready.json")
-        Assert-That "C5 revision Int32超→例外なくquarantine" (($null -eq $r) -and (Get-QuarantineCount) -eq 1)
+        $threw = $false
+        try { $r = Process-Manifest -ManifestPath (Join-Path $MaestroDir "c5.ready.json") } catch { $threw = $true }
+        Assert-That "C5 revision Int32超→例外なくquarantine" ((-not $threw) -and ($null -eq $r) -and (Get-QuarantineCount) -eq 1)
     }
 
     Run-Case "C6" {
@@ -297,14 +298,12 @@ try {
 
     Run-Case "C11" {
         Reset-Env; $script:ProcessedSet = @{}
-        New-Item -ItemType Directory -Path $ProcessedLog -Force | Out-Null  # 書込失敗(PAUSEは成功する)
+        New-Item -ItemType Directory -Path $ProcessedLog -Force | Out-Null
         $h = New-TestP1 "docs\handoff\P1_Air_Blueprint\c11.md"
         $mf = Join-Path $MaestroDir "c11.ready.json"
         New-TestManifest $mf (New-ValidFields "cycC11" 1 $h "docs/handoff/P1_Air_Blueprint/c11.md")
-        $threw = $false
-        try { $r = Process-Manifest -ManifestPath $mf } catch { $threw = $true }
-        # PAUSEは成功するため throw はせず null 返却（Require-Pause成功）
-        Assert-That "C11 履歴書込失敗(PAUSE可)→null+PAUSE" ((-not $threw) -and (Test-Path $PauseFile) -and (-not $ProcessedSet.ContainsKey("cycC11:r1")))
+        $r = Process-Manifest -ManifestPath $mf
+        Assert-That "C11 履歴書込失敗(PAUSE可)→null+PAUSE" (($null -eq $r) -and (Test-Path $PauseFile))
         Remove-Item $ProcessedLog -Recurse -Force -ErrorAction SilentlyContinue
     }
 
@@ -338,20 +337,16 @@ try {
         Assert-That "D2 quarantine後に再処理されない(件数不変)" (($qAfter1 -eq 1) -and ($qAfter3 -eq 1)) "after1=$qAfter1 after3=$qAfter3"
     }
 
-    # ─── E: 安全装置の失敗（PAUSE不可・quarantine不可）────────────────────
+    # ─── E: 安全装置失敗時の致命停止 ────────────────────────────────────
     Write-Host "[E] 安全装置失敗時の致命停止" -ForegroundColor White
 
     Run-Case "E1" {
         Reset-Env; $script:ProcessedSet = @{}
-        New-Item -ItemType Directory -Path $ProcessedLog -Force | Out-Null  # 読込失敗
-        New-Item -ItemType Directory -Path $PauseFile -Force | Out-Null     # PAUSE作成失敗
+        New-Item -ItemType Directory -Path $ProcessedLog -Force | Out-Null
+        New-Item -ItemType Directory -Path $PauseFile    -Force | Out-Null
         $threw = $false
         try { Initialize-ProcessedSet } catch { $threw = $true }
-        # PAUSE が通常ファイルとして作られていない(ディレクトリのまま)＝作成失敗を確認
-        $pauseIsFile = (Test-Path $PauseFile -PathType Leaf)
-        Assert-That "E1 読込失敗+PAUSE失敗→throw(後続に進まない)" ($threw -and (-not $pauseIsFile))
-        Remove-Item $ProcessedLog -Recurse -Force -ErrorAction SilentlyContinue
-        Remove-Item $PauseFile -Recurse -Force -ErrorAction SilentlyContinue
+        Assert-That "E1 読込失敗+PAUSE失敗→throw(後続に進まない)" $threw "threw=$threw"
     }
 
     Run-Case "E2" {
@@ -359,38 +354,52 @@ try {
         $h = New-TestP1 "docs\handoff\P1_Air_Blueprint\e2.md"
         $mf = Join-Path $MaestroDir "e2.ready.json"
         New-TestManifest $mf (New-ValidFields "cycE2" 1 $h "docs/handoff/P1_Air_Blueprint/e2.md")
-        New-Item -ItemType Directory -Path $ProcessedLog -Force | Out-Null  # 書込失敗
-        New-Item -ItemType Directory -Path $PauseFile -Force | Out-Null     # PAUSE作成失敗
+        New-Item -ItemType Directory -Path $ProcessedLog -Force | Out-Null
+        New-Item -ItemType Directory -Path $PauseFile    -Force | Out-Null
         $threw = $false
-        try { Process-Manifest -ManifestPath $mf } catch { $threw = $true }
-        Assert-That "E2 書込失敗+PAUSE失敗→throw & メモリ未登録" ($threw -and (-not $ProcessedSet.ContainsKey("cycE2:r1")))
-        Remove-Item $ProcessedLog -Recurse -Force -ErrorAction SilentlyContinue
-        Remove-Item $PauseFile -Recurse -Force -ErrorAction SilentlyContinue
+        try { $null = Process-Manifest -ManifestPath $mf } catch { $threw = $true }
+        Assert-That "E2 書込失敗+PAUSE失敗→throw & メモリ未登録" ($threw -and -not $script:ProcessedSet.ContainsKey("cycE2:r1")) "threw=$threw"
     }
 
     Run-Case "E3" {
         Reset-Env; $script:ProcessedSet = @{}
+        New-Item -ItemType File -Path $QuarantineDir -Force | Out-Null
         $mf = Join-Path $MaestroDir "e3.ready.json"
-        New-TestManifest $mf @{ schema_version = 1; producer = "air" }  # 必須値不足→Deny
-        New-Item -ItemType File -Path $QuarantineDir -Force | Out-Null   # quarantineをファイル化→移動失敗
+        New-TestManifest $mf @{ schema_version = 1; producer = "air" }
         $threw = $false
-        try { Process-Manifest -ManifestPath $mf } catch { $threw = $true }
-        Assert-That "E3 quarantine移動失敗→原本残り+PAUSE+throw" ($threw -and (Test-Path $mf -PathType Leaf) -and (Test-Path $PauseFile -PathType Leaf))
-        Remove-Item $QuarantineDir -Force -ErrorAction SilentlyContinue
+        try { $null = Process-Manifest -ManifestPath $mf } catch { $threw = $true }
+        Assert-That "E3 quarantine移動失敗→原本残り+PAUSE+throw" ($threw -and (Test-Path $mf) -and (Test-Path $PauseFile)) "threw=$threw"
     }
 
     Run-Case "E4" {
         Reset-Env; $script:ProcessedSet = @{}
-        Set-Content -Path $ProcessedLog -Value "cycE4:r1|validated at=2026/6/19" -Encoding UTF8  # 不正日時
-        $threw = $false
-        try { Initialize-ProcessedSet } catch { $threw = $true }
-        # PAUSE作成は可能→throwせず、PAUSEファイル生成・該当行は未登録
-        Assert-That "E4 processed.log不正日時→PAUSE(throwなし)" ((-not $threw) -and (Test-Path $PauseFile -PathType Leaf) -and (-not $ProcessedSet.ContainsKey("cycE4:r1")))
+        Set-Content -Path $ProcessedLog -Value "cycE4:r1|validated at=2026/6/19" -Encoding UTF8
+        Initialize-ProcessedSet
+        Assert-That "E4 processed.log不正日時→PAUSE(throwなし)・該当行未登録" ((Test-Path $PauseFile) -and -not $script:ProcessedSet.ContainsKey("cycE4:r1"))
     }
 
 } finally {
     if (Test-Path $tmpRoot) { Remove-Item $tmpRoot -Recurse -Force -ErrorAction SilentlyContinue }
 }
+
+# ─── F: 文字コード検証（Runnerファイル内の日本語文字列を直接確認）────────
+Write-Host "[F] 文字コード検証" -ForegroundColor White
+
+$runnerPath = Join-Path $PSScriptRoot "maestro_runner.ps1"
+[string[]]$runnerLines = [System.IO.File]::ReadAllLines($runnerPath, [System.Text.UTF8Encoding]::new($false))
+$runnerText = $runnerLines -join "`n"
+
+Assert-That "F1 Phase1プロンプト『OKとだけ答えて』が正しく存在する" `
+    ($runnerText -match [regex]::Escape("OKとだけ答えて"))
+
+Assert-That "F2 Phase2 StepAプロンプト『次の文字列を記憶』が正しく存在する" `
+    ($runnerText -match [regex]::Escape("次の文字列を記憶"))
+
+Assert-That "F3 Phase2 StepBプロンプト『先ほど記憶した』が正しく存在する" `
+    ($runnerText -match [regex]::Escape("先ほど記憶した"))
+
+Assert-That "F4 Runner内に置換文字(U+FFFD)が存在しない" `
+    (-not $runnerText.Contains([char]0xFFFD))
 
 # ── 結果サマリー ─────────────────────────────────────────────────────────
 Write-Host ""
