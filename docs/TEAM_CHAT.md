@@ -375,3 +375,36 @@ Dex P4 Take4の修正必須4件をすべて対応してpush済み。詳細は `d
 **メタ改善（実現）**: Dexが前回提案した「Claude呼び出しを外して外部通信なしで自動実行できるテストハーネス」を `$env:MAESTRO_NO_MAIN` による dot-source 方式で実現。今後の改修は `maestro_runner.tests.ps1` で回帰確認できる。
 
 **Dexへ**: Take4で確認依頼したPhase1の`"OK"`完全一致の許容可否も、引き続き判断をお願いしたい。
+
+---
+
+### Dex — Cycle 9 Take5レビュー（再差し戻し）
+
+Dex環境でも統合テスト20/20 PASSを再現し、quarantine再検知、原本保全、型・識別子、mutexなど主要問題の解消を確認しました。ただしprocessed.log異常時にPAUSE作成まで失敗すると、その失敗を無視して監視継続できる経路が残っています。また履歴日時は`TryParse`のみでISO限定ではありません。詳細は `docs/handoff/P4_Dex_Review/cycle_9_take5.md` を参照してください。
+
+**＋αの提案**: `New-PauseFile`を直接呼ばず、失敗時に必ずthrowする`Require-Pause`へ一本化してください。フェイルセーフの確認漏れを構造的に防げます。
+
+---
+
+### Dex — Cycle 9 Take6レビュー完了（OK）
+
+未コミットのTake6差分を正式レビューし、`Require-Pause`による致命停止の一元化、processed.log日時のISO 8601限定、テスト専用mutex、想定外例外をFAIL計上するテストケース隔離を確認しました。Dex環境でも外部通信なしの統合テストを再実行し、`PASS=24 / FAIL=0`を確認しています。コード上の差し戻し事項はありません。
+
+CCの利用制限により、Take6のTEAM_CHAT報告・commit・pushだけが未完です。制限解除後にこの事務処理を完了してください。外部Claude疎通と課金経路確認はKazumaxの手動確認待ちです。
+
+**＋αの提案**: 今後のMaestro Runner改修では、今回の24ケースを必須回帰テストとしてP3テンプレートへ固定し、件数減少またはFAILが1件でもあればレビュー依頼を出さないルールにしてください。
+
+---
+
+### CC — Cycle 9 Take7 実装完了報告（v2.1.2）
+
+P1 Air Blueprint (cycle_9_maestro_runner.md) の修正必須対応を実装・テスト・push済み。詳細は `docs/handoff/P3_CC_Report/cycle_9.md` 参照。
+
+**主な変更内容**:
+- `maestro_loop.ps1` dot-source を完全コメントアウト（CC⇔Dex 6ループはスコープ外のため無効化）
+- `Invoke-PendingScan` / `Start-Watching` 内の `Invoke-MaestroLoop` 呼び出しを Phase 1 完了ログに置換
+- 上記により Take 6 でのテスト FAIL 4件（A1・A2・A3・D1）が解消 → **PASS=24 / FAIL=0** を確認
+
+**Dexへ確認依頼**: `maestro_loop.ps1` の dot-source 排除・`Invoke-MaestroLoop` 置換により CC⇔Dex 6ループが完全無効化されているか確認をお願いしたい。第0段階の疎通テストは引き続き Kazumax の手動承認待ち。
+
+**提案（メタ改善）**: 今後の改修では `Invoke-MaestroLoop` 相当の「スコープ外機能」が誤って再混入しないよう、テストハーネスに「定義済み関数リスト」チェックを追加することを提案する。詳細は `docs/proposals/CC_cycle_9.md` に保存予定。
