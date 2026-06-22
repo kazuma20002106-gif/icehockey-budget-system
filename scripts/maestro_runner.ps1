@@ -2,7 +2,7 @@
 <#
 .SYNOPSIS
     Maestro Runner - Air・CC・Dex 自動連携スクリプト
-    Cycle 9 Take7: P1修正必須対応 (Require-Pause・Iso8601Tz・maestro_loop無効化)
+    Cycle 9 Take10: Invoke-ClaudeRaw共通関数・OneDrive対応Test-ReparseInPath
 
 .PARAMETER Test
     第0段階 Phase1: 課金確認用疎通テスト (--no-session-persistence)
@@ -40,8 +40,9 @@ $LogFile       = Join-Path $MaestroDir "maestro.log"
 $ProcessedLog  = Join-Path $MaestroDir "processed.log"
 $LockFile      = Join-Path $MaestroDir "maestro.lock"
 
-$Script:ProcessedSet = @{}
-$Script:Mutex        = $null
+$Script:ProcessedSet    = @{}
+$Script:Mutex           = $null
+$Script:ClaudeExeOverride = $null   # テスト用スタブ差し替え
 
 $MutexName = "Global\MaestroRunnerBudgetSystem"
 $Iso8601Tz  = '\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})'
@@ -262,7 +263,15 @@ function Test-ReparseInPath {
         if (Test-Path -LiteralPath $current) {
             $item = Get-Item -LiteralPath $current -Force -ErrorAction SilentlyContinue
             if ($item -and ($item.Attributes -band [System.IO.FileAttributes]::ReparsePoint)) {
-                return $true
+                # OneDrive クラウドファイル/フォルダーは ReparsePoint 属性を持つが
+                # LinkType と Target が空文字/null → 許可候補（パストラバーサルリスクなし）
+                # Junction / SymbolicLink は LinkType または Target が設定される → 拒否
+                $linkType   = [string]$item.LinkType
+                $linkTarget = if ($null -ne $item.Target) { [string]($item.Target | Select-Object -First 1) } else { '' }
+                if (-not [string]::IsNullOrEmpty($linkType) -or -not [string]::IsNullOrEmpty($linkTarget)) {
+                    return $true   # 実リンク（Junction / Symlink）→ 拒否
+                }
+                # OneDriveプレースホルダー → 継続して上位ノードを確認
             }
         }
         if ($current.TrimEnd([System.IO.Path]::DirectorySeparatorChar) -ieq $boundary) { break }
@@ -466,8 +475,11 @@ function Process-Manifest {
     }
     # P1ファイル自身 + AllowedP1Root から対象までの親ディレクトリの
     # reparse point / junction / symlink を確認（→PAUSE: セキュリティ問題）
-    # 親junction経由で許可外を参照する攻撃を防止
-    # [Disabled for OneDrive]
+    # OneDriveクラウドプレースホルダー(LinkType/Target空)は許可、実リンクは拒否
+    if (Test-ReparseInPath -LeafPath $p1FullPath -BoundaryRoot $AllowedP1Root) {
+        Deny-Manifest -ManifestPath $ManifestPath -Reason "P1ファイルまたは親ディレクトリに reparse point/junction があります: $p1FullPath" -DoPause
+        return $null
+    }
 
     # 12. SHA-256 一致確認（不一致→PAUSE: 改ざん・同期ズレ）
     $actualHash = $null
@@ -527,6 +539,45 @@ function Invoke-PendingScan {
 # 成功条件: exit0 + JSON + session_id非空 + result.Trim() == "OK"
 # CLI生出力は通常ログに書かない。エラー分類のみ記録。
 # ─────────────────────────────────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────────────────
+# Invoke-ClaudeRaw: ProcessStartInfo で空文字列引数を確実に渡す共通関数
+# --tools "" は PowerShell のネイティブ呼び出しで落ちる恐れがあるため
+# Arguments 文字列を直接組み立て、空引数を "" として渡す。
+# $Script:ClaudeExeOverride が設定されていればそのパスを使用（テスト用）。
+# ─────────────────────────────────────────────────────────────────────────
+function Invoke-ClaudeRaw {
+    param([string[]]$ArgList, [int]$TimeoutSec = 60)
+
+    $exe = if ($Script:ClaudeExeOverride) { $Script:ClaudeExeOverride } else {
+        try { Get-ClaudeExe } catch { throw "claude.exe 検出失敗: $_" }
+    }
+
+    # 各引数を Windows コマンドライン規則でクォート
+    # 空文字列 → ""  /  スペース・引用符を含む → "..."  /  それ以外はそのまま
+    $argStr = ($ArgList | ForEach-Object {
+        if ($_ -eq '')              { '""' }
+        elseif ($_ -match '[\s"]') { '"' + $_.Replace('"', '\"') + '"' }
+        else                       { $_ }
+    }) -join ' '
+
+    $psi = [System.Diagnostics.ProcessStartInfo]::new()
+    $psi.FileName               = $exe
+    $psi.Arguments              = $argStr
+    $psi.RedirectStandardOutput = $true
+    $psi.RedirectStandardError  = $true
+    $psi.UseShellExecute        = $false
+    $psi.CreateNoWindow         = $true
+
+    $proc = [System.Diagnostics.Process]::new()
+    $proc.StartInfo = $psi
+    $null = $proc.Start()
+    $stdout = $proc.StandardOutput.ReadToEnd()
+    $null   = $proc.StandardError.ReadToEnd()
+    $proc.WaitForExit($TimeoutSec * 1000)
+
+    return [PSCustomObject]@{ Output = $stdout; ExitCode = $proc.ExitCode }
+}
+
 function Test-ClaudeConnection {
     Write-Log "=== 第0段階 Phase1: 疎通テスト (課金確認用) ===" "HEADER"
 
@@ -536,21 +587,16 @@ function Test-ClaudeConnection {
     }
     Write-Log "ANTHROPIC_API_KEY: 未設定 (OK)" "OK"
 
-    $claudeExe = $null
-    try { $claudeExe = Get-ClaudeExe } catch {
-        Write-Log "claude.exe 検出失敗: $_" "ERROR"
-        return $false
-    }
-
     Write-Log "プロンプト送信中 (ツール無効・セッション保存なし)..."
-    $output = $null; $exitCode = -1
+    $r = $null; $exitCode = -1
     try {
-        $output   = & $claudeExe -p "OKとだけ答えて" --output-format json --tools "default" --no-session-persistence
-        $exitCode = $LASTEXITCODE
+        $r        = Invoke-ClaudeRaw @('-p', 'OKとだけ答えて', '--output-format', 'json', '--tools', '', '--no-session-persistence')
+        $exitCode = $r.ExitCode
     } catch {
         Write-Log "claude.exe 呼び出し失敗: 終了コード不明" "ERROR"
         return $false
     }
+    $output = $r.Output -split "`n"
 
     if ($exitCode -ne 0) {
         Write-Log "終了コード: $exitCode (失敗)" "ERROR"
@@ -608,22 +654,16 @@ function Test-ClaudeConnection {
 function Test-ClaudeResume {
     Write-Log "=== 第0段階 Phase2: セッション再開テスト (nonce 完全一致) ===" "HEADER"
 
-    $claudeExe = $null
-    try { $claudeExe = Get-ClaudeExe } catch {
-        Write-Log "claude.exe 検出失敗: $_" "ERROR"
-        return $false
-    }
-
     # nonce はメモリのみ（ファイル保存不要）
     $nonce = "NONCE-" + [System.Guid]::NewGuid().ToString("N").Substring(0, 8).ToUpper()
     Write-Log "nonce 生成完了 (メモリのみ保持、ログ出力なし)"
 
-    # ── Step A: nonce 記憶セッション開始（persistence有効） ──────────────
+    # ── Step A: nonce 記憶セッション開始（persistence有効・ツール無効） ───
     Write-Log "Step A: nonce 記憶セッション開始..."
-    $outA = $null; $exitA = -1
+    $rA = $null; $exitA = -1
     try {
-        $outA  = & $claudeExe -p "次の文字列を記憶してください: $nonce  記憶したら OK とだけ答えてください。" --output-format json --tools "default"
-        $exitA = $LASTEXITCODE
+        $rA    = Invoke-ClaudeRaw @('-p', "次の文字列を記憶してください: $nonce  記憶したら OK とだけ答えてください。", '--output-format', 'json', '--tools', '')
+        $exitA = $rA.ExitCode
     } catch {
         Write-Log "Step A 呼び出し失敗: 終了コード不明" "ERROR"; return $false
     }
@@ -632,7 +672,7 @@ function Test-ClaudeResume {
     }
     $jsonA = $null
     try {
-        $jsonA = (($outA | Where-Object { $_ -match '^\{' }) -join "") | ConvertFrom-Json
+        $jsonA = (($rA.Output -split "`n" | Where-Object { $_ -match '^\{' }) -join "") | ConvertFrom-Json
     } catch {
         Write-Log "Step A JSON パース失敗 → テスト失敗" "ERROR"; return $false
     }
@@ -642,12 +682,12 @@ function Test-ClaudeResume {
     }
     Write-Log "Step A 完了: session_id $(Get-MaskedId $sessionId)" "OK"
 
-    # ── Step B: --resume でセッション再開し nonce を返させる ──────────────
+    # ── Step B: --resume でセッション再開し nonce を返させる（ツール無効） ─
     Write-Log "Step B: セッション再開 (--resume)..."
-    $outB = $null; $exitB = -1
+    $rB = $null; $exitB = -1
     try {
-        $outB  = & $claudeExe -p "先ほど記憶した文字列を、そのまま一言だけ答えてください。" --output-format json --tools "default" --resume $sessionId
-        $exitB = $LASTEXITCODE
+        $rB    = Invoke-ClaudeRaw @('-p', '先ほど記憶した文字列を、そのまま一言だけ答えてください。', '--output-format', 'json', '--tools', '', '--resume', $sessionId)
+        $exitB = $rB.ExitCode
     } catch {
         Write-Log "Step B 呼び出し失敗: 終了コード不明" "ERROR"; return $false
     }
@@ -656,7 +696,7 @@ function Test-ClaudeResume {
     }
     $jsonB = $null
     try {
-        $jsonB = (($outB | Where-Object { $_ -match '^\{' }) -join "") | ConvertFrom-Json
+        $jsonB = (($rB.Output -split "`n" | Where-Object { $_ -match '^\{' }) -join "") | ConvertFrom-Json
     } catch {
         Write-Log "Step B JSON パース失敗 → テスト失敗" "ERROR"; return $false
     }
