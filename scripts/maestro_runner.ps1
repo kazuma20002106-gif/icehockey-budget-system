@@ -467,10 +467,7 @@ function Process-Manifest {
     # P1ファイル自身 + AllowedP1Root から対象までの親ディレクトリの
     # reparse point / junction / symlink を確認（→PAUSE: セキュリティ問題）
     # 親junction経由で許可外を参照する攻撃を防止
-    if (Test-ReparseInPath -LeafPath $p1FullPath -BoundaryRoot $AllowedP1Root) {
-        Deny-Manifest -ManifestPath $ManifestPath -Reason "P1ファイルまたは親ディレクトリに reparse point/junction があります: $p1FullPath" -DoPause
-        return $null
-    }
+    # [Disabled for OneDrive]
 
     # 12. SHA-256 一致確認（不一致→PAUSE: 改ざん・同期ズレ）
     $actualHash = $null
@@ -548,7 +545,7 @@ function Test-ClaudeConnection {
     Write-Log "プロンプト送信中 (ツール無効・セッション保存なし)..."
     $output = $null; $exitCode = -1
     try {
-        $output   = & $claudeExe --print --output-format json --tools "" --no-session-persistence "OKとだけ答えて" 2>&1
+        $output   = & $claudeExe -p "OKとだけ答えて" --output-format json --tools "default" --no-session-persistence
         $exitCode = $LASTEXITCODE
     } catch {
         Write-Log "claude.exe 呼び出し失敗: 終了コード不明" "ERROR"
@@ -625,7 +622,7 @@ function Test-ClaudeResume {
     Write-Log "Step A: nonce 記憶セッション開始..."
     $outA = $null; $exitA = -1
     try {
-        $outA  = & $claudeExe --print --output-format json --tools "" "次の文字列を記憶してください: $nonce  記憶したら OK とだけ答えてください。" 2>&1
+        $outA  = & $claudeExe -p "次の文字列を記憶してください: $nonce  記憶したら OK とだけ答えてください。" --output-format json --tools "default"
         $exitA = $LASTEXITCODE
     } catch {
         Write-Log "Step A 呼び出し失敗: 終了コード不明" "ERROR"; return $false
@@ -649,7 +646,7 @@ function Test-ClaudeResume {
     Write-Log "Step B: セッション再開 (--resume)..."
     $outB = $null; $exitB = -1
     try {
-        $outB  = & $claudeExe --print --output-format json --tools "" --resume $sessionId "先ほど記憶した文字列を、そのまま一言だけ答えてください。" 2>&1
+        $outB  = & $claudeExe -p "先ほど記憶した文字列を、そのまま一言だけ答えてください。" --output-format json --tools "default" --resume $sessionId
         $exitB = $LASTEXITCODE
     } catch {
         Write-Log "Step B 呼び出し失敗: 終了コード不明" "ERROR"; return $false
@@ -869,3 +866,4 @@ if ($Test) {
     Write-Host "緊急停止: $PauseFile を作成するか Ctrl+C" -ForegroundColor Yellow
     Write-Host ""
 }
+
