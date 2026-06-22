@@ -2,7 +2,7 @@
 <#
 .SYNOPSIS
     Maestro Runner - Air・CC・Dex 自動連携スクリプト
-    Cycle 9 Take10: Invoke-ClaudeRaw共通関数・OneDrive対応Test-ReparseInPath
+    Cycle 9 Take11: Invoke-ClaudeRaw非同期タイムアウト・G1-G7実行テスト
 
 .PARAMETER Test
     第0段階 Phase1: 課金確認用疎通テスト (--no-session-persistence)
@@ -570,12 +570,26 @@ function Invoke-ClaudeRaw {
 
     $proc = [System.Diagnostics.Process]::new()
     $proc.StartInfo = $psi
-    $null = $proc.Start()
-    $stdout = $proc.StandardOutput.ReadToEnd()
-    $null   = $proc.StandardError.ReadToEnd()
-    $proc.WaitForExit($TimeoutSec * 1000)
+    try {
+        $null = $proc.Start()
+        # stdout/stderr を非同期で読み始めてデッドロックを防ぐ
+        $stdoutTask = $proc.StandardOutput.ReadToEndAsync()
+        $stderrTask = $proc.StandardError.ReadToEndAsync()
 
-    return [PSCustomObject]@{ Output = $stdout; ExitCode = $proc.ExitCode }
+        $exited = $proc.WaitForExit($TimeoutSec * 1000)
+        if (-not $exited) {
+            try { $proc.Kill() } catch {}
+            throw "タイムアウト: claude が ${TimeoutSec}秒以内に終了しませんでした"
+        }
+        $proc.WaitForExit()   # 非同期バッファのフラッシュ（void・パイプライン汚染なし）
+
+        $stdout = $stdoutTask.GetAwaiter().GetResult()
+        $null   = $stderrTask.GetAwaiter().GetResult()
+
+        return [PSCustomObject]@{ Output = $stdout; ExitCode = $proc.ExitCode }
+    } finally {
+        $proc.Dispose()
+    }
 }
 
 function Test-ClaudeConnection {
