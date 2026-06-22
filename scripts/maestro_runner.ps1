@@ -572,21 +572,41 @@ function Invoke-ClaudeRaw {
     $proc.StartInfo = $psi
     try {
         $null = $proc.Start()
+        # テストフック: スタブ起動時に root PID をファイルへ記録
+        if ($Script:ClaudeExeOverride -and $env:STUB_ROOT_PID_FILE) {
+            try { Set-Content $env:STUB_ROOT_PID_FILE -Value $proc.Id -Encoding ASCII } catch {}
+        }
         # stdout/stderr を非同期で読み始めてデッドロックを防ぐ
         $stdoutTask = $proc.StandardOutput.ReadToEndAsync()
         $stderrTask = $proc.StandardError.ReadToEndAsync()
 
         $exited = $proc.WaitForExit($TimeoutSec * 1000)
         if (-not $exited) {
-            try { $proc.Kill() } catch {}
+            # プロセスツリー全体を停止（子孫含む・無関係プロセスには触れない）
+            $rootPid = $proc.Id
+            try { $null = taskkill /F /T /PID $rootPid 2>$null } catch {}
+            # root の終了を確認（最大 5 秒）
+            $deadline = [DateTime]::UtcNow.AddSeconds(5)
+            $stopped  = $false
+            while ([DateTime]::UtcNow -lt $deadline) {
+                try { $null = Get-Process -Id $rootPid -ErrorAction Stop }
+                catch { $stopped = $true; break }
+                Start-Sleep -Milliseconds 100
+            }
+            # 非同期タスクを回収してから破棄
+            try { $null = $stdoutTask.GetAwaiter().GetResult() } catch {}
+            try { $null = $stderrTask.GetAwaiter().GetResult() } catch {}
+            if (-not $stopped) {
+                throw "タイムアウト後もプロセスが終了しませんでした (PID=$rootPid): 後続へ進めません"
+            }
             throw "タイムアウト: claude が ${TimeoutSec}秒以内に終了しませんでした"
         }
         $proc.WaitForExit()   # 非同期バッファのフラッシュ（void・パイプライン汚染なし）
 
         $stdout = $stdoutTask.GetAwaiter().GetResult()
-        $null   = $stderrTask.GetAwaiter().GetResult()
+        $stderr = $stderrTask.GetAwaiter().GetResult()
 
-        return [PSCustomObject]@{ Output = $stdout; ExitCode = $proc.ExitCode }
+        return [PSCustomObject]@{ Output = $stdout; Error = $stderr; ExitCode = $proc.ExitCode }
     } finally {
         $proc.Dispose()
     }
@@ -610,12 +630,14 @@ function Test-ClaudeConnection {
         Write-Log "claude.exe 呼び出し失敗: 終了コード不明" "ERROR"
         return $false
     }
-    $output = $r.Output -split "`n"
+    $outputLines = $r.Output -split "`n"
+    $errorLines  = $r.Error  -split "`n"
 
     if ($exitCode -ne 0) {
         Write-Log "終了コード: $exitCode (失敗)" "ERROR"
         # CLI生出力は通常ログに書かない。パターンマッチでエラー分類のみ記録。
-        $isNotLoggedIn = ($output | Where-Object { $_ -match "Not logged in" }).Count -gt 0
+        $allLines = $outputLines + $errorLines
+        $isNotLoggedIn = ($allLines | Where-Object { $_ -match "Not logged in" }).Count -gt 0
         if ($isNotLoggedIn) {
             Write-Log "エラー分類: 未ログイン → claude setup-token を実行してください。" "WARN"
         } else {
@@ -626,7 +648,7 @@ function Test-ClaudeConnection {
 
     $json = $null
     try {
-        $jsonStr = ($output | Where-Object { $_ -match '^\{' }) -join ""
+        $jsonStr = ($outputLines | Where-Object { $_ -match '^\{' }) -join ""
         $json    = $jsonStr | ConvertFrom-Json
     } catch {
         Write-Log "JSON パース失敗 → テスト失敗" "ERROR"

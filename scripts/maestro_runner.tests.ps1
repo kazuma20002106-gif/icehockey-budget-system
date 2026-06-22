@@ -405,11 +405,13 @@ Assert-That "F4 Runner内に置換文字(U+FFFD)が存在しない" `
 Write-Host "[G] Invoke-ClaudeRaw 実行テスト（Take 11）" -ForegroundColor White
 
 # G用スタブ: 外部通信なしで実際にプロセスを起動し動作を検証
-$gTmp           = Join-Path ([System.IO.Path]::GetTempPath()) ("g_stub_" + [guid]::NewGuid().ToString("N").Substring(0,8))
+$gTmp            = Join-Path ([System.IO.Path]::GetTempPath()) ("g_stub_" + [guid]::NewGuid().ToString("N").Substring(0,8))
 New-Item -ItemType Directory -Path $gTmp -Force | Out-Null
-$stubRecordFile = Join-Path $gTmp "stub_args.txt"
-$stubCmdPath    = Join-Path $gTmp "stub.cmd"
-$stubSleepPath  = Join-Path $gTmp "stub_sleep.cmd"
+$stubRecordFile  = Join-Path $gTmp "stub_args.txt"
+$stubCmdPath     = Join-Path $gTmp "stub.cmd"
+$stubSleepPath   = Join-Path $gTmp "stub_sleep.cmd"
+$stubSleepPs1    = Join-Path $gTmp "stub_sleep.ps1"
+$stubStderrPath  = Join-Path $gTmp "stub_stderr.cmd"
 
 # 通常スタブ: args を STUB_RECORD_FILE に記録し JSON を返す
 [System.IO.File]::WriteAllLines($stubCmdPath, [string[]]@(
@@ -418,11 +420,23 @@ $stubSleepPath  = Join-Path $gTmp "stub_sleep.cmd"
     'echo {^"result^":^"OK^",^"session_id^":^"stub00000000^"}'
 ), [System.Text.Encoding]::ASCII)
 
-# sleepスタブ: 30秒待機（タイムアウトテスト用）
+# sleepスタブ用 PS1: 自PID を STUB_RECORD_FILE へ書き込み 30 秒待機
+[System.IO.File]::WriteAllLines($stubSleepPs1, [string[]]@(
+    'if ($env:STUB_RECORD_FILE) { Set-Content $env:STUB_RECORD_FILE -Value $PID -Encoding ASCII }',
+    'Start-Sleep -Seconds 30'
+), [System.Text.UTF8Encoding]::new($false))
+
+# sleepスタブ: PS1 を呼び出す（子 PowerShell PID が記録され taskkill /T で消滅するかを検証）
 [System.IO.File]::WriteAllLines($stubSleepPath, [string[]]@(
     '@echo off',
-    'ping -n 35 127.0.0.1 > nul 2>&1',
-    'echo {^"result^":^"OK^"}'
+    'powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0stub_sleep.ps1"'
+), [System.Text.Encoding]::ASCII)
+
+# stderrスタブ: stdout に JSON、stderr に固定文字列を出す（Fix3 検証用）
+[System.IO.File]::WriteAllLines($stubStderrPath, [string[]]@(
+    '@echo off',
+    'echo {^"result^":^"OK^",^"session_id^":^"stub00000000^"}',
+    'echo STUB_STDERR_CONTENT 1>&2'
 ), [System.Text.Encoding]::ASCII)
 
 try {
@@ -504,18 +518,52 @@ try {
         } finally { $Script:ClaudeExeOverride = $prev; $env:STUB_RECORD_FILE = $null }
     }
 
-    # G7: タイムアウトで子プロセスが停止し規定時間内に返る
+    # G7: タイムアウト後に root + child PID 両方消滅する（プロセスツリー停止の実測）
     Run-Case "G7" {
+        $rootPidFile = Join-Path $gTmp "root_pid.txt"
+        $env:STUB_RECORD_FILE   = $stubRecordFile
+        $env:STUB_ROOT_PID_FILE = $rootPidFile
+        if (Test-Path $stubRecordFile) { Remove-Item $stubRecordFile -Force }
+        if (Test-Path $rootPidFile)    { Remove-Item $rootPidFile    -Force }
         $prev = $Script:ClaudeExeOverride
         $Script:ClaudeExeOverride = $stubSleepPath
         try {
             $threw = $false
             $sw    = [System.Diagnostics.Stopwatch]::StartNew()
-            try { $null = Invoke-ClaudeRaw @('--help') -TimeoutSec 2 } catch { $threw = $true }
+            try { $null = Invoke-ClaudeRaw @('--help') -TimeoutSec 4 } catch { $threw = $true }
             $sw.Stop()
             $elapsed = $sw.Elapsed.TotalSeconds
-            Assert-That "G7 タイムアウトで throw かつ 5秒以内に返る" ($threw -and $elapsed -lt 5) `
-                "threw=$threw elapsed=$([math]::Round($elapsed,1))s"
+
+            # PID ファイルを読み込む（スタブが起動できた証拠も兼ねる）
+            $rootPidStr  = if (Test-Path $rootPidFile)    { (Get-Content $rootPidFile    -Raw).Trim() } else { '' }
+            $childPidStr = if (Test-Path $stubRecordFile) { (Get-Content $stubRecordFile -Raw).Trim() } else { '' }
+            $rootPid  = if ($rootPidStr  -match '^\d+$') { [int]$rootPidStr  } else { 0 }
+            $childPid = if ($childPidStr -match '^\d+$') { [int]$childPidStr } else { 0 }
+
+            Start-Sleep -Milliseconds 300
+            $rootGone  = ($rootPid  -gt 0) -and ($null -eq (Get-Process -Id $rootPid  -ErrorAction SilentlyContinue))
+            $childGone = ($childPid -gt 0) -and ($null -eq (Get-Process -Id $childPid -ErrorAction SilentlyContinue))
+
+            Assert-That "G7 タイムアウト throw・10秒内・rootPID消滅・childPID消滅" `
+                ($threw -and $elapsed -lt 10 -and $rootGone -and $childGone) `
+                "threw=$threw elapsed=$([math]::Round($elapsed,1))s rootPid=$rootPid rootGone=$rootGone childPid=$childPid childGone=$childGone"
+        } finally {
+            $Script:ClaudeExeOverride = $prev
+            $env:STUB_RECORD_FILE   = $null
+            $env:STUB_ROOT_PID_FILE = $null
+        }
+    }
+
+    # G8: stdout→Output・stderr→Error に正しく分離される
+    Run-Case "G8" {
+        $prev = $Script:ClaudeExeOverride
+        $Script:ClaudeExeOverride = $stubStderrPath
+        try {
+            $r = Invoke-ClaudeRaw @('--help')
+            $hasOutput = $r.Output -match '\{'
+            $hasError  = $r.Error  -match 'STUB_STDERR_CONTENT'
+            Assert-That "G8 stdout→Output・stderr→Error に正しく分離される" ($hasOutput -and $hasError) `
+                "Output=[$($r.Output.Trim())] Error=[$($r.Error.Trim())]"
         } finally { $Script:ClaudeExeOverride = $prev }
     }
 
