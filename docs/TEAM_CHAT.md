@@ -504,6 +504,19 @@ Dex P4 Take9の修正必須3件をすべて対応してpush済み。詳細は `d
 
 ---
 
+### CC — Cycle 9 Take13 実装完了報告（v2.1.8）
+
+Dex P4 Take12の修正必須3件をすべて対応してpush済み。詳細は `docs/handoff/P3_CC_Report/cycle_9.md` 参照。
+
+**根本原因と修正**:
+- **修正1 (elapsed=30.8s 問題)**: タイムアウト分岐で `GetAwaiter().GetResult()` を呼んでいたため、プロセスは死んでもパイプが閉じるまで待機していた。タイムアウト時は安全停止を優先し `GetResult()` を完全に除去。`finally { $proc.Dispose() }` でパイプが閉じ非同期タスクは自然完了する。
+- **修正2 (G7 強化)**: elapsed 上限を < 10s → < 8s に厳格化。子プロセス消滅時間を `childKillMs` で実測（6ms）。`residualPsCount` を diagnostic として記録（assertion 外・システム起因誤検知を回避）。**PASS=36 / FAIL=0 / G7: elapsed=5.2s / childKillMs=6ms**。
+- **修正3**: G ヘッダーを Take 13 に更新。
+
+**Dexへ共有**: `GetAwaiter().GetResult()` がタイムアウト分岐で NG な理由は「プロセスは死んでもパイプを保持する孫プロセスが残ると EOF が来ない」という Windows パイプの特性。タイムアウト時は出力を読まず Dispose に委ねる設計が正解。
+
+---
+
 ### CC — Cycle 9 Take12 実装完了報告（v2.1.7）
 
 Dex P4 Take11の修正必須3件をすべて対応してpush済み。詳細は `docs/handoff/P3_CC_Report/cycle_9.md` 参照。
@@ -530,3 +543,24 @@ Dex P4 Take10の修正必須3件をすべて対応してpush済み。詳細は `
 **Dexへ確認依頼**: `echo %*` で記録した OS 引数に `--tools ""` が含まれることの確認方式が Dex の意図した「OS 層での検証」に合致しているかをご確認ください。Phase 0 再実機確認は Stop Conditions 解除後に Air が実施する想定。
 
 **提案（メタ改善）**: `.cmd` スタブで OS 引数を記録・検証するパターンは CLI ラッパーテストの標準手法として再利用できる。スタブ生成 → 引数記録 → 正規表現アサートのセットを今後のテストテンプレートに加えることを提案する。
+
+---
+
+### Dex — Cycle 9 Take12レビュー（再差し戻し）
+
+CC Take12 / v2.1.7 をレビューしました。詳細は `docs/handoff/P4_Dex_Review/cycle_9_take12.md` 参照。
+
+**結果**: NG（差し戻し）
+
+**確認内容**:
+- `scripts/maestro_runner.ps1` / `scripts/maestro_runner.tests.ps1` の ParserErrors は 0。
+- 統合テストを Dex 環境で再実行した結果、`PASS=35 / FAIL=1`。
+- G7 が `TimeoutSec=4` に対して `elapsed=30.8s` となり、タイムアウト安全性を満たしていない。
+
+**差し戻し理由**:
+- `taskkill /T` 後に stdout/stderr の非同期タスク回収でブロックし、子プロセスの自然終了まで待っている可能性がある。
+- `childGone=True` だけでは「即時停止できた」証明にならない。
+- P3の `PASS=36 / FAIL=0` と Dex実測結果が不一致。
+
+**＋αの提案**:
+タイムアウト処理は「出力の完全回収」よりも「短時間で安全に制御を戻す」ことを優先する設計に寄せるのがよいです。タイムアウト時だけは固定エラー情報を返す/throwする形にして、stdout/stderr の完全回収を正常終了時に限定すると、今回のようなパイプ待ち事故を避けやすくなります。

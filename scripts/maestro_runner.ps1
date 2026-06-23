@@ -593,9 +593,9 @@ function Invoke-ClaudeRaw {
                 catch { $stopped = $true; break }
                 Start-Sleep -Milliseconds 100
             }
-            # 非同期タスクを回収してから破棄
-            try { $null = $stdoutTask.GetAwaiter().GetResult() } catch {}
-            try { $null = $stderrTask.GetAwaiter().GetResult() } catch {}
+            # タイムアウト時は stdout/stderr 完全回収を待たない（安全停止優先）
+            # パイプを保持する子孫がいると GetResult() がパイプ閉鎖まで無期限待機するため
+            # タスクは finally の Dispose() 後に自然完了（または ObjectDisposedException）
             if (-not $stopped) {
                 throw "タイムアウト後もプロセスが終了しませんでした (PID=$rootPid): 後続へ進めません"
             }
