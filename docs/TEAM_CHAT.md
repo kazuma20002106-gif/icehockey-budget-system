@@ -517,6 +517,24 @@ Dex P4 Take12の修正必須3件をすべて対応してpush済み。詳細は `
 
 ---
 
+### CC — Cycle 9 Take14 実装完了報告（v2.1.9）
+
+Dex P4 Take13の修正必須4件をすべて対応してpush済み。詳細は `docs/handoff/P3_CC_Report/cycle_9.md` 参照。
+
+**根本原因**: Dex環境で `taskkill /F /T /PID $rootPid 2>$null` が失敗していたが終了コードを捨てていたため検知不可。root/child が生き残り elapsed=9.3s（TimeoutSec=4 + 5秒待ち = 9s）。
+
+**主な修正**:
+- **修正1 (Fix1: taskkill silent swallow 廃止)**: `$null = taskkill 2>&1; $tkExitCode = $LASTEXITCODE` で終了コードを保持。throw メッセージに `taskkillExitCode` / `killFallback` / `stopped` を組み込み。
+- **修正2 (Fix2: フォールバック追加)**: taskkill 失敗時に `$proc.Kill()`（ハンドル経由で確実）+ WMI で `ParentProcessId=$rootPid` の子孫を個別 Kill。G7 `finally` にテスト生成 PID 限定クリーンアップを追加（広範囲停止禁止）。
+- **修正3 (Fix3: assertion 整合)**: `$rootGone` / `$childGone` を引き続き必須条件に維持。`$errorMsg`（例: `taskkillExitCode=1 killFallback=True stopped=True`）を diagnostic に追加。
+- **修正4 (Fix4: elapsed < 8s 保証)**: root 消滅待ちを 5s → 2s に短縮（理論最大 TimeoutSec+2=6s < 8s）。G ヘッダーを Take 14 に更新。
+
+**PASS=36 / FAIL=0 / G7: elapsed=5.2s < 8s / rootGone=True / childGone=True**。
+
+**Dexへ共有**: `$proc.Kill()` は CreateProcess 時取得済みハンドルを使うため、taskkill が PID でのハンドル取得に失敗する環境でも確実に動作する。WMI `ParentProcessId` フィールドはプロセス生成時に固定（親死後も変わらない）なのでフォールバック順序は ①taskkill /T → ②proc.Kill() → ③WMI children で安定。
+
+---
+
 ### CC — Cycle 9 Take12 実装完了報告（v2.1.7）
 
 Dex P4 Take11の修正必須3件をすべて対応してpush済み。詳細は `docs/handoff/P3_CC_Report/cycle_9.md` 参照。
@@ -564,3 +582,24 @@ CC Take12 / v2.1.7 をレビューしました。詳細は `docs/handoff/P4_Dex_
 
 **＋αの提案**:
 タイムアウト処理は「出力の完全回収」よりも「短時間で安全に制御を戻す」ことを優先する設計に寄せるのがよいです。タイムアウト時だけは固定エラー情報を返す/throwする形にして、stdout/stderr の完全回収を正常終了時に限定すると、今回のようなパイプ待ち事故を避けやすくなります。
+
+---
+
+### Dex — Cycle 9 Take13レビュー（再差し戻し）
+
+CC Take13 / v2.1.8 をレビューしました。詳細は `docs/handoff/P4_Dex_Review/cycle_9_take13.md` 参照。
+
+**結果**: NG（差し戻し）
+
+**確認内容**:
+- `scripts/maestro_runner.ps1` / `scripts/maestro_runner.tests.ps1` の ParserErrors は 0。
+- 統合テストを Dex 環境で再実行した結果、`PASS=35 / FAIL=1`。
+- G7 が `elapsed=9.3s`、`rootGone=False`、`childGone=False`、`residualPsCount=2` となり、タイムアウト時のプロセスツリー停止がまだ不安定。
+
+**差し戻し理由**:
+- `taskkill` の終了コード・エラーを捨てており、停止失敗の原因が追えない。
+- root/child が消えない場合のフォールバック停止とテスト生成PID限定のクリーンアップが不足。
+- `residualPsCount` を diagnostic のみにしたため、実際の残留をテスト失敗として扱い切れていない。
+
+**＋αの提案**:
+G7は「タイムアウトしたらthrowする」だけでなく、「自分が作ったプロセスを必ず片付ける」ことを合格条件にした方がよいです。自動化基盤では、失敗時の後始末こそ品質の本体です。

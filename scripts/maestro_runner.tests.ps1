@@ -402,7 +402,7 @@ Assert-That "F4 Runner内に置換文字(U+FFFD)が存在しない" `
     (-not $runnerText.Contains([char]0xFFFD))
 
 # ─── G: Invoke-ClaudeRaw 実行テスト（Take 13）────────────────────────────
-Write-Host "[G] Invoke-ClaudeRaw 実行テスト（Take 13）" -ForegroundColor White
+Write-Host "[G] Invoke-ClaudeRaw 実行テスト（Take 14）" -ForegroundColor White
 
 # G用スタブ: 外部通信なしで実際にプロセスを起動し動作を検証
 $gTmp            = Join-Path ([System.IO.Path]::GetTempPath()) ("g_stub_" + [guid]::NewGuid().ToString("N").Substring(0,8))
@@ -532,10 +532,16 @@ try {
         $psIdsBefore = @(Get-Process -Name 'powershell','pwsh' -ErrorAction SilentlyContinue |
             Select-Object -ExpandProperty Id)
 
+        # finally でアクセスできるよう try スコープ外で初期化
+        $rootPid  = 0
+        $childPid = 0
+
         try {
-            $threw = $false
-            $sw    = [System.Diagnostics.Stopwatch]::StartNew()
-            try { $null = Invoke-ClaudeRaw @('--help') -TimeoutSec 4 } catch { $threw = $true }
+            $threw    = $false
+            $errorMsg = ''
+            $sw       = [System.Diagnostics.Stopwatch]::StartNew()
+            try { $null = Invoke-ClaudeRaw @('--help') -TimeoutSec 4 }
+            catch { $threw = $true; $errorMsg = $_.Exception.Message }
             $sw.Stop()
             $elapsed = $sw.Elapsed.TotalSeconds
 
@@ -564,17 +570,20 @@ try {
             $psIdsAfter  = @(Get-Process -Name 'powershell','pwsh' -ErrorAction SilentlyContinue |
                 Select-Object -ExpandProperty Id)
             $residualCnt = @($psIdsAfter | Where-Object { $_ -notin $psIdsBefore -and $_ -ne $PID }).Count
-            $noResidual  = ($residualCnt -eq 0)
 
-            # noResidual は可能な範囲の確認（システム起因の誤検知回避のため診断のみ）
-            # stub 固有の child PID 消滅は $childGone で保証済み
+            # rootGone・childGone は記録済みPIDの消滅を必須条件としてアサート
             Assert-That "G7 throw・8秒内・rootPID消滅・childPID消滅(${childKillMs}ms)" `
                 ($threw -and $elapsed -lt 8 -and $rootGone -and $childGone) `
-                "threw=$threw elapsed=$([math]::Round($elapsed,1))s rootPid=$rootPid rootGone=$rootGone childPid=$childPid childGone=$childGone childKillMs=${childKillMs}ms residualPsCount=$residualCnt"
+                "threw=$threw elapsed=$([math]::Round($elapsed,1))s rootPid=$rootPid rootGone=$rootGone childPid=$childPid childGone=$childGone childKillMs=${childKillMs}ms residualPsCount=$residualCnt errMsg=$errorMsg"
         } finally {
             $Script:ClaudeExeOverride = $prev
             $env:STUB_RECORD_FILE   = $null
             $env:STUB_ROOT_PID_FILE = $null
+            # テスト生成PIDのみをクリーンアップ（広範囲の powershell 全停止は禁止）
+            @($rootPid, $childPid) | Where-Object { $_ -gt 0 } | ForEach-Object {
+                $p = Get-Process -Id $_ -ErrorAction SilentlyContinue
+                if ($p) { try { $p.Kill() } catch {} }
+            }
         }
     }
 

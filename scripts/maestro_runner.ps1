@@ -584,9 +584,21 @@ function Invoke-ClaudeRaw {
         if (-not $exited) {
             # プロセスツリー全体を停止（子孫含む・無関係プロセスには触れない）
             $rootPid = $proc.Id
-            try { $null = taskkill /F /T /PID $rootPid 2>$null } catch {}
-            # root の終了を確認（最大 5 秒）
-            $deadline = [DateTime]::UtcNow.AddSeconds(5)
+            # taskkill 終了コードを保持（silent swallow 禁止）
+            $null = taskkill /F /T /PID $rootPid 2>&1
+            $tkExitCode = $LASTEXITCODE
+            $killFallback = $false
+            if ($tkExitCode -ne 0) {
+                # taskkill 失敗時フォールバック: root をハンドル経由で Kill()、子孫は WMI で停止
+                $killFallback = $true
+                try { $proc.Kill() } catch {}
+                try {
+                    Get-WmiObject -Class Win32_Process -Filter "ParentProcessId=$rootPid" -ErrorAction SilentlyContinue |
+                        ForEach-Object { try { Stop-Process -Id ([int]$_.ProcessId) -Force -ErrorAction SilentlyContinue } catch {} }
+                } catch {}
+            }
+            # root の終了を最大 2 秒確認（TimeoutSec+2 が 8 秒以内に収まるため 5→2 に短縮）
+            $deadline = [DateTime]::UtcNow.AddSeconds(2)
             $stopped  = $false
             while ([DateTime]::UtcNow -lt $deadline) {
                 try { $null = Get-Process -Id $rootPid -ErrorAction Stop }
@@ -595,11 +607,11 @@ function Invoke-ClaudeRaw {
             }
             # タイムアウト時は stdout/stderr 完全回収を待たない（安全停止優先）
             # パイプを保持する子孫がいると GetResult() がパイプ閉鎖まで無期限待機するため
-            # タスクは finally の Dispose() 後に自然完了（または ObjectDisposedException）
+            $diagMsg = "taskkillExitCode=$tkExitCode killFallback=$killFallback stopped=$stopped"
             if (-not $stopped) {
-                throw "タイムアウト後もプロセスが終了しませんでした (PID=$rootPid): 後続へ進めません"
+                throw "タイムアウト後もプロセスが終了しませんでした (PID=$rootPid $diagMsg): 後続へ進めません"
             }
-            throw "タイムアウト: claude が ${TimeoutSec}秒以内に終了しませんでした"
+            throw "タイムアウト: claude が ${TimeoutSec}秒以内に終了しませんでした ($diagMsg)"
         }
         $proc.WaitForExit()   # 非同期バッファのフラッシュ（void・パイプライン汚染なし）
 
