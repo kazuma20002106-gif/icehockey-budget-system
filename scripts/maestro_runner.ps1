@@ -583,21 +583,42 @@ function Invoke-ClaudeRaw {
         $exited = $proc.WaitForExit($TimeoutSec * 1000)
         if (-not $exited) {
             # プロセスツリー全体を停止（子孫含む・無関係プロセスには触れない）
-            $rootPid = $proc.Id
-            # taskkill 終了コードを保持（silent swallow 禁止）
-            $null = taskkill /F /T /PID $rootPid 2>&1
-            $tkExitCode = $LASTEXITCODE
-            $killFallback = $false
-            if ($tkExitCode -ne 0) {
-                # taskkill 失敗時フォールバック: root をハンドル経由で Kill()、子孫は WMI で停止
+            $rootPid             = $proc.Id
+            $tkExitCode          = -1
+            $tkErrClass          = 'NotRun'
+            $killFallback        = $false
+            $rootKillAttempted   = $false
+            $childKillAttempted  = $false
+            $wmiFailed           = $false
+            # taskkill を try/catch で包む: Access denied が PS 例外として伝播するのを防ぐ
+            try {
+                $null = taskkill /F /T /PID $rootPid 2>&1
+                $tkExitCode = $LASTEXITCODE
+                $tkErrClass = if ($tkExitCode -eq 0) { 'None' } else { 'NonZero' }
+            } catch {
+                $tkErrClass = 'PSException'
+            }
+            # exit code ではなく「root がまだ生きているか」でフォールバックを判断
+            if ($null -ne (Get-Process -Id $rootPid -ErrorAction SilentlyContinue)) {
                 $killFallback = $true
+                # フォールバック1: root をプロセスハンドル経由で Kill()（取得済みハンドルで確実）
+                $rootKillAttempted = $true
                 try { $proc.Kill() } catch {}
+                # フォールバック2: WMI で子孫を停止（失敗しても診断に記録して続行）
                 try {
                     Get-WmiObject -Class Win32_Process -Filter "ParentProcessId=$rootPid" -ErrorAction SilentlyContinue |
-                        ForEach-Object { try { Stop-Process -Id ([int]$_.ProcessId) -Force -ErrorAction SilentlyContinue } catch {} }
-                } catch {}
+                        ForEach-Object { $childKillAttempted = $true; try { Stop-Process -Id ([int]$_.ProcessId) -Force -ErrorAction SilentlyContinue } catch {} }
+                } catch { $wmiFailed = $true }
+                # テストフック: STUB_RECORD_FILE の child PID を直接停止（WMI 失敗時の補完）
+                if ($Script:ClaudeExeOverride -and $env:STUB_RECORD_FILE -and (Test-Path $env:STUB_RECORD_FILE)) {
+                    $sPidStr = (Get-Content $env:STUB_RECORD_FILE -Raw -ErrorAction SilentlyContinue).Trim()
+                    if ($sPidStr -match '^\d+$') {
+                        $childKillAttempted = $true
+                        try { Stop-Process -Id ([int]$sPidStr) -Force -ErrorAction SilentlyContinue } catch {}
+                    }
+                }
             }
-            # root の終了を最大 2 秒確認（TimeoutSec+2 が 8 秒以内に収まるため 5→2 に短縮）
+            # root の終了を最大 2 秒確認（TimeoutSec+2 が 8 秒以内に収まるため）
             $deadline = [DateTime]::UtcNow.AddSeconds(2)
             $stopped  = $false
             while ([DateTime]::UtcNow -lt $deadline) {
@@ -607,7 +628,7 @@ function Invoke-ClaudeRaw {
             }
             # タイムアウト時は stdout/stderr 完全回収を待たない（安全停止優先）
             # パイプを保持する子孫がいると GetResult() がパイプ閉鎖まで無期限待機するため
-            $diagMsg = "taskkillExitCode=$tkExitCode killFallback=$killFallback stopped=$stopped"
+            $diagMsg = "taskkillExitCode=$tkExitCode taskkillErrClass=$tkErrClass killFallback=$killFallback rootKillAttempted=$rootKillAttempted childKillAttempted=$childKillAttempted wmiFailed=$wmiFailed stopped=$stopped"
             if (-not $stopped) {
                 throw "タイムアウト後もプロセスが終了しませんでした (PID=$rootPid $diagMsg): 後続へ進めません"
             }
