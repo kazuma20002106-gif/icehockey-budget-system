@@ -26,7 +26,10 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 @Service
 public class ExcelExportService {
@@ -119,43 +122,14 @@ public class ExcelExportService {
             if (templateIndex == -1) throw new IllegalArgumentException("Template sheet not found: " + SHEET_24);
 
             if (projectIds.size() == 1) {
-                // 相方自動連行システム
+                // 単独出力: 常に左=対象、右=空欄
                 int id = projectIds.get(0);
-                Project target = projectMapper.findById(id);
-                Integer fiscalYear = target.getFiscalYear();
-                List<Project> yearProjects = projectMapper.findByFiscalYearOrdered(fiscalYear);
-
-                int position = 1;
-                for (int i = 0; i < yearProjects.size(); i++) {
-                    if (yearProjects.get(i).getId().equals(id)) {
-                        position = i + 1; // 1-based
-                        break;
-                    }
-                }
-
                 Sheet newSheet = workbook.cloneSheet(templateIndex);
                 workbook.setSheetName(workbook.getSheetIndex(newSheet), "2-4_" + id);
-
-                if (position % 2 == 1) {
-                    // 奇数回目: 左=対象, 右=空欄
-                    populate24Side(newSheet, id, 0);
-                    pruneTemplateEllipses24Side(newSheet, 0, projectMapper.findById(id));
-                    clearSide24(newSheet, 17);
-                    pruneTemplateEllipses24Side(newSheet, 17, null);
-                } else {
-                    // 偶数回目: 右=対象, 左=1つ前の活動
-                    // LEFT を先に書き、RIGHT を後に書くことで計算セルは RIGHT(対象)の値で確定
-                    if (position >= 2) {
-                        int prevId = yearProjects.get(position - 2).getId();
-                        populate24Side(newSheet, prevId, 0);
-                        pruneTemplateEllipses24Side(newSheet, 0, projectMapper.findById(prevId));
-                    } else {
-                        clearSide24(newSheet, 0);
-                        pruneTemplateEllipses24Side(newSheet, 0, null);
-                    }
-                    populate24Side(newSheet, id, 17);
-                    pruneTemplateEllipses24Side(newSheet, 17, projectMapper.findById(id));
-                }
+                populate24Side(newSheet, id, 0);
+                pruneTemplateEllipses24Side(newSheet, 0, projectMapper.findById(id));
+                clearSide24(newSheet, 17);
+                pruneTemplateEllipses24Side(newSheet, 17, null);
             } else {
                 for (int i = 0; i < projectIds.size(); i += 2) {
                     int id1 = projectIds.get(i);
@@ -511,18 +485,20 @@ public class ExcelExportService {
 
     private void populate22Summary(Sheet sheet22, List<Integer> projectIds) {
         int totalRental = 0, totalSupplies = 0, totalParking = 0, totalCompensation = 0, totalService = 0;
-        int totalTransport = 0, totalAccommodation = 0;
+        int totalTransport = 0, totalAccommodation = 0, totalTravelMisc = 0;
 
         for (int id : projectIds) {
             ProjectSummaryExpense sum = summaryMapper.findByProjectId(id);
+            List<ProjectParticipant> parts = getLoadedParticipants(id);
             if (sum != null) {
                 totalRental += nz(sum.getRentalCost());
                 totalSupplies += nz(sum.getSuppliesCost());
                 totalParking += nz(sum.getParkingCost());
                 totalCompensation += nz(sum.getCompensationCost());
                 totalService += nz(sum.getServiceCost());
+                // 旅行雑費 = 単価 × 参加人数 × 日数（新仕様）
+                totalTravelMisc += nz(sum.getTravelMiscCost()) * parts.size() * nz(sum.getTravelMiscDays());
             }
-            List<ProjectParticipant> parts = getLoadedParticipants(id);
             for (ProjectParticipant p : parts) {
                 if (p.getExpense() != null) {
                     totalTransport += nz(p.getExpense().getTransportCost());
@@ -542,11 +518,50 @@ public class ExcelExportService {
 
         writeSafeNumeric(sheet22, 15, 9, totalTransport);
         writeSafeNumeric(sheet22, 17, 9, totalAccommodation);
+        // 旅行雑費行: row=19(0-indexed)=R20。交通費(R16)→宿泊費(R18)→旅行雑費(R20)→駐車(R22)の2行おきパターンから推定。
+        // 目視確認が必要: 書類.xlsx の様式2-2-1で旅行雑費がR20であることを確認してください。
+        writeSafeNumeric(sheet22, 19, 9, totalTravelMisc);
         writeSafeNumeric(sheet22, 21, 9, totalParking);
         writeSafeNumeric(sheet22, 23, 9, totalRental);
         writeSafeNumeric(sheet22, 25, 9, totalCompensation);
         writeSafeNumeric(sheet22, 27, 9, totalSupplies);
         writeSafeNumeric(sheet22, 29, 9, totalService);
+    }
+
+    // ===== シート名生成ヘルパー =====
+
+    /** budgetTypeId → 補助金区分ラベル（ActivityController#budgetLabel と対応） */
+    private String budgetTypeLabel(Integer budgetTypeId) {
+        if (budgetTypeId == null) return "不明";
+        switch (budgetTypeId) {
+            case 1: return "選手強化費";
+            case 2: return "トップチーム活用事業";
+            case 3: return "ふるさと選手活動支援";
+            default: return "区分" + budgetTypeId;
+        }
+    }
+
+    /** targetCategory → ソート順（成年男子→1, 成年女子→2, 少年男子→3, 少年女子→4） */
+    private int categoryOrder(String category) {
+        if (category == null) return 99;
+        switch (category) {
+            case "成年男子": return 1;
+            case "成年女子": return 2;
+            case "少年男子": return 3;
+            case "少年女子": return 4;
+            default: return 5;
+        }
+    }
+
+    /** Excelシート名禁止文字（/\?*[]:）を _ に置換 */
+    private String sanitizeSheetName(String name) {
+        return name.replaceAll("[/\\\\?*\\[\\]:]", "_");
+    }
+
+    /** 1→①, 2→②, ..., 10→⑩, それ以上は (n) */
+    private String circledNumber(int n) {
+        String[] circles = {"①","②","③","④","⑤","⑥","⑦","⑧","⑨","⑩"};
+        return (n >= 1 && n <= circles.length) ? circles[n - 1] : "(" + n + ")";
     }
 
     // ===== テンプレートシート名 =====
@@ -572,42 +587,88 @@ public class ExcelExportService {
             int idx25 = workbook.getSheetIndex(SHEET_25);
             int idx26 = workbook.getSheetIndex(SHEET_26);
 
+            // 全プロジェクトをロードして仕様通りにソート
+            // 順: 補助金区分ID昇順 → 種別順(成年男子→女子→少年男子→女子) → 活動日昇順 → ID昇順
+            List<Project> allProjects = new ArrayList<>();
+            for (int id : projectIds) {
+                Project p = projectMapper.findById(id);
+                if (p != null) allProjects.add(p);
+            }
+            allProjects.sort(Comparator
+                .comparingInt((Project p) -> p.getBudgetTypeId() == null ? 99 : p.getBudgetTypeId())
+                .thenComparingInt((Project p) -> categoryOrder(p.getTargetCategory()))
+                .thenComparing((Project p) -> p.getEventDate() == null ? LocalDate.of(9999, 12, 31) : p.getEventDate())
+                .thenComparingInt((Project p) -> p.getId() == null ? Integer.MAX_VALUE : p.getId()));
+
             if (includeSummary22) {
+                List<Integer> sortedIds = new ArrayList<>();
+                for (Project p : allProjects) sortedIds.add(p.getId());
                 Sheet sheet22 = workbook.getSheet(SHEET_22);
-                if (sheet22 != null) populate22Summary(sheet22, projectIds);
+                if (sheet22 != null) populate22Summary(sheet22, sortedIds);
             }
 
-            // 様式2-4：2活動ずつ左右に配置
+            // 様式2-4: (budgetTypeId + targetCategory) グループ内でペアリング
+            // シート順: 2-4全て → 2-5全て → 2-6全てになるよう2-4を先に生成
             if (idx24 != -1) {
-                for (int i = 0; i < projectIds.size(); i += 2) {
-                    int id1 = projectIds.get(i);
-                    Integer id2 = (i + 1 < projectIds.size()) ? projectIds.get(i + 1) : null;
-                    Sheet s = workbook.cloneSheet(idx24);
-                    workbook.setSheetName(workbook.getSheetIndex(s), uniqueName(workbook, "2-4_" + id1));
-                    populate24Side(s, id1, 0);
-                    pruneTemplateEllipses24Side(s, 0, projectMapper.findById(id1));
-                    if (id2 != null) {
-                        populate24Side(s, id2, 17);
-                        pruneTemplateEllipses24Side(s, 17, projectMapper.findById(id2));
-                    } else {
-                        clearSide24(s, 17);
-                        pruneTemplateEllipses24Side(s, 17, null);
+                Map<String, List<Project>> groups24 = new LinkedHashMap<>();
+                for (Project p : allProjects) {
+                    String key = (p.getBudgetTypeId() == null ? "0" : p.getBudgetTypeId())
+                            + "_" + (p.getTargetCategory() == null ? "" : p.getTargetCategory());
+                    groups24.computeIfAbsent(key, k -> new ArrayList<>()).add(p);
+                }
+                for (Map.Entry<String, List<Project>> entry : groups24.entrySet()) {
+                    List<Project> gList = entry.getValue();
+                    String btLabel = budgetTypeLabel(gList.get(0).getBudgetTypeId());
+                    String cat = gList.get(0).getTargetCategory() == null ? "" : gList.get(0).getTargetCategory();
+                    for (int i = 0, sheetNum = 1; i < gList.size(); i += 2, sheetNum++) {
+                        Project left = gList.get(i);
+                        Project right = (i + 1 < gList.size()) ? gList.get(i + 1) : null;
+                        Sheet s = workbook.cloneSheet(idx24);
+                        String nm = sanitizeSheetName("2-4_" + btLabel + "_" + cat + "_" + circledNumber(sheetNum));
+                        workbook.setSheetName(workbook.getSheetIndex(s), uniqueName(workbook, nm));
+                        populate24Side(s, left.getId(), 0);
+                        pruneTemplateEllipses24Side(s, 0, left);
+                        if (right != null) {
+                            populate24Side(s, right.getId(), 17);
+                            pruneTemplateEllipses24Side(s, 17, right);
+                        } else {
+                            clearSide24(s, 17);
+                            pruneTemplateEllipses24Side(s, 17, null);
+                        }
                     }
                 }
             }
 
-            // 様式2-5 / 2-6：活動ごとに1シート
-            for (int id : projectIds) {
-                Project project = projectMapper.findById(id);
-                List<ProjectParticipant> participants = getLoadedParticipants(id);
-                if (idx25 != -1) {
+            // 様式2-5: ソート済み順に1シートずつ、グループ内連番を付与
+            if (idx25 != -1) {
+                Map<String, Integer> counter25 = new LinkedHashMap<>();
+                for (Project project : allProjects) {
+                    String key = (project.getBudgetTypeId() == null ? "0" : project.getBudgetTypeId())
+                            + "_" + (project.getTargetCategory() == null ? "" : project.getTargetCategory());
+                    int num = counter25.merge(key, 1, Integer::sum);
+                    String btLabel = budgetTypeLabel(project.getBudgetTypeId());
+                    String cat = project.getTargetCategory() == null ? "" : project.getTargetCategory();
+                    List<ProjectParticipant> participants = getLoadedParticipants(project.getId());
                     Sheet s = workbook.cloneSheet(idx25);
-                    workbook.setSheetName(workbook.getSheetIndex(s), uniqueName(workbook, "2-5_" + id));
+                    String nm = sanitizeSheetName("2-5_" + btLabel + "_" + cat + "_" + circledNumber(num));
+                    workbook.setSheetName(workbook.getSheetIndex(s), uniqueName(workbook, nm));
                     populate25(s, project, participants);
                 }
-                if (idx26 != -1) {
+            }
+
+            // 様式2-6: 同様に1シートずつ
+            if (idx26 != -1) {
+                Map<String, Integer> counter26 = new LinkedHashMap<>();
+                for (Project project : allProjects) {
+                    String key = (project.getBudgetTypeId() == null ? "0" : project.getBudgetTypeId())
+                            + "_" + (project.getTargetCategory() == null ? "" : project.getTargetCategory());
+                    int num = counter26.merge(key, 1, Integer::sum);
+                    String btLabel = budgetTypeLabel(project.getBudgetTypeId());
+                    String cat = project.getTargetCategory() == null ? "" : project.getTargetCategory();
+                    List<ProjectParticipant> participants = getLoadedParticipants(project.getId());
                     Sheet s = workbook.cloneSheet(idx26);
-                    workbook.setSheetName(workbook.getSheetIndex(s), uniqueName(workbook, "2-6_" + id));
+                    String nm = sanitizeSheetName("2-6_" + btLabel + "_" + cat + "_" + circledNumber(num));
+                    workbook.setSheetName(workbook.getSheetIndex(s), uniqueName(workbook, nm));
                     populate26(s, project, participants);
                 }
             }

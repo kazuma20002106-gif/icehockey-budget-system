@@ -96,12 +96,17 @@
                         <input type="text" name="project.locationAccommodation" class="form-control"
                                placeholder="宿泊なし" th:value="${activityForm.project.locationAccommodation}">
                     </div>
-                    <div class="col-md-2">
-                        <label class="form-label">宿泊数（泊）</label>
-                        <input type="number" name="project.accommodationNights" class="form-control text-end" id="accommodationNights" min="0" max="3" value="0"
-                               th:value="${activityForm.project.accommodationNights != null ? activityForm.project.accommodationNights : 0}"
-                               oninput="recalculateAccommodationCosts()">
-                        <small class="text-muted" style="font-size:0.72rem;">最大3泊（様式2-5上限）</small>
+                    <div class="col-md-4">
+                        <label class="form-label text-nowrap">宿泊設定 <small class="text-muted">※単価は1泊分・最大3泊</small></label>
+                        <div class="input-group">
+                            <input type="number" id="accommodationRate" class="form-control text-end" value="0" min="0" oninput="recalculateAccommodationCosts()">
+                            <span class="input-group-text">円</span>
+                            <span class="input-group-text">×</span>
+                            <input type="number" name="project.accommodationNights" id="accommodationNights" class="form-control text-end" min="0" max="3" value="0"
+                                   th:value="${activityForm.project.accommodationNights != null ? activityForm.project.accommodationNights : 0}"
+                                   oninput="recalculateAccommodationCosts()">
+                            <span class="input-group-text">泊</span>
+                        </div>
                     </div>
                     <div class="col-md-2">
                         <label class="form-label">指導者（名）</label>
@@ -188,10 +193,6 @@
                         <label class="form-label mb-0 text-white small fw-normal">交通費単価（円/km）</label>
                         <input type="number" id="transportRate" class="form-control text-end" value="17" style="width:80px;" oninput="recalculateTransportCosts()">
                     </div>
-                    <div class="d-flex align-items-center gap-1">
-                        <label class="form-label mb-0 text-white small fw-normal">宿泊費単価（円/泊）</label>
-                        <input type="number" id="accommodationRate" class="form-control text-end" value="0" style="width:90px;" oninput="recalculateAccommodationCosts()">
-                    </div>
                 </div>
             </div>
             <div class="card-body">
@@ -236,15 +237,19 @@
                                 </td>
                                 <td><input type="number" class="form-control text-end distance-input" th:name="|expenses[${stat.index}].transportDistanceKm|" th:value="${e.transportDistanceKm}" min="0" onclick="openDistanceSpinner(this)" onfocus="openDistanceSpinner(this)"></td>
                                 <td><input type="number" class="form-control text-end cost-input" th:name="|expenses[${stat.index}].transportCost|" th:value="${e.transportCost}" min="0" oninput="calculateTotals()" onclick="openDigitSpinner(this)" onfocus="openDigitSpinner(this)"></td>
-                                <td><input type="number" class="form-control text-end cost-input" th:name="|expenses[${stat.index}].accommodationCost|" th:value="${e.accommodationCost}" min="0" oninput="calculateTotals()" onclick="openDigitSpinner(this)" onfocus="openDigitSpinner(this)"></td>
+                                <td><input type="number" class="form-control text-end cost-input bg-light" th:name="|expenses[${stat.index}].accommodationCost|" th:value="${e.accommodationCost}" min="0" oninput="calculateTotals()" readonly></td>
                             </tr>
                         </tbody>
                         <tfoot class="table-light fw-bold text-end">
                             <tr>
-                                <td colspan="5" class="text-center">旅費合計</td>
+                                <td colspan="5" class="text-center text-muted small">旅費合計</td>
                                 <td id="totalTransport">0</td>
                                 <td id="totalAccommodation">0</td>
-                                <td class="text-center text-primary">計 <span id="grandTotal">0</span> 円</td>
+                                <td></td>
+                            </tr>
+                            <tr>
+                                <td colspan="7" class="text-center fs-5 fw-bold text-primary">総合計</td>
+                                <td class="text-center fs-5 fw-bold text-primary"><span id="grandTotal">0</span> 円</td>
                             </tr>
                         </tfoot>
                     </table>
@@ -282,17 +287,25 @@
                                th:value="${activityForm.summary.parkingCost != null ? activityForm.summary.parkingCost : 0}"
                                onclick="openDigitSpinner(this)" onfocus="openDigitSpinner(this)">
                     </div>
-                    <div class="col-md-3">
-                        <label class="form-label">旅行雑費 単価（円/人/日）</label>
-                        <input type="number" class="form-control text-end cost-input" name="summary.travelMiscCost" min="0"
-                               th:value="${activityForm.summary.travelMiscCost != null ? activityForm.summary.travelMiscCost : 0}"
-                               onclick="openDigitSpinner(this)" onfocus="openDigitSpinner(this)">
-                    </div>
-                    <div class="col-md-3">
-                        <label class="form-label">旅行雑費 日数（日）</label>
-                        <input type="number" class="form-control text-end" name="summary.travelMiscDays" min="0"
-                               th:value="${activityForm.summary.travelMiscDays != null ? activityForm.summary.travelMiscDays : 0}">
-                        <small class="text-muted">合計 = 単価 × 参加人数 × 日数</small>
+                    <div class="col-12">
+                        <label class="form-label">旅行雑費</label>
+                        <div class="input-group">
+                            <input type="number" id="travelMiscCost" name="summary.travelMiscCost" class="form-control text-end" min="0"
+                                   th:value="${activityForm.summary.travelMiscCost != null ? activityForm.summary.travelMiscCost : 0}"
+                                   oninput="updateTravelMiscTotal()">
+                            <span class="input-group-text">円</span>
+                            <span class="input-group-text">×</span>
+                            <input type="number" id="travelMiscDays" name="summary.travelMiscDays" class="form-control text-end" min="0"
+                                   th:value="${activityForm.summary.travelMiscDays != null ? activityForm.summary.travelMiscDays : 0}"
+                                   oninput="updateTravelMiscTotal()">
+                            <span class="input-group-text">日</span>
+                            <span class="input-group-text">×</span>
+                            <input type="number" id="travelMiscPeople" class="form-control text-end bg-light" readonly value="0">
+                            <span class="input-group-text">人</span>
+                            <span class="input-group-text">=</span>
+                            <input type="number" id="travelMiscTotal" class="form-control text-end bg-light" readonly value="0">
+                            <span class="input-group-text">円</span>
+                        </div>
                     </div>
                     <input type="hidden" name="summary.compensationCost"
                            th:value="${activityForm.summary.compensationCost != null ? activityForm.summary.compensationCost : 0}">
@@ -370,7 +383,7 @@
             </td>
             <td><input type="number" class="form-control text-end distance-input" name="expenses[IDX].transportDistanceKm" min="0" onclick="openDistanceSpinner(this)" onfocus="openDistanceSpinner(this)"></td>
             <td><input type="number" class="form-control text-end cost-input" name="expenses[IDX].transportCost" value="0" min="0" oninput="calculateTotals()" onclick="openDigitSpinner(this)" onfocus="openDigitSpinner(this)"></td>
-            <td><input type="number" class="form-control text-end cost-input" name="expenses[IDX].accommodationCost" value="0" min="0" oninput="calculateTotals()" onclick="openDigitSpinner(this)" onfocus="openDigitSpinner(this)"></td>
+            <td><input type="number" class="form-control text-end cost-input bg-light" name="expenses[IDX].accommodationCost" value="0" min="0" oninput="calculateTotals()" readonly></td>
         </tr>
     </tbody></table>
 
@@ -596,6 +609,16 @@
             document.getElementById('coachCount').value=coach;
             document.getElementById('playerCount').value=player;
             document.getElementById('totalCount').value=(coach+player)+' 名';
+            const mp=document.getElementById('travelMiscPeople');
+            if(mp){ mp.value=coach+player; updateTravelMiscTotal(); }
+        }
+
+        // ===== 旅行雑費合計（単価×日数×人数）=====
+        function updateTravelMiscTotal(){
+            const cost=parseInt(document.getElementById('travelMiscCost').value,10)||0;
+            const days=parseInt(document.getElementById('travelMiscDays').value,10)||0;
+            const people=parseInt(document.getElementById('travelMiscPeople').value,10)||0;
+            document.getElementById('travelMiscTotal').value=cost*days*people;
         }
 
         // ===== 合計 =====
@@ -691,6 +714,7 @@
             syncAllDistanceLocks();
             calculateTotals();
             initAccommodationRate(); // 編集時: 保存済み宿泊費から単価を逆算して表示
+            updateTravelMiscTotal(); // 旅行雑費合計を初期表示
         })();
 
         expenseBody.addEventListener('blur', function(e){

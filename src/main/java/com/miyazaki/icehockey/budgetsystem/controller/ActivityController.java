@@ -38,11 +38,13 @@ public class ActivityController {
     public String list(@RequestParam(value = "year", required = false) Integer year,
                        @RequestParam(value = "budgetTypeId", required = false) Integer budgetTypeId,
                        @RequestParam(value = "month", required = false) Integer month,
+                       @RequestParam(value = "targetCategory", required = false) String targetCategory,
+                       @RequestParam(value = "projectName", required = false) String projectName,
                        Model model) {
         // 年度未指定なら現在の会計年度
         if (year == null) year = currentFiscalYear();
 
-        List<Project> projects = projectMapper.findFiltered(year, budgetTypeId, month);
+        List<Project> projects = projectMapper.findFiltered(year, budgetTypeId, month, targetCategory, projectName);
 
         List<ActivityRow> rows = new ArrayList<>();
         int totalCount = 0, totalParticipants = 0;
@@ -80,6 +82,8 @@ public class ActivityController {
         model.addAttribute("selectedYear", year);
         model.addAttribute("selectedBudgetTypeId", budgetTypeId);
         model.addAttribute("selectedMonth", month);
+        model.addAttribute("selectedTargetCategory", targetCategory);
+        model.addAttribute("selectedProjectName", projectName);
         model.addAttribute("totalCount", totalCount);
         model.addAttribute("totalParticipants", totalParticipants);
         model.addAttribute("grandTotal", grandTotal);
@@ -191,9 +195,11 @@ public class ActivityController {
     public void exportYear(@RequestParam(value = "year", required = false) Integer year,
                            @RequestParam(value = "budgetTypeId", required = false) Integer budgetTypeId,
                            @RequestParam(value = "month", required = false) Integer month,
+                           @RequestParam(value = "targetCategory", required = false) String targetCategory,
+                           @RequestParam(value = "projectName", required = false) String projectName,
                            HttpServletResponse response) throws Exception {
         if (year == null) year = currentFiscalYear();
-        List<Project> projects = projectMapper.findFiltered(year, budgetTypeId, month);
+        List<Project> projects = projectMapper.findFiltered(year, budgetTypeId, month, targetCategory, projectName);
         List<Integer> ids = projects.stream().map(Project::getId).collect(Collectors.toList());
 
         String fname = year + "年度_まとめ.xlsx";

@@ -23,6 +23,12 @@
             <if test="month != null">
                 AND MONTH(event_date) = #{month}
             </if>
+            <if test="targetCategory != null and targetCategory != ''">
+                AND target_category = #{targetCategory}
+            </if>
+            <if test="projectName != null and projectName != ''">
+                AND name LIKE CONCAT('%', #{projectName}, '%')
+            </if>
         </where>
         ORDER BY event_date DESC, id DESC
     </select>

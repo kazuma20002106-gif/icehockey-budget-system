@@ -1,9 +1,9 @@
 # 📍 CURRENT STATUS（現在地確認）
 
 > **💡 Kazumax向け3行サマリー**
-> - **今**: AI自動化システム（Maestro Runner）の開発はCycle 10で一旦保留し、本来の「ツール（Budget System）作り」に回帰。
-> - **結果**: 自動化の再開用スナップショットとして `docs/handoff/MAESTRO_RUNNER_PARKED_STATE.md` を作成。
-> - **Kazumaxの次アクション**: ツール（Budget System）のどの機能の実装・修正から着手するか、要件をAirへ指示してください。
+> - **今**: Cycle 8.3の実装をCCが完了（v2.2.0）。コンパイルOK。
+> - **次**: DexがCCの実装差分をレビューする（P4）。
+> - **Kazumaxの次アクション**: 下部の合図文をDexへ渡してください。
 
 ---
 
@@ -11,27 +11,25 @@
 
 ## 1. 現在のサイクル名とフェーズ
 
-**本来のツール開発（Budget System）へ回帰**  
-※ AI自動化機能は `MAESTRO_RUNNER_PARKED_STATE.md` に状態を保存して一時保留（Park）中
+**Cycle 8.3: UI改善・Excelシート名適正化・決算書旅行雑費修正**  
+**CC実装完了 / Dexレビュー待ち**
 
 ## 2. 現在の担当者
 
-**Kazumax** - 開発再開するツールの要件・ターゲットの指示
+**Dex** - CCの実装差分をレビュー（P4）
 
 ## 3. 次に作業する担当者
 
-**Air / Dex** - Kazumaxの指示を受け、ツール開発の計画・実装を開始する
+**CC** - Dexのレビュー結果次第（差し戻しあれば修正、OKなら完了）
 
 ## 4. 今読むべきファイル一覧
 
-Airが次に参照すべきファイル:
+Dexが次に参照すべきファイル:
 
-- `docs/handoff/P1_Air_Blueprint/cycle_10_live_test_procedure.md`
 - `docs/handoff/CURRENT_STATUS.md`
-- `docs/handoff/P4_Dex_Review/cycle_10_live_test_diagnosis.md`
-- `docs/handoff/P4_Dex_Review/cycle_10_live_diagnosis_fix_review.md`
-- `docs/handoff/P3_CC_Report/cycle_10.md`
-- `scripts/maestro_runner.ps1`
+- `docs/handoff/P1_Air_Blueprint/cycle_8_3_draft.md`
+- `docs/handoff/P2_Dex_to_CC/cycle_8_3.md`
+- `docs/handoff/P3_CC_Report/cycle_8_3.md`
 
 ### 条件付きで読むファイル
 
@@ -46,12 +44,9 @@ Airが次に参照すべきファイル:
 
 ## 5. 最新のハンドオフファイル
 
-- **P1 (Blueprint)**: `docs/handoff/P1_Air_Blueprint/cycle_10_maestro_phase2.md`
-- **P2 (Dex Instructions)**: `docs/handoff/P2_Dex_Instructions/cycle_10_maestro_phase2.md`
-- **P3 (CC Report)**: `docs/handoff/P3_CC_Report/cycle_10.md`（実機診断対応・v2.1.14）
-- **Dex診断**: `docs/handoff/P4_Dex_Review/cycle_10_live_test_diagnosis.md`
-- **Dexレビュー**: `docs/handoff/P4_Dex_Review/cycle_10_live_diagnosis_fix_review.md`
-- **Dex異常系結果**: `docs/handoff/P4_Dex_Review/cycle_10_live_test_abnormal_only_result.md`
+- **P1/P2草案 (Air)**: `docs/handoff/P1_Air_Blueprint/cycle_8_3_draft.md`
+- **P2補強版 (Dex)**: `docs/handoff/P2_Dex_to_CC/cycle_8_3.md`
+- **P3 (CC Report)**: `docs/handoff/P3_CC_Report/cycle_8_3.md`（作成済み）
 
 ## 6. 現在のStop Conditions / 禁止事項
 
@@ -64,15 +59,22 @@ Airが次に参照すべきファイル:
 - 第3段階への進行
 - Kazumaxの明示承認なしの外部モデル/API呼び出し・課金発生操作
 
-## 7. Dexレビュー結果
+## 7. CC実装完了サマリー（v2.2.0）
 
-- `scripts/maestro_runner.ps1` parser OK
-- `scripts/maestro_runner.tests.ps1` parser OK
-- 外部通信なし統合テスト `PASS=54 FAIL=0`
-- `revision` 数値厳密一致、`result="success"` 固定、禁止例、JSONテンプレートをプロンプトに明記済み
-- H14で `revision=2` 実機異常の再発防止を検証済み
+| 項目 | 内容 |
+|------|------|
+| コンパイル | `mvnw compile` Exit: 0 |
+| バージョン | v2.1.14 → v2.2.0 |
+| 絞り込み検索 | 種別・事業名を追加、一覧とExcel出力で同一条件を使用 |
+| Excelシート名 | `2-4_選手強化費_成年男子_①` 形式、グループ化・ソート実装 |
+| 2-4単独出力 | 常に左=対象・右=空欄（偶数番判定ロジック廃止） |
+| 2-2-1旅行雑費 | `単価×人数×日数` で集計（R20セル推定・目視確認必要） |
+| 宿泊費UI | 単価×泊数 input-group、rateは基本情報へ移動 |
+| 宿泊費入力欄 | 2-6宿泊費セルを readonly 化 |
+| 旅行雑費UI | `[単価]円×[日数]日×[人数]人=[合計]円` フル計算式 |
+| 総合計表示 | tfoot を2行（旅費合計行 + 大きな総合計行）に分割 |
 
-## 8. 次回実機テスト時の注意
+## 8. 次回実機テスト時の注意（Cycle 10 Maestro引き継ぎ）
 
 - `test_automation:r2` はprocessed済みなので、次回はrevisionを上げる。
 - ダミーP1はmanifest投入前に必ず作る。
@@ -81,7 +83,6 @@ Airが次に参照すべきファイル:
 - 実Claude自動起動はKazumax承認後に1ケースずつ。
 - `dummy_fail:r3` はprocessed済みのため、異常系再テストは `revision: 4` 以上で行う。
 - 現時点では `docs/handoff/maestro/PAUSE` が存在する。再テスト前に意図して削除すること。
-- 今回のPAUSE原因は `CC呼び出し60秒タイムアウト`。`automation_fail.txt` と `cc.done.json` は生成されていない。
 
 ## 9. 各AIの作業完了時ルール（必須）
 
@@ -100,13 +101,14 @@ Airが次に参照すべきファイル:
 ## 11. Kazumaxが次にコピペする合図文
 
 ```text
-Air、異常系(r4)と正常系(r4)の実機テストが両方とも大成功したよ！
-PAUSEの発動（不正差分検知）も、正常系の完走も完璧だった！
+Dex、CCがCycle 8.3の実装を完了したよ。
 
 最新のファイルは以下の通り。
-- 手順書: docs/handoff/P1_Air_Blueprint/cycle_10_live_test_procedure.md
+- Air草案: docs/handoff/P1_Air_Blueprint/cycle_8_3_draft.md
+- Dex補強版P2: docs/handoff/P2_Dex_to_CC/cycle_8_3.md
+- CC実装報告(P3): docs/handoff/P3_CC_Report/cycle_8_3.md
 - 現在地: docs/handoff/CURRENT_STATUS.md
 
-これでCycle 10のテストは完全クリアだね！
-P3/P4やCURRENT_STATUS.mdを整理して、次のCycle 11（第3段階：自律ループと検証）の計画を立てて、合図文を出してね。
+@.cursorrules を厳守してDIFFレビュー（P4）をして！
+作業が終わったら CURRENT_STATUS.md を更新して、ルールのテンプレートに従って次への合図文を出してね。
 ```

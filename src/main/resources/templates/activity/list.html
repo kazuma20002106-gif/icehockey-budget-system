@@ -49,11 +49,26 @@
                 </select>
             </div>
             <div class="col-auto">
+                <label class="form-label small text-muted mb-1">種別</label>
+                <select name="targetCategory" class="form-select">
+                    <option value="" th:selected="${selectedTargetCategory == null or selectedTargetCategory == ''}">全種別</option>
+                    <option value="成年男子" th:selected="${selectedTargetCategory == '成年男子'}">成年男子</option>
+                    <option value="成年女子" th:selected="${selectedTargetCategory == '成年女子'}">成年女子</option>
+                    <option value="少年男子" th:selected="${selectedTargetCategory == '少年男子'}">少年男子</option>
+                    <option value="少年女子" th:selected="${selectedTargetCategory == '少年女子'}">少年女子</option>
+                </select>
+            </div>
+            <div class="col-auto">
+                <label class="form-label small text-muted mb-1">事業名</label>
+                <input type="text" name="projectName" class="form-select" placeholder="部分一致"
+                       th:value="${selectedProjectName}" style="min-width:120px;">
+            </div>
+            <div class="col-auto">
                 <button type="submit" class="btn btn-outline-secondary">絞り込み</button>
             </div>
             <div class="col text-end">
                 <a class="btn btn-success"
-                   th:href="@{/activity/export/year(year=${selectedYear}, budgetTypeId=${selectedBudgetTypeId}, month=${selectedMonth})}">
+                   th:href="@{/activity/export/year(year=${selectedYear}, budgetTypeId=${selectedBudgetTypeId}, month=${selectedMonth}, targetCategory=${selectedTargetCategory}, projectName=${selectedProjectName})}">
                     年度まとめExcel出力
                 </a>
             </div>

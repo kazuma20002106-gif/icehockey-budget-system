@@ -8,7 +8,7 @@ import java.util.List;
 public interface ProjectMapper {
     List<Project> findAll();
     Project findById(int id);
-    List<Project> findFiltered(@Param("fiscalYear") Integer fiscalYear, @Param("budgetTypeId") Integer budgetTypeId, @Param("month") Integer month);
+    List<Project> findFiltered(@Param("fiscalYear") Integer fiscalYear, @Param("budgetTypeId") Integer budgetTypeId, @Param("month") Integer month, @Param("targetCategory") String targetCategory, @Param("projectName") String projectName);
     List<Project> findByFiscalYearOrdered(@Param("fiscalYear") Integer fiscalYear);
     int insert(Project project);
     int update(Project project);
