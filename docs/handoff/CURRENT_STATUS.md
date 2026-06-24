@@ -1,9 +1,9 @@
 # 📍 CURRENT STATUS（現在地確認）
 
 > **💡 Kazumax向け3行サマリー**
-> - **今**: 60秒タイムアウトの原因（スクリプト先祖返り）をAirが修正し、600秒に再設定完了。revision 4 のマニフェスト準備も完了。
-> - **次**: Kazumax が手順書に従い、Runnerを「再起動」してから r4 の異常系・正常系の実機テストを実行。
-> - **Kazumaxの次アクション**: `docs/handoff/P1_Air_Blueprint/cycle_10_live_test_procedure.md` を読み、**必ずRunnerのプロセスを再起動（Ctrl+Cして再度実行）**してからテストを実行してください。終わったら下部の合図文を出してください。
+> - **今**: AI自動化システム（Maestro Runner）の開発はCycle 10で一旦保留し、本来の「ツール（Budget System）作り」に回帰。
+> - **結果**: 自動化の再開用スナップショットとして `docs/handoff/MAESTRO_RUNNER_PARKED_STATE.md` を作成。
+> - **Kazumaxの次アクション**: ツール（Budget System）のどの機能の実装・修正から着手するか、要件をAirへ指示してください。
 
 ---
 
@@ -11,16 +11,16 @@
 
 ## 1. 現在のサイクル名とフェーズ
 
-**Cycle 10: Maestro Runner Phase 2（CC自動起動の稼働）**  
-**Live Test 実施待ち（r4ファイル準備・スクリプト修正完了）**
+**本来のツール開発（Budget System）へ回帰**  
+※ AI自動化機能は `MAESTRO_RUNNER_PARKED_STATE.md` に状態を保存して一時保留（Park）中
 
 ## 2. 現在の担当者
 
-**Kazumax** - 手順書に基づく異常系・正常系の実機テスト実行（Runner再起動必須）
+**Kazumax** - 開発再開するツールの要件・ターゲットの指示
 
 ## 3. 次に作業する担当者
 
-**Air / Dex** - 実機テスト成功の報告を受けて、次の計画へ進む
+**Air / Dex** - Kazumaxの指示を受け、ツール開発の計画・実装を開始する
 
 ## 4. 今読むべきファイル一覧
 
