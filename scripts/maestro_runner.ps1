@@ -516,6 +516,7 @@ function Process-Manifest {
 # quarantine 配下は除外して走査
 # ─────────────────────────────────────────────────────────────────────────
 function Invoke-PendingScan {
+    param([bool]$AllowPhase2 = $false)
     Write-Log "保留中の manifest をスキャン..."
     $manifests = @(Get-ChildItem -Path $MaestroDir -Filter "*.ready.json" -Recurse -ErrorAction SilentlyContinue |
         Where-Object { -not (Test-UnderQuarantine $_.FullName) } |
@@ -530,8 +531,28 @@ function Invoke-PendingScan {
         if (-not (Wait-FileStable -FilePath $m.FullName)) { continue }
         $result = Process-Manifest -ManifestPath $m.FullName
         if ($result) {
-            Write-Log ">>> 【第2段階未実装】Kazumax の承認後に CC を手動起動してください。" "WARN"
+            Invoke-Phase2IfAllowed -Result $result -AllowPhase2 $AllowPhase2
         }
+    }
+}
+
+# ─────────────────────────────────────────────────────────────────────────
+# Invoke-Phase2IfAllowed: Phase2起動判定の共通ロジック
+# Start-Watching (イベント経路) と Invoke-PendingScan (スキャン経路) の両方から呼ぶ
+# Fix1: Invoke-PendingScan経由でも同じ判定を通すことで経路漏れを防ぐ
+# ─────────────────────────────────────────────────────────────────────────
+function Invoke-Phase2IfAllowed {
+    param([PSCustomObject]$Result, [bool]$AllowPhase2 = $false)
+    if ($AllowPhase2) {
+        if ($Result.cycle -match "test|dummy") {
+            $p1FullPath = [System.IO.Path]::GetFullPath([System.IO.Path]::Combine($ProjectRoot, $Result.p1_file))
+            Invoke-ClaudeAgent -ManifestObj $Result -P1FullPath $p1FullPath
+        } else {
+            Write-Log ">>> 本番P1の自動起動は禁止: cycle名が test/dummy 系ではありません ($($Result.cycle))" "WARN"
+            Write-Log ">>> 任意cycleの自動起動には -AllowNonDummyPhase2 とKazumax承認が別途必要です。" "WARN"
+        }
+    } else {
+        Write-Log ">>> 【第2段階】-TestPhase2 なしでは自動起動しません。Kazumax承認後に -TestPhase2 を付けて実行してください。" "WARN"
     }
 }
 
@@ -820,6 +841,11 @@ function Invoke-ClaudeAgent {
     $tmpFullPath = [System.IO.Path]::GetFullPath($tmpDir)
     $tmpRelPath  = $tmpFullPath.Substring($ProjectRoot.Length).TrimStart('\', '/') -replace '\\', '/'
 
+    # Fix3/Fix7: 許可パス定義（git baseline/after 両方で参照するため先に定義）
+    $allowedP3   = $p3RelPath
+    $allowedDone = $doneJsonRelPath
+    $allowedTmp  = $tmpRelPath.TrimEnd('/') + '/'
+
     # プロンプト作成（絶対パスを埋め込む）
     $promptFile = Join-Path $tmpDir "temp_prompt.txt"
     $promptText = "あなたはCCです。これはMaestro Runnerによる自動化フェーズ2のサンドボックステストです。`n" +
@@ -831,19 +857,59 @@ function Invoke-ClaudeAgent {
 "3. 一時ファイル: ${tmpFullPath}\ 配下`n`n" +
 "P3には「読んだP1の要約」「実装せずに確認した内容」「出力したdone.jsonの場所」を書いてください。`n" +
 "作業が完了したら、完了の証拠として ${doneJsonFullPath} を作成してください。`n" +
-"JSONには以下のキーを含めてください: cycle, revision, source_p1_sha256, p3_file, p3_sha256, completed_at, result"
+"JSONには以下のキーを含めてください: cycle, revision, source_p1_sha256, p3_file, p3_sha256, completed_at, result`n" +
+"【重要】p3_file の値は絶対パスではなく、必ず次の相対パス文字列にすること: ${p3RelPath}`n" +
+"【重要】p3_sha256 は実際に作成した P3 ファイルのSHA-256（小文字）にすること。"
     Set-Content -Path $promptFile -Value $promptText -Encoding UTF8
 
-    # Fix3: Claude起動前にgitベースライン取得（既存差分を基準として差し引く）
-    $gitBaseline = @()
+    # Fix3: Claude起動前にgitベースライン取得 + Fix2: 失敗時はPAUSE（git監査無効化を防ぐ）
+    # --untracked-files=all でディレクトリではなく個別ファイルを列挙（Fix3 hash比較の前提）
+    # try/catch: $ErrorActionPreference=Stop 環境でstderr ErrorRecord がthrowする問題に対応
+    $gitBaseline         = @()
+    $gitBaselineExitCode = 0
+    $gitBaselineStderr   = ''
+    $rawBaselineText     = ''
     Push-Location -LiteralPath $ProjectRoot
     try {
-        $rawBaseline = git status --porcelain 2>$null
-        if ($rawBaseline) {
-            $gitBaseline = @($rawBaseline -split "`n" | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+        try {
+            $rawBaselineMixed    = git status --porcelain --untracked-files=all 2>&1
+            $gitBaselineExitCode = $LASTEXITCODE
+            $gitBaselineStderr   = ($rawBaselineMixed | Where-Object { $_ -is [System.Management.Automation.ErrorRecord] } | ForEach-Object { $_.ToString() }) -join ' '
+            $rawBaselineText     = ($rawBaselineMixed | Where-Object { $_ -isnot [System.Management.Automation.ErrorRecord] }) -join "`n"
+        } catch {
+            if ($LASTEXITCODE -ne 0) { $gitBaselineExitCode = $LASTEXITCODE } else { $gitBaselineExitCode = 1 }
+            $gitBaselineStderr = $_.Exception.Message -replace '\r?\n', ' '
         }
     } finally {
         Pop-Location
+    }
+    if ($rawBaselineText) {
+        $gitBaseline = @($rawBaselineText -split "`n" | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+    }
+    if ($gitBaselineExitCode -ne 0) {
+        Write-Log "git status --porcelain 失敗 (exit=$gitBaselineExitCode): $gitBaselineStderr" "ERROR"
+        Require-Pause "git status 失敗: 安全監査不能。手動確認後 PAUSE を削除してください。"
+        return
+    }
+
+    # Fix3 enhanced: 起動前dirty許可外ファイルのSHA-256を記録（CC起動後の内容変化検知用）
+    # $maestroDirRel 除外: maestro.log等ランタイムファイルの変化による誤PAUSEを防ぐ
+    $maestroDirRel = ($MaestroDir.Substring($ProjectRoot.Length).TrimStart('\', '/') -replace '\\', '/').TrimEnd('/') + '/'
+    $baselineHashes = @{}
+    foreach ($line in $gitBaseline) {
+        if ([string]::IsNullOrWhiteSpace($line)) { continue }
+        $bPath = $line.Substring(3).Trim(' "') -replace '\\', '/'
+        if ($bPath -eq $allowedP3)   { continue }
+        if ($bPath -eq $allowedDone) { continue }
+        if ($bPath.StartsWith($allowedTmp,    [System.StringComparison]::OrdinalIgnoreCase)) { continue }
+        if ($bPath.StartsWith($maestroDirRel, [System.StringComparison]::OrdinalIgnoreCase)) { continue }
+        $bFullPath = [System.IO.Path]::GetFullPath([System.IO.Path]::Combine($ProjectRoot, ($bPath -replace '/', '\')))
+        if (Test-Path $bFullPath -PathType Leaf) {
+            try { $baselineHashes[$bPath] = (Get-FileHash -Path $bFullPath -Algorithm SHA256).Hash.ToLower() }
+            catch { $baselineHashes[$bPath] = 'HASH_ERROR' }
+        } else {
+            $baselineHashes[$bPath] = 'NOT_EXISTS'
+        }
     }
 
     Write-Log "CC(Claude Code) を自動起動します..." "INFO"
@@ -926,31 +992,57 @@ function Invoke-ClaudeAgent {
         }
     }
 
-    # 判定4: Fix3: gitベースライン差分で許可パス監査（既存の汚れた作業ツリーに耐える）
-    $gitAfter = @()
+    # 判定4: Fix3: gitベースライン差分で許可パス監査 + Fix2: git失敗時はPAUSE
+    $gitAfter         = @()
+    $gitAfterExitCode = 0
+    $gitAfterStderr   = ''
+    $rawAfterText     = ''
     Push-Location -LiteralPath $ProjectRoot
     try {
-        $rawAfter = git status --porcelain 2>$null
-        if ($rawAfter) {
-            $gitAfter = @($rawAfter -split "`n" | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+        try {
+            $rawAfterMixed    = git status --porcelain --untracked-files=all 2>&1
+            $gitAfterExitCode = $LASTEXITCODE
+            $gitAfterStderr   = ($rawAfterMixed | Where-Object { $_ -is [System.Management.Automation.ErrorRecord] } | ForEach-Object { $_.ToString() }) -join ' '
+            $rawAfterText     = ($rawAfterMixed | Where-Object { $_ -isnot [System.Management.Automation.ErrorRecord] }) -join "`n"
+        } catch {
+            if ($LASTEXITCODE -ne 0) { $gitAfterExitCode = $LASTEXITCODE } else { $gitAfterExitCode = 1 }
+            $gitAfterStderr = $_.Exception.Message -replace '\r?\n', ' '
         }
     } finally {
         Pop-Location
     }
+    if ($rawAfterText) {
+        $gitAfter = @($rawAfterText -split "`n" | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+    }
+    if ($gitAfterExitCode -ne 0) {
+        Write-Log "git status --porcelain (after) 失敗 (exit=$gitAfterExitCode): $gitAfterStderr" "ERROR"
+        Require-Pause "git status (after) 失敗: 安全監査不能。手動確認後 PAUSE を削除してください。"
+        return
+    }
 
-    $deltaLines   = $gitAfter | Where-Object { $gitBaseline -notcontains $_ }
-    $allowedP3    = $p3RelPath
-    $allowedDone  = $doneJsonRelPath
-    $allowedTmp   = $tmpRelPath.TrimEnd('/') + '/'
+    # Fix3 enhanced: 既存dirty許可外ファイルの内容変化を検知（status行は変わらないが中身が変わる場合）
     $invalidPaths = @()
+    foreach ($bPath in $baselineHashes.Keys) {
+        $bFullPath = [System.IO.Path]::GetFullPath([System.IO.Path]::Combine($ProjectRoot, ($bPath -replace '/', '\')))
+        $afterHash = if (Test-Path $bFullPath -PathType Leaf) {
+            try { (Get-FileHash -Path $bFullPath -Algorithm SHA256).Hash.ToLower() } catch { 'HASH_ERROR' }
+        } else { 'NOT_EXISTS' }
+        if ($afterHash -ne $baselineHashes[$bPath]) {
+            Write-Log "既存dirty許可外ファイルの内容変化を検知: $bPath" "ERROR"
+            $invalidPaths += $bPath
+        }
+    }
 
+    # 新規または状態変化したファイルのdelta検査（$maestroDirRel も除外: ランタイムファイル新規作成を誤検知しない）
+    $deltaLines = $gitAfter | Where-Object { $gitBaseline -notcontains $_ }
     foreach ($line in $deltaLines) {
         if ([string]::IsNullOrWhiteSpace($line)) { continue }
         $modPath = $line.Substring(3).Trim(' "') -replace '\\', '/'
         if ($modPath -eq $allowedP3)   { continue }
         if ($modPath -eq $allowedDone) { continue }
-        if ($modPath.StartsWith($allowedTmp, [System.StringComparison]::OrdinalIgnoreCase)) { continue }
-        $invalidPaths += $modPath
+        if ($modPath.StartsWith($allowedTmp,    [System.StringComparison]::OrdinalIgnoreCase)) { continue }
+        if ($modPath.StartsWith($maestroDirRel, [System.StringComparison]::OrdinalIgnoreCase)) { continue }
+        if ($invalidPaths -notcontains $modPath) { $invalidPaths += $modPath }
     }
 
     if ($invalidPaths.Count -gt 0) {
@@ -995,7 +1087,7 @@ function Start-Watching {
 
     # mutex 取得後: 全後続処理を try/finally で囲み、異常終了でも確実に解放
     try {
-        if (-not (Test-Paused)) { Invoke-PendingScan }
+        if (-not (Test-Paused)) { Invoke-PendingScan -AllowPhase2 $TestPhase2 }
 
         $watcher = New-Object System.IO.FileSystemWatcher
         $watcher.Path                  = $MaestroDir
@@ -1020,13 +1112,13 @@ function Start-Watching {
 
                 if ($pauseWasActive) {
                     Write-Log "PAUSE 解除を検知。保留中 manifest をスキャンします。" "INFO"
-                    Invoke-PendingScan
+                    Invoke-PendingScan -AllowPhase2 $TestPhase2
                     $pauseWasActive = $false
                     $lastScan = [datetime]::UtcNow
                 }
 
                 if (([datetime]::UtcNow - $lastScan).TotalSeconds -ge 30) {
-                    Invoke-PendingScan
+                    Invoke-PendingScan -AllowPhase2 $TestPhase2
                     $lastScan = [datetime]::UtcNow
                 }
 
@@ -1057,20 +1149,9 @@ function Start-Watching {
                 }
 
                 Write-Log ">>> バリデーション合格: $($result.cycle) (r$($result.revision))" "OK"
-                
-                # Fix7: cycle名ガードは -TestPhase2 があっても外さない
-                # -TestPhase2 は Phase2機能を有効化するスイッチに留め、cycle名判定は必須
-                if ($TestPhase2) {
-                    if ($result.cycle -match "test|dummy") {
-                        $p1FullPath = [System.IO.Path]::GetFullPath([System.IO.Path]::Combine($ProjectRoot, $result.p1_file))
-                        Invoke-ClaudeAgent -ManifestObj $result -P1FullPath $p1FullPath
-                    } else {
-                        Write-Log ">>> 本番P1の自動起動は禁止: cycle名が test/dummy 系ではありません ($($result.cycle))" "WARN"
-                        Write-Log ">>> 任意cycleの自動起動には -AllowNonDummyPhase2 とKazumax承認が別途必要です。" "WARN"
-                    }
-                } else {
-                    Write-Log ">>> 【第2段階】-TestPhase2 なしでは自動起動しません。Kazumax承認後に -TestPhase2 を付けて実行してください。" "WARN"
-                }
+
+                # Fix1: 共通関数でPhase2起動判定（Invoke-PendingScan経由と同一ロジック）
+                Invoke-Phase2IfAllowed -Result $result -AllowPhase2 $TestPhase2
                 
                 Write-Log "────────────────────────────────────────────" "INFO"
             }

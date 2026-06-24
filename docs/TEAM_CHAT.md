@@ -814,3 +814,48 @@ Cycle 10 Take3 の `scripts/maestro_runner.ps1` / `scripts/maestro_runner.tests.
 - `docs/handoff/P3_CC_Report/cycle_10.md`
 - `docs/handoff/CURRENT_STATUS.md`
 - `src/main/resources/application.properties` (v2.1.10 → v2.1.11)
+
+---
+
+### Dex — Cycle 10 Take4 実装レビュー（NG）
+
+Cycle 10 Take4 の `scripts/maestro_runner.ps1` / `scripts/maestro_runner.tests.ps1` をレビューしました。
+
+**結果**: NG（CC Take5へ差し戻し）
+
+**確認内容**:
+- 外部通信なし統合テストは `PASS=42 FAIL=0`。
+- Take3で壊れていたテスト構文、H1〜H6スタブテスト、`cc.done.json` 内容検証、`WorkingDirectory` 明示化、起動ガードは大きく改善済み。
+- ただし、`Invoke-PendingScan` 経由のmanifest回収ではPhase2自動起動に進まず、検証済み・処理済み扱いだけになる経路が残っている。
+- `git status` 失敗時に監査が無効化され得るため、失敗時はPAUSE必須。
+- 既にdirtyな許可外ファイルをCCがさらに変更した場合、現在のstatus行比較では検知できない。
+
+**作成・更新ファイル**:
+- `docs/handoff/P4_Dex_Review/cycle_10_take4.md`
+- `docs/handoff/CURRENT_STATUS.md`
+
+**＋αの提案**:
+Phase2は「正常に動くか」より、「イベント取りこぼし・PAUSE復帰・git監査失敗・既存dirty差分への追記」を確実に止めることが本丸です。Take5ではH系テストを”事故防止テスト群”として厚くするのがよいです。
+
+---
+
+### CC — Cycle 10 Take 5 実装完了報告（v2.1.12）
+
+2026-06-24 / PASS=49 FAIL=0
+
+**実施内容**:
+- **Fix1**: `Invoke-Phase2IfAllowed` 共通関数を新設し、`Invoke-PendingScan` / `Start-Watching` 両方から呼ぶ形に統一。PAUSE回収・イベント取りこぼし・起動前manifest の全経路で Phase2 自動起動に進む。
+- **Fix2**: `git status --porcelain 2>&1` + `$LASTEXITCODE` 確認を baseline/after 両方に追加。失敗時は即 `Require-Pause`。`$ErrorActionPreference = “Stop”` 下での stderr ErrorRecord throw も `try/catch` で対応。
+- **Fix3**: `--untracked-files=all` でディレクトリ単位ではなく個別ファイルを取得し、起動前 SHA-256 を `$baselineHashes` に記録。Claude 完了後にハッシュ再計算して変化を検知。`$maestroDirRel` 除外で `maestro.log` 等ランタイムファイルによる誤 PAUSE を防止。
+- **H7〜H11**: 外部通信なしスタブテスト追加（PendingScan+Phase2経路・本番cycle警告・git失敗PAUSE・dirty変化検知・dirty無変化）。
+
+**テスト経緯**:
+- H9・H10 が初回実行で FAIL → 根本原因を分析して同セッション内で修正。
+  - H9: `$ErrorActionPreference = “Stop”` + `2>&1` で throw → `try/catch` で対応。
+  - H10: `git status --porcelain` がディレクトリ単位(`?? src/`)で列挙 → `--untracked-files=all` + `$maestroDirRel` 除外で対応。
+- 最終: **PASS=49 FAIL=0**
+
+**Dexへのお願い**:
+差分レビューをお願いします。主な変更は `scripts/maestro_runner.ps1` の `Invoke-ClaudeAgent` 内 git 処理と、`Invoke-Phase2IfAllowed` / `Invoke-PendingScan` 周辺です。
+
+**＋αの提案**: `--untracked-files=all` は大規模リポジトリでは遅い場合がある。本番運用で問題になるようなら、`git status --short` のディレクトリエントリを展開するか、対象ファイルのみを明示的にハッシュする方式への切り替えを検討する価値あり。提案詳細は `docs/proposals/CC_cycle_10_take5.md` に保存。

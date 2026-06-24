@@ -619,6 +619,7 @@ $script:MaestroDir    = Join-Path $hTestRoot "docs\handoff\maestro"
 $script:AllowedP1Root = Join-Path $hTestRoot "docs\handoff\P1_Air_Blueprint"
 $script:PauseFile     = Join-Path $hTestRoot "docs\handoff\maestro\PAUSE"
 $script:LogFile       = Join-Path $hTestRoot "docs\handoff\maestro\maestro.log"
+$script:ProcessedLog  = Join-Path $hTestRoot "docs\handoff\maestro\processed.log"
 New-Item -ItemType Directory -Path $script:MaestroDir    -Force | Out-Null
 New-Item -ItemType Directory -Path $script:AllowedP1Root -Force | Out-Null
 
@@ -638,16 +639,18 @@ $stubHCmd = Join-Path $hTmp "stub_h.cmd"
 # スタブ PS1: 環境変数で動作制御（P3・done.json作成、不正ファイル作成、WorkingDir記録）
 [System.IO.File]::WriteAllLines($stubHPs1, [string[]]@(
     'param()',
-    '$p3Path   = $env:STUB_H_P3_PATH',
-    '$donePath = $env:STUB_H_DONE_PATH',
-    '$p1Path   = $env:STUB_H_P1_PATH',
-    '$cycleVal = $env:STUB_H_CYCLE',
-    '$revVal   = if ($env:STUB_H_REVISION) { [int]$env:STUB_H_REVISION } else { 1 }',
-    '$p3RelVal = $env:STUB_H_P3_REL',
-    '$invPath  = $env:STUB_H_INVALID_PATH',
-    '$tmpFile  = $env:STUB_H_TMP_FILE_PATH',
-    '$wdFile   = $env:STUB_H_RECORD_WORKDIR',
+    '$p3Path    = $env:STUB_H_P3_PATH',
+    '$donePath  = $env:STUB_H_DONE_PATH',
+    '$p1Path    = $env:STUB_H_P1_PATH',
+    '$cycleVal  = $env:STUB_H_CYCLE',
+    '$revVal    = if ($env:STUB_H_REVISION) { [int]$env:STUB_H_REVISION } else { 1 }',
+    '$p3RelVal  = $env:STUB_H_P3_REL',
+    '$invPath   = $env:STUB_H_INVALID_PATH',
+    '$tmpFile   = $env:STUB_H_TMP_FILE_PATH',
+    '$wdFile    = $env:STUB_H_RECORD_WORKDIR',
+    '$modifyPath = $env:STUB_H_MODIFY_PATH',
     'if ($wdFile) { (Get-Location).Path | Set-Content $wdFile -Encoding ASCII }',
+    'if ($modifyPath -and (Test-Path $modifyPath)) { "MODIFIED_BY_STUB" | Set-Content $modifyPath -Encoding UTF8 }',
     'if ($p3Path) {',
     '    $d = [System.IO.Path]::GetDirectoryName($p3Path)',
     '    if (-not (Test-Path $d)) { New-Item -ItemType Directory $d -Force | Out-Null }',
@@ -685,7 +688,7 @@ $stubHCmd = Join-Path $hTmp "stub_h.cmd"
 function Clear-HStubEnv {
     foreach ($n in @('STUB_H_P3_PATH','STUB_H_DONE_PATH','STUB_H_P1_PATH','STUB_H_CYCLE',
                      'STUB_H_REVISION','STUB_H_P3_REL','STUB_H_INVALID_PATH',
-                     'STUB_H_TMP_FILE_PATH','STUB_H_RECORD_WORKDIR')) {
+                     'STUB_H_TMP_FILE_PATH','STUB_H_RECORD_WORKDIR','STUB_H_MODIFY_PATH')) {
         Set-Item "env:$n" -Value ''
     }
 }
@@ -880,6 +883,216 @@ try {
         $hasDone = $promptContent -match [regex]::Escape($hDonePath)
         Assert-That "H6 プロンプトに P1・P3・done.json の絶対パスが含まれる" ($hasP1 -and $hasP3 -and $hasDone) `
             "p1=$hasP1 p3=$hasP3 done=$hasDone"
+    }
+
+    # ── H7: Invoke-PendingScan + AllowPhase2=true + dummy cycle → ClaudeAgent呼び出し ──
+    Run-Case "H7" {
+        Clear-HTestPause
+        $Script:ProcessedSet = @{}
+        if (Test-Path $script:ProcessedLog) { Remove-Item $script:ProcessedLog -Force }
+
+        $hCycle   = "dummy_h7"
+        $hRev     = 1
+        $hP3Path  = [System.IO.Path]::GetFullPath([System.IO.Path]::Combine($script:ProjectRoot, "docs\handoff\P3_CC_Report\${hCycle}.md"))
+        $hDonePath = [System.IO.Path]::GetFullPath([System.IO.Path]::Combine($script:MaestroDir, "${hCycle}\revision_${hRev}\cc.done.json"))
+        $hP1File  = "docs/handoff/P1_Air_Blueprint/h_test_07.md"
+        $hP1Path  = [System.IO.Path]::GetFullPath([System.IO.Path]::Combine($script:ProjectRoot, ($hP1File -replace '/', '\')))
+        $hP3Rel   = "docs/handoff/P3_CC_Report/${hCycle}.md"
+
+        if (-not (Test-Path ([System.IO.Path]::GetDirectoryName($hP1Path)))) { New-Item -ItemType Directory ([System.IO.Path]::GetDirectoryName($hP1Path)) -Force | Out-Null }
+        "# H7 P1 Test Dummy" | Set-Content $hP1Path -Encoding UTF8
+        $hP1Sha256 = (Get-FileHash -Path $hP1Path -Algorithm SHA256).Hash.ToLower()
+
+        $h7ManifestPath = Join-Path $script:MaestroDir "h7_dummy.ready.json"
+        [PSCustomObject]@{
+            schema_version = [int]1
+            producer       = "air"
+            cycle          = $hCycle
+            revision       = [int]$hRev
+            p1_sha256      = $hP1Sha256
+            p1_file        = $hP1File
+            created_at     = [datetime]::UtcNow.ToString("yyyy-MM-ddTHH:mm:ss") + "Z"
+        } | ConvertTo-Json -Compress | Set-Content $h7ManifestPath -Encoding UTF8
+
+        Clear-HStubEnv
+        $env:STUB_H_P3_PATH   = $hP3Path
+        $env:STUB_H_DONE_PATH = $hDonePath
+        $env:STUB_H_P1_PATH   = $hP1Path
+        $env:STUB_H_CYCLE     = $hCycle
+        $env:STUB_H_REVISION  = "$hRev"
+        $env:STUB_H_P3_REL    = $hP3Rel
+
+        $prev = $Script:ClaudeExeOverride
+        $Script:ClaudeExeOverride = $stubHCmd
+        try {
+            Invoke-PendingScan -AllowPhase2 $true
+        } finally {
+            $Script:ClaudeExeOverride = $prev
+            Clear-HStubEnv
+            if (Test-Path $h7ManifestPath) { Remove-Item $h7ManifestPath -Force -ErrorAction SilentlyContinue }
+        }
+        Assert-That "H7 PendingScan+AllowPhase2+dummy cycle → ClaudeAgent呼ばれP3作成" (Test-Path $hP3Path) "P3が作成されていない"
+        Assert-That "H7 PendingScan正常系 → PAUSEなし" (-not (Test-Path $script:PauseFile)) "PAUSEファイルが存在している"
+    }
+
+    # ── H8: Invoke-PendingScan + AllowPhase2=true + 本番cycle → 警告のみ・ClaudeAgent不呼び出し ──
+    Run-Case "H8" {
+        Clear-HTestPause
+        $Script:ProcessedSet = @{}
+        if (Test-Path $script:ProcessedLog) { Remove-Item $script:ProcessedLog -Force }
+
+        $hCycle   = "production_h8"
+        $hRev     = 1
+        $hP3Path  = [System.IO.Path]::GetFullPath([System.IO.Path]::Combine($script:ProjectRoot, "docs\handoff\P3_CC_Report\${hCycle}.md"))
+        $hP1File  = "docs/handoff/P1_Air_Blueprint/h_test_08.md"
+        $hP1Path  = [System.IO.Path]::GetFullPath([System.IO.Path]::Combine($script:ProjectRoot, ($hP1File -replace '/', '\')))
+
+        if (-not (Test-Path ([System.IO.Path]::GetDirectoryName($hP1Path)))) { New-Item -ItemType Directory ([System.IO.Path]::GetDirectoryName($hP1Path)) -Force | Out-Null }
+        "# H8 P1 Test Production" | Set-Content $hP1Path -Encoding UTF8
+        $hP1Sha256 = (Get-FileHash -Path $hP1Path -Algorithm SHA256).Hash.ToLower()
+
+        $h8ManifestPath = Join-Path $script:MaestroDir "h8_prod.ready.json"
+        [PSCustomObject]@{
+            schema_version = [int]1
+            producer       = "air"
+            cycle          = $hCycle
+            revision       = [int]$hRev
+            p1_sha256      = $hP1Sha256
+            p1_file        = $hP1File
+            created_at     = [datetime]::UtcNow.ToString("yyyy-MM-ddTHH:mm:ss") + "Z"
+        } | ConvertTo-Json -Compress | Set-Content $h8ManifestPath -Encoding UTF8
+
+        $prev = $Script:ClaudeExeOverride
+        $Script:ClaudeExeOverride = $stubHCmd
+        try {
+            Invoke-PendingScan -AllowPhase2 $true
+        } finally {
+            $Script:ClaudeExeOverride = $prev
+            Clear-HStubEnv
+            if (Test-Path $h8ManifestPath) { Remove-Item $h8ManifestPath -Force -ErrorAction SilentlyContinue }
+        }
+        Assert-That "H8 本番cycle → ClaudeAgent不呼び出し(P3なし)" (-not (Test-Path $hP3Path)) "P3が作成されている（呼ばれてはいけない）"
+        Assert-That "H8 本番cycle警告のみ → PAUSEなし" (-not (Test-Path $script:PauseFile)) "PAUSEファイルが存在している"
+    }
+
+    # ── H9: git status 失敗時に Require-Pause される ─────────────────────────
+    Run-Case "H9" {
+        $h9Root       = Join-Path ([System.IO.Path]::GetTempPath()) ("h9_nogit_" + [guid]::NewGuid().ToString("N").Substring(0,8))
+        $h9MaestroDir = Join-Path $h9Root "docs\handoff\maestro"
+        $h9PauseFile  = Join-Path $h9MaestroDir "PAUSE"
+        New-Item -ItemType Directory -Path $h9MaestroDir -Force | Out-Null
+        # NO git init — git status は exit 128 で失敗する
+
+        $prevProjectRoot  = $script:ProjectRoot
+        $prevMaestroDir   = $script:MaestroDir
+        $prevPauseFile    = $script:PauseFile
+        $prevLogFile      = $script:LogFile
+        $prevProcessedLog = $script:ProcessedLog
+        $script:ProjectRoot  = $h9Root
+        $script:MaestroDir   = $h9MaestroDir
+        $script:PauseFile    = $h9PauseFile
+        $script:LogFile      = Join-Path $h9MaestroDir "maestro.log"
+        $script:ProcessedLog = Join-Path $h9MaestroDir "processed.log"
+
+        $h9Manifest = [PSCustomObject]@{ cycle = "dummy_h9"; revision = 1; p1_file = "dummy.md" }
+        $h9P1Path   = Join-Path $h9Root "dummy.md"
+        $prev = $Script:ClaudeExeOverride
+        $Script:ClaudeExeOverride = $stubHCmd
+        $h9PauseCreated = $false
+        try {
+            Invoke-ClaudeAgent -ManifestObj $h9Manifest -P1FullPath $h9P1Path
+        } catch {}
+        finally {
+            $h9PauseCreated      = Test-Path $h9PauseFile
+            $Script:ClaudeExeOverride = $prev
+            $script:ProjectRoot  = $prevProjectRoot
+            $script:MaestroDir   = $prevMaestroDir
+            $script:PauseFile    = $prevPauseFile
+            $script:LogFile      = $prevLogFile
+            $script:ProcessedLog = $prevProcessedLog
+            if (Test-Path $h9Root) { Remove-Item $h9Root -Recurse -Force -ErrorAction SilentlyContinue }
+        }
+        Assert-That "H9 git status 失敗時にRequire-PauseされPAUSEファイル作成" $h9PauseCreated "PAUSEファイルが作成されていない"
+    }
+
+    # ── H10: 起動前dirty許可外ファイルをスタブが変更 → PAUSE ────────────────
+    Run-Case "H10" {
+        Clear-HTestPause
+        $hCycle = "h_test_10"
+        $hRev   = 1
+        $hP3Path   = [System.IO.Path]::GetFullPath([System.IO.Path]::Combine($script:ProjectRoot, "docs\handoff\P3_CC_Report\${hCycle}.md"))
+        $hDonePath = [System.IO.Path]::GetFullPath([System.IO.Path]::Combine($script:MaestroDir, "${hCycle}\revision_${hRev}\cc.done.json"))
+        $hP1Path   = [System.IO.Path]::GetFullPath([System.IO.Path]::Combine($script:AllowedP1Root, "h_test_10.md"))
+        $hP3Rel    = "docs/handoff/P3_CC_Report/${hCycle}.md"
+
+        # 起動前から存在するdirtyな許可外ファイル（スタブが内容を変更する）
+        $dirtyDir  = [System.IO.Path]::GetFullPath([System.IO.Path]::Combine($script:ProjectRoot, "src"))
+        if (-not (Test-Path $dirtyDir)) { New-Item -ItemType Directory $dirtyDir -Force | Out-Null }
+        $dirtyFile = Join-Path $dirtyDir "existing_h10.txt"
+        "ORIGINAL_CONTENT" | Set-Content $dirtyFile -Encoding UTF8
+
+        if (-not (Test-Path ([System.IO.Path]::GetDirectoryName($hP1Path)))) { New-Item -ItemType Directory ([System.IO.Path]::GetDirectoryName($hP1Path)) -Force | Out-Null }
+        "# H10 P1 Test" | Set-Content $hP1Path -Encoding UTF8
+        $hManifest = [PSCustomObject]@{ cycle = $hCycle; revision = $hRev; p1_file = "docs/handoff/P1_Air_Blueprint/h_test_10.md" }
+
+        Clear-HStubEnv
+        $env:STUB_H_P3_PATH     = $hP3Path
+        $env:STUB_H_DONE_PATH   = $hDonePath
+        $env:STUB_H_P1_PATH     = $hP1Path
+        $env:STUB_H_CYCLE       = $hCycle
+        $env:STUB_H_REVISION    = "$hRev"
+        $env:STUB_H_P3_REL      = $hP3Rel
+        $env:STUB_H_MODIFY_PATH = $dirtyFile   # スタブが既存ファイルを変更する
+
+        $prev = $Script:ClaudeExeOverride
+        $Script:ClaudeExeOverride = $stubHCmd
+        try {
+            Invoke-ClaudeAgent -ManifestObj $hManifest -P1FullPath $hP1Path
+        } finally {
+            $Script:ClaudeExeOverride = $prev
+            Clear-HStubEnv
+        }
+        Assert-That "H10 既存dirtyファイルの内容変化を検知しPAUSE" (Test-Path $script:PauseFile) "PAUSEファイルが作成されていない"
+    }
+
+    # ── H11: 起動前dirty許可外ファイルをスタブが触らない → PAUSEなし ─────────
+    Run-Case "H11" {
+        Clear-HTestPause
+        $hCycle = "h_test_11"
+        $hRev   = 1
+        $hP3Path   = [System.IO.Path]::GetFullPath([System.IO.Path]::Combine($script:ProjectRoot, "docs\handoff\P3_CC_Report\${hCycle}.md"))
+        $hDonePath = [System.IO.Path]::GetFullPath([System.IO.Path]::Combine($script:MaestroDir, "${hCycle}\revision_${hRev}\cc.done.json"))
+        $hP1Path   = [System.IO.Path]::GetFullPath([System.IO.Path]::Combine($script:AllowedP1Root, "h_test_11.md"))
+        $hP3Rel    = "docs/handoff/P3_CC_Report/${hCycle}.md"
+
+        # 起動前から存在するdirtyな許可外ファイル（スタブは触らない）
+        $dirtyDir  = [System.IO.Path]::GetFullPath([System.IO.Path]::Combine($script:ProjectRoot, "src"))
+        if (-not (Test-Path $dirtyDir)) { New-Item -ItemType Directory $dirtyDir -Force | Out-Null }
+        $dirtyFile = Join-Path $dirtyDir "existing_h11.txt"
+        "ORIGINAL_CONTENT" | Set-Content $dirtyFile -Encoding UTF8
+
+        if (-not (Test-Path ([System.IO.Path]::GetDirectoryName($hP1Path)))) { New-Item -ItemType Directory ([System.IO.Path]::GetDirectoryName($hP1Path)) -Force | Out-Null }
+        "# H11 P1 Test" | Set-Content $hP1Path -Encoding UTF8
+        $hManifest = [PSCustomObject]@{ cycle = $hCycle; revision = $hRev; p1_file = "docs/handoff/P1_Air_Blueprint/h_test_11.md" }
+
+        Clear-HStubEnv
+        $env:STUB_H_P3_PATH   = $hP3Path
+        $env:STUB_H_DONE_PATH = $hDonePath
+        $env:STUB_H_P1_PATH   = $hP1Path
+        $env:STUB_H_CYCLE     = $hCycle
+        $env:STUB_H_REVISION  = "$hRev"
+        $env:STUB_H_P3_REL    = $hP3Rel
+        # STUB_H_MODIFY_PATH 未設定 → スタブはdirtyファイルを変更しない
+
+        $prev = $Script:ClaudeExeOverride
+        $Script:ClaudeExeOverride = $stubHCmd
+        try {
+            Invoke-ClaudeAgent -ManifestObj $hManifest -P1FullPath $hP1Path
+        } finally {
+            $Script:ClaudeExeOverride = $prev
+            Clear-HStubEnv
+        }
+        Assert-That "H11 既存dirtyファイルを触らなければPAUSEなし" (-not (Test-Path $script:PauseFile)) "PAUSEファイルが存在している"
     }
 
 } finally {
