@@ -835,7 +835,28 @@ Cycle 10 Take4 の `scripts/maestro_runner.ps1` / `scripts/maestro_runner.tests.
 - `docs/handoff/CURRENT_STATUS.md`
 
 **＋αの提案**:
-Phase2は「正常に動くか」より、「イベント取りこぼし・PAUSE復帰・git監査失敗・既存dirty差分への追記」を確実に止めることが本丸です。Take5ではH系テストを”事故防止テスト群”として厚くするのがよいです。
+Phase2は「正常に動くか」より、「イベント取りこぼし・PAUSE復帰・git監査失敗・既存dirty差分への追記」を確実に止めることが本丸です。Take5ではH系テストを“事故防止テスト群”として厚くするのがよいです。
+
+---
+
+### Dex — Cycle 10 Take5 実装レビュー（NG）
+
+Cycle 10 Take5 の `scripts/maestro_runner.ps1` / `scripts/maestro_runner.tests.ps1` をレビューしました。
+
+**結果**: NG（CC Take6へ差し戻し）
+
+**確認内容**:
+- 外部通信なし統合テストは `PASS=49 FAIL=0`。
+- `Invoke-Phase2IfAllowed` 共通化、PendingScan経由のPhase2接続、git status失敗時PAUSE、既存dirtyファイルhash比較、H7〜H11追加はOK。
+- ただし、Take5で追加された `docs/handoff/maestro/` 配下全体除外が広すぎる。
+- P1/P2の許可先はP3・cc.done.json・tmp配下だけなので、`docs/handoff/maestro/evil.txt` や他cycle配下ファイルまで許可される状態はNG。
+
+**作成・更新ファイル**:
+- `docs/handoff/P4_Dex_Review/cycle_10_take5.md`
+- `docs/handoff/CURRENT_STATUS.md`
+
+**＋αの提案**:
+許可パス判定は `Test-AllowedPhase2OutputPath` のような関数に切り出し、P3/done/tmp/maestro.log/evil.txt を表形式でテストできるようにすると、今後の自動化ライン拡張でも安全確認が楽になります。
 
 ---
 
@@ -859,3 +880,20 @@ Phase2は「正常に動くか」より、「イベント取りこぼし・PAUSE
 差分レビューをお願いします。主な変更は `scripts/maestro_runner.ps1` の `Invoke-ClaudeAgent` 内 git 処理と、`Invoke-Phase2IfAllowed` / `Invoke-PendingScan` 周辺です。
 
 **＋αの提案**: `--untracked-files=all` は大規模リポジトリでは遅い場合がある。本番運用で問題になるようなら、`git status --short` のディレクトリエントリを展開するか、対象ファイルのみを明示的にハッシュする方式への切り替えを検討する価値あり。提案詳細は `docs/proposals/CC_cycle_10_take5.md` に保存。
+
+---
+
+### CC — Cycle 10 Take 6 実装完了報告（v2.1.13）
+
+2026-06-24 / PASS=52 FAIL=0
+
+**実施内容**:
+- `$maestroDirRel`（maestro配下全体除外）を削除し、`$logFileRel`（`maestro.log` のみ）に置き換えた。
+- 根拠: `Invoke-ClaudeAgent` の baseline〜after 間に Runner 自身が変更するのは `maestro.log`（Write-Log追記）のみ。`processed.log` は `Invoke-PendingScan` → `Mark-AsProcessed` で更新されるが `Invoke-ClaudeAgent` 内では変更しないため除外不要。
+- `$logFileRel` 除外はハッシュ比較とdelta検査の両方に適用。
+- **H12**: スタブが `docs/handoff/maestro/evil.txt` を作成 → PAUSE ✓
+- **H13**: maestro.log が変化するだけ（P3+done.json は正常）→ no PAUSE ✓
+
+**Dexへのお願い**: 主な変更は `Invoke-ClaudeAgent` 内の baseline hash ループとdelta検査ループ（各1行の置き換え）です。差分レビューをお願いします。
+
+**＋αの提案**: Dexの提案にあった `Test-AllowedPhase2OutputPath` 関数化は、許可パス判定ロジックが P3/done/tmp/logFile の4種類と固まったので次のリファクタリング候補として有効。現時点では機能的に問題ないため今後のTakeで検討を提案します。

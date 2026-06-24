@@ -1,7 +1,7 @@
 # 📍 CURRENT STATUS（現在地確認）
 
 > **Kazumax向け3行サマリー**
-> - **今**: Cycle 10 / Take 5 の実装完了。PASS=49 FAIL=0。Dexのレビュー待ち。
+> - **今**: Cycle 10 / Take 6 の実装完了。PASS=52 FAIL=0。Dexのレビュー待ち。
 > - **次**: Dex が `docs/handoff/P3_CC_Report/cycle_10.md` と差分をレビューし、P4を作成。
 > - **Kazumaxの次アクション**: 下部の合図文を Dex にコピペして渡してください。実機の `-Watch -TestPhase2` はまだ実行しないでください。
 
@@ -12,15 +12,15 @@
 ## 1. 現在のサイクル名とフェーズ
 
 **Cycle 10: Maestro Runner Phase 2（CC自動起動の実装）**  
-**Take 5 / CC実装完了 / Dexレビュー待ち**
+**Take 6 / CC実装完了 / Dexレビュー待ち**
 
 ## 2. 現在の担当者
 
-**Dex (Cursor)** - Cycle 10 Take5 差分レビュー
+**Dex (Cursor)** - Cycle 10 Take6 差分レビュー
 
 ## 3. 次に作業する担当者
 
-**CC (Claude Code)** - Dex Take5レビュー結果に応じて対応
+**CC (Claude Code)** - Dex Take6レビュー結果に応じて対応
 
 ## 4. 今読むべきファイル一覧
 
@@ -28,10 +28,10 @@ Dexが次に参照すべきファイル:
 
 - `docs/handoff/CURRENT_STATUS.md`
 - `docs/handoff/P1_Air_Blueprint/cycle_10_maestro_phase2.md`
-- `docs/handoff/P3_CC_Report/cycle_10.md`（Take5版）
-- `docs/handoff/P4_Dex_Review/cycle_10_take4.md`（前回P4）
-- `scripts/maestro_runner.ps1`（変更箇所: Fix1-Fix3）
-- `scripts/maestro_runner.tests.ps1`（変更箇所: H7-H11）
+- `docs/handoff/P3_CC_Report/cycle_10.md`（Take6版）
+- `docs/handoff/P4_Dex_Review/cycle_10_take5.md`（前回P4）
+- `scripts/maestro_runner.ps1`（変更箇所: $logFileRel置き換え）
+- `scripts/maestro_runner.tests.ps1`（変更箇所: H12-H13）
 
 ### 条件付きで読むファイル
 
@@ -48,8 +48,8 @@ Dexが次に参照すべきファイル:
 
 - **P1 (Blueprint)**: `docs/handoff/P1_Air_Blueprint/cycle_10_maestro_phase2.md`
 - **P2 (Dex Instructions)**: `docs/handoff/P2_Dex_Instructions/cycle_10_maestro_phase2.md`
-- **P3 (CC Report)**: `docs/handoff/P3_CC_Report/cycle_10.md`（Take5）
-- **P4 (Dex Review)**: `docs/handoff/P4_Dex_Review/cycle_10_take4.md`（前回）
+- **P3 (CC Report)**: `docs/handoff/P3_CC_Report/cycle_10.md`（Take6）
+- **P4 (Dex Review)**: `docs/handoff/P4_Dex_Review/cycle_10_take5.md`（前回）
 
 ## 6. 現在のStop Conditions / 禁止事項
 
@@ -62,15 +62,15 @@ Dexが次に参照すべきファイル:
 - 第3段階への進行
 - Kazumaxの明示承認なしの外部モデル/API呼び出し・課金発生操作
 
-## 7. Take 5 実装サマリー
+## 7. Take 6 実装サマリー
 
 | 修正 | 内容 | 状態 |
 |------|------|------|
-| Fix1 | `Invoke-Phase2IfAllowed` 共通化。PendingScan経由でもPhase2起動 | 完了 |
-| Fix2 | git status失敗時PAUSE。try/catchでEAP=Stop対応 | 完了 |
-| Fix3 | `--untracked-files=all` + SHA-256 hash比較。$maestroDirRel除外 | 完了 |
-| H7-H11 | 外部通信なしスタブテスト追加 | PASS=49 FAIL=0 |
-| バージョン | v2.1.11 → v2.1.12 | 完了 |
+| `$maestroDirRel`→`$logFileRel` | maestro配下全体除外をmestro.logのみに絞り直し | 完了 |
+| H12 | `docs/handoff/maestro/evil.txt` 作成 → PAUSE | PASS |
+| H13 | `maestro.log` 変化のみ → PAUSE なし | PASS |
+| バージョン | v2.1.12 → v2.1.13 | 完了 |
+| 全テスト | PASS=52 FAIL=0 | 確認済 |
 
 ## 8. 各AIの作業完了時ルール（必須）
 
@@ -89,11 +89,11 @@ Dexが次に参照すべきファイル:
 ## 10. Kazumaxが次にコピペする合図文
 
 ```text
-Dex、CCが Cycle 10 Take 5 の作業を完了したよ！
+Dex、CCが Cycle 10 Take 6 の作業を完了したよ！
 最新のファイルは以下の通り。
 - P1: docs/handoff/P1_Air_Blueprint/cycle_10_maestro_phase2.md
-- P3: docs/handoff/P3_CC_Report/cycle_10.md（Take5版）
-- 前回P4: docs/handoff/P4_Dex_Review/cycle_10_take4.md
+- P3: docs/handoff/P3_CC_Report/cycle_10.md（Take6版）
+- 前回P4: docs/handoff/P4_Dex_Review/cycle_10_take5.md
 
 @.cursorrules を厳守してレビューお願い。
 内容を確認して、差分レビューとQA監査を進めて！作業が終わったら CURRENT_STATUS.md を更新して、ルールのテンプレートに従って次への合図文を出してね。

@@ -893,16 +893,17 @@ function Invoke-ClaudeAgent {
     }
 
     # Fix3 enhanced: 起動前dirty許可外ファイルのSHA-256を記録（CC起動後の内容変化検知用）
-    # $maestroDirRel 除外: maestro.log等ランタイムファイルの変化による誤PAUSEを防ぐ
-    $maestroDirRel = ($MaestroDir.Substring($ProjectRoot.Length).TrimStart('\', '/') -replace '\\', '/').TrimEnd('/') + '/'
+    # maestro.log のみ除外: Runner自身がbaseline〜after間に追記するため誤PAUSE防止
+    # processed.log等他のmastroファイルは除外しない（CC書き込みを検知する必要あり）
+    $logFileRel = ($LogFile.Substring($ProjectRoot.Length).TrimStart('\', '/') -replace '\\', '/').ToLower()
     $baselineHashes = @{}
     foreach ($line in $gitBaseline) {
         if ([string]::IsNullOrWhiteSpace($line)) { continue }
         $bPath = $line.Substring(3).Trim(' "') -replace '\\', '/'
         if ($bPath -eq $allowedP3)   { continue }
         if ($bPath -eq $allowedDone) { continue }
-        if ($bPath.StartsWith($allowedTmp,    [System.StringComparison]::OrdinalIgnoreCase)) { continue }
-        if ($bPath.StartsWith($maestroDirRel, [System.StringComparison]::OrdinalIgnoreCase)) { continue }
+        if ($bPath.StartsWith($allowedTmp, [System.StringComparison]::OrdinalIgnoreCase)) { continue }
+        if ($bPath.ToLower() -eq $logFileRel) { continue }
         $bFullPath = [System.IO.Path]::GetFullPath([System.IO.Path]::Combine($ProjectRoot, ($bPath -replace '/', '\')))
         if (Test-Path $bFullPath -PathType Leaf) {
             try { $baselineHashes[$bPath] = (Get-FileHash -Path $bFullPath -Algorithm SHA256).Hash.ToLower() }
@@ -1033,15 +1034,15 @@ function Invoke-ClaudeAgent {
         }
     }
 
-    # 新規または状態変化したファイルのdelta検査（$maestroDirRel も除外: ランタイムファイル新規作成を誤検知しない）
+    # 新規または状態変化したファイルのdelta検査（maestro.logのみ除外: 他のmaestro配下ファイル新規作成は許可しない）
     $deltaLines = $gitAfter | Where-Object { $gitBaseline -notcontains $_ }
     foreach ($line in $deltaLines) {
         if ([string]::IsNullOrWhiteSpace($line)) { continue }
         $modPath = $line.Substring(3).Trim(' "') -replace '\\', '/'
         if ($modPath -eq $allowedP3)   { continue }
         if ($modPath -eq $allowedDone) { continue }
-        if ($modPath.StartsWith($allowedTmp,    [System.StringComparison]::OrdinalIgnoreCase)) { continue }
-        if ($modPath.StartsWith($maestroDirRel, [System.StringComparison]::OrdinalIgnoreCase)) { continue }
+        if ($modPath.StartsWith($allowedTmp, [System.StringComparison]::OrdinalIgnoreCase)) { continue }
+        if ($modPath.ToLower() -eq $logFileRel) { continue }
         if ($invalidPaths -notcontains $modPath) { $invalidPaths += $modPath }
     }
 

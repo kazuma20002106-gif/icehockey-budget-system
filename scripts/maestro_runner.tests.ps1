@@ -1095,6 +1095,82 @@ try {
         Assert-That "H11 既存dirtyファイルを触らなければPAUSEなし" (-not (Test-Path $script:PauseFile)) "PAUSEファイルが存在している"
     }
 
+    # ── H12: maestro配下の許可外ファイル作成 → PAUSE ─────────────────────────
+    Run-Case "H12" {
+        Clear-HTestPause
+        $hCycle = "h_test_12"
+        $hRev   = 1
+        $hP3Path   = [System.IO.Path]::GetFullPath([System.IO.Path]::Combine($script:ProjectRoot, "docs\handoff\P3_CC_Report\${hCycle}.md"))
+        $hDonePath = [System.IO.Path]::GetFullPath([System.IO.Path]::Combine($script:MaestroDir, "${hCycle}\revision_${hRev}\cc.done.json"))
+        $hP1Path   = [System.IO.Path]::GetFullPath([System.IO.Path]::Combine($script:AllowedP1Root, "h_test_12.md"))
+        $hP3Rel    = "docs/handoff/P3_CC_Report/${hCycle}.md"
+        # 許可外 maestro 配下ファイル（done.json/tmp 以外）
+        $evilPath  = [System.IO.Path]::GetFullPath([System.IO.Path]::Combine($script:MaestroDir, "evil.txt"))
+
+        if (-not (Test-Path ([System.IO.Path]::GetDirectoryName($hP1Path)))) { New-Item -ItemType Directory ([System.IO.Path]::GetDirectoryName($hP1Path)) -Force | Out-Null }
+        "# H12 P1 Test" | Set-Content $hP1Path -Encoding UTF8
+        $hManifest = [PSCustomObject]@{ cycle = $hCycle; revision = $hRev; p1_file = "docs/handoff/P1_Air_Blueprint/h_test_12.md" }
+
+        Clear-HStubEnv
+        $env:STUB_H_P3_PATH      = $hP3Path
+        $env:STUB_H_DONE_PATH    = $hDonePath
+        $env:STUB_H_P1_PATH      = $hP1Path
+        $env:STUB_H_CYCLE        = $hCycle
+        $env:STUB_H_REVISION     = "$hRev"
+        $env:STUB_H_P3_REL       = $hP3Rel
+        $env:STUB_H_INVALID_PATH = $evilPath   # スタブが maestro 配下に許可外ファイルを作成
+
+        $prev = $Script:ClaudeExeOverride
+        $Script:ClaudeExeOverride = $stubHCmd
+        try {
+            Invoke-ClaudeAgent -ManifestObj $hManifest -P1FullPath $hP1Path
+        } finally {
+            $Script:ClaudeExeOverride = $prev
+            Clear-HStubEnv
+        }
+        Assert-That "H12 maestro配下許可外ファイル作成でPAUSE" (Test-Path $script:PauseFile) "PAUSEファイルが作成されていない"
+    }
+
+    # ── H13: maestro.log の変化だけではPAUSEしない ────────────────────────────
+    Run-Case "H13" {
+        Clear-HTestPause
+        $hCycle = "h_test_13"
+        $hRev   = 1
+        $hP3Path   = [System.IO.Path]::GetFullPath([System.IO.Path]::Combine($script:ProjectRoot, "docs\handoff\P3_CC_Report\${hCycle}.md"))
+        $hDonePath = [System.IO.Path]::GetFullPath([System.IO.Path]::Combine($script:MaestroDir, "${hCycle}\revision_${hRev}\cc.done.json"))
+        $hP1Path   = [System.IO.Path]::GetFullPath([System.IO.Path]::Combine($script:AllowedP1Root, "h_test_13.md"))
+        $hP3Rel    = "docs/handoff/P3_CC_Report/${hCycle}.md"
+
+        if (-not (Test-Path ([System.IO.Path]::GetDirectoryName($hP1Path)))) { New-Item -ItemType Directory ([System.IO.Path]::GetDirectoryName($hP1Path)) -Force | Out-Null }
+        "# H13 P1 Test" | Set-Content $hP1Path -Encoding UTF8
+        $hManifest = [PSCustomObject]@{ cycle = $hCycle; revision = $hRev; p1_file = "docs/handoff/P1_Air_Blueprint/h_test_13.md" }
+
+        # maestro.log が存在することを確認（H1-H12 で作成済み）、baseline前の内容を記録
+        $logBefore = if (Test-Path $script:LogFile) { Get-Content $script:LogFile -Raw -Encoding UTF8 -ErrorAction SilentlyContinue } else { '' }
+
+        Clear-HStubEnv
+        $env:STUB_H_P3_PATH   = $hP3Path
+        $env:STUB_H_DONE_PATH = $hDonePath
+        $env:STUB_H_P1_PATH   = $hP1Path
+        $env:STUB_H_CYCLE     = $hCycle
+        $env:STUB_H_REVISION  = "$hRev"
+        $env:STUB_H_P3_REL    = $hP3Rel
+        # STUB_H_INVALID_PATH 未設定 → スタブは P3+done.json のみ作成
+
+        $prev = $Script:ClaudeExeOverride
+        $Script:ClaudeExeOverride = $stubHCmd
+        try {
+            Invoke-ClaudeAgent -ManifestObj $hManifest -P1FullPath $hP1Path
+        } finally {
+            $Script:ClaudeExeOverride = $prev
+            Clear-HStubEnv
+        }
+        $logAfter   = if (Test-Path $script:LogFile) { Get-Content $script:LogFile -Raw -Encoding UTF8 -ErrorAction SilentlyContinue } else { '' }
+        $logChanged = $logBefore -ne $logAfter
+        Assert-That "H13 maestro.log変化のみではPAUSEしない" (-not (Test-Path $script:PauseFile)) "PAUSEファイルが存在している"
+        Assert-That "H13 (前提確認) maestro.logは実際に変化した" $logChanged "maestro.logが変化していない"
+    }
+
 } finally {
     $Script:ClaudeExeOverride = $null
     Clear-HStubEnv
