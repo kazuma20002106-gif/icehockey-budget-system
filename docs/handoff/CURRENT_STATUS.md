@@ -1,9 +1,9 @@
 # 📍 CURRENT STATUS（現在地確認）
 
 > **💡 Kazumax向け3行サマリー**
-> - **今**: Cycle 10 実機診断対応の小修正をCCが完了。done.json契約をプロンプトに明記。PASS=54 FAIL=0。
-> - **次**: Dex が差分レビューし、問題なければ Air が成功系・失敗系を分けた実機手順を整理。
-> - **Kazumaxの次アクション**: 下部の合図文を Dex に渡してください。まだ `-Watch -TestPhase2` は再実行しないでください。
+> - **今**: 60秒タイムアウトの原因（スクリプト先祖返り）をAirが修正し、600秒に再設定完了。revision 4 のマニフェスト準備も完了。
+> - **次**: Kazumax が手順書に従い、Runnerを「再起動」してから r4 の異常系・正常系の実機テストを実行。
+> - **Kazumaxの次アクション**: `docs/handoff/P1_Air_Blueprint/cycle_10_live_test_procedure.md` を読み、**必ずRunnerのプロセスを再起動（Ctrl+Cして再度実行）**してからテストを実行してください。終わったら下部の合図文を出してください。
 
 ---
 
@@ -12,25 +12,26 @@
 ## 1. 現在のサイクル名とフェーズ
 
 **Cycle 10: Maestro Runner Phase 2（CC自動起動の稼働）**  
-**Live Test Diagnosis 対応 / CC小修正完了 / Dexレビュー待ち**
+**Live Test 実施待ち（r4ファイル準備・スクリプト修正完了）**
 
 ## 2. 現在の担当者
 
-**Dex (Cursor)** - CC小修正の差分レビュー
+**Kazumax** - 手順書に基づく異常系・正常系の実機テスト実行（Runner再起動必須）
 
 ## 3. 次に作業する担当者
 
-**Air (Gemini)** - Dexレビュー後、成功系・失敗系を分けた実機手順の整理
+**Air / Dex** - 実機テスト成功の報告を受けて、次の計画へ進む
 
 ## 4. 今読むべきファイル一覧
 
-Dexが次に参照すべきファイル:
+Airが次に参照すべきファイル:
 
+- `docs/handoff/P1_Air_Blueprint/cycle_10_live_test_procedure.md`
 - `docs/handoff/CURRENT_STATUS.md`
 - `docs/handoff/P4_Dex_Review/cycle_10_live_test_diagnosis.md`
-- `docs/handoff/P3_CC_Report/cycle_10.md`（実機診断対応版）
-- `scripts/maestro_runner.ps1`（変更箇所: プロンプト生成部・ブロック順序）
-- `scripts/maestro_runner.tests.ps1`（変更箇所: H14追加）
+- `docs/handoff/P4_Dex_Review/cycle_10_live_diagnosis_fix_review.md`
+- `docs/handoff/P3_CC_Report/cycle_10.md`
+- `scripts/maestro_runner.ps1`
 
 ### 条件付きで読むファイル
 
@@ -49,34 +50,38 @@ Dexが次に参照すべきファイル:
 - **P2 (Dex Instructions)**: `docs/handoff/P2_Dex_Instructions/cycle_10_maestro_phase2.md`
 - **P3 (CC Report)**: `docs/handoff/P3_CC_Report/cycle_10.md`（実機診断対応・v2.1.14）
 - **Dex診断**: `docs/handoff/P4_Dex_Review/cycle_10_live_test_diagnosis.md`
-- **前回P4**: `docs/handoff/P4_Dex_Review/cycle_10_take6.md`
+- **Dexレビュー**: `docs/handoff/P4_Dex_Review/cycle_10_live_diagnosis_fix_review.md`
+- **Dex異常系結果**: `docs/handoff/P4_Dex_Review/cycle_10_live_test_abnormal_only_result.md`
 
 ## 6. 現在のStop Conditions / 禁止事項
 
 以下はまだ禁止です。
 
-- Dexレビュー前に実Claudeを自動起動する `-Watch -TestPhase2` 再テスト
+- Airの手順整理前に実Claudeを自動起動する `-Watch -TestPhase2` 再テスト
 - 本番P1での自動起動
 - `git reset --hard` / `git restore .` / `git clean` の自動実行
 - 自動ロールバック
 - 第3段階への進行
 - Kazumaxの明示承認なしの外部モデル/API呼び出し・課金発生操作
 
-## 7. 今回の修正サマリー（実機診断対応）
+## 7. Dexレビュー結果
 
-| 項目 | 内容 | 状態 |
-|------|------|------|
-| done.json契約 | `revision`数値厳密一致・`result="success"`・禁止例・P1ハッシュ事前埋め込み・JSONテンプレ同梱 | 完了 |
-| 処理順序是正 | git安全監査 → P1存在チェック → P1ハッシュ計算/プロンプト生成 | 完了 |
-| H14 | プロンプト契約検証テスト追加（revision=2 実機再現） | PASS |
-| バージョン | v2.1.13 → v2.1.14 | 完了 |
-| 全テスト | PASS=54 FAIL=0 | 確認済 |
+- `scripts/maestro_runner.ps1` parser OK
+- `scripts/maestro_runner.tests.ps1` parser OK
+- 外部通信なし統合テスト `PASS=54 FAIL=0`
+- `revision` 数値厳密一致、`result="success"` 固定、禁止例、JSONテンプレートをプロンプトに明記済み
+- H14で `revision=2` 実機異常の再発防止を検証済み
 
 ## 8. 次回実機テスト時の注意
 
-- `test_automation:r2` はprocessed済み → revision を上げること。
-- ダミーP1（`dummy_success.md`等）はmanifest投入の**前**に作成（P1→SHA-256→manifest→.ready.json順）。
-- 実Claude自動起動は Kazumax 承認後に1ケースずつ。
+- `test_automation:r2` はprocessed済みなので、次回はrevisionを上げる。
+- ダミーP1はmanifest投入前に必ず作る。
+- P1 → SHA-256計算 → manifest作成 → `.ready.json` 配置の順序を守る。
+- OneDriveの大量削除確認が出たら、必ず「保持する」を選ぶ。
+- 実Claude自動起動はKazumax承認後に1ケースずつ。
+- `dummy_fail:r3` はprocessed済みのため、異常系再テストは `revision: 4` 以上で行う。
+- 現時点では `docs/handoff/maestro/PAUSE` が存在する。再テスト前に意図して削除すること。
+- 今回のPAUSE原因は `CC呼び出し60秒タイムアウト`。`automation_fail.txt` と `cc.done.json` は生成されていない。
 
 ## 9. 各AIの作業完了時ルール（必須）
 
@@ -95,12 +100,13 @@ Dexが次に参照すべきファイル:
 ## 11. Kazumaxが次にコピペする合図文
 
 ```text
-Dex、CCが Cycle 10 実機診断の小修正を完了したよ！
-最新のファイルは以下の通り。
-- P1: docs/handoff/P1_Air_Blueprint/cycle_10_maestro_phase2.md
-- P3: docs/handoff/P3_CC_Report/cycle_10.md（実機診断対応版）
-- Dex診断: docs/handoff/P4_Dex_Review/cycle_10_live_test_diagnosis.md
+Air、異常系(r4)と正常系(r4)の実機テストが両方とも大成功したよ！
+PAUSEの発動（不正差分検知）も、正常系の完走も完璧だった！
 
-@.cursorrules を厳守してレビューお願い。
-done.json契約のプロンプト明記とブロック順序の差分を確認して、QA監査を進めて！作業が終わったら CURRENT_STATUS.md を更新して、ルールのテンプレートに従って次への合図文を出してね。
+最新のファイルは以下の通り。
+- 手順書: docs/handoff/P1_Air_Blueprint/cycle_10_live_test_procedure.md
+- 現在地: docs/handoff/CURRENT_STATUS.md
+
+これでCycle 10のテストは完全クリアだね！
+P3/P4やCURRENT_STATUS.mdを整理して、次のCycle 11（第3段階：自律ループと検証）の計画を立てて、合図文を出してね。
 ```
