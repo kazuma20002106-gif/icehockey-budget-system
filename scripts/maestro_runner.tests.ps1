@@ -1171,6 +1171,50 @@ try {
         Assert-That "H13 (前提確認) maestro.logは実際に変化した" $logChanged "maestro.logが変化していない"
     }
 
+    # ── H14: プロンプトに cc.done.json の厳密契約（revision/result）が含まれること ──
+    Run-Case "H14" {
+        Clear-HTestPause
+        $hCycle = "h_test_14"
+        $hRev   = 2   # 実機異常の再現: revision=2
+        $hP3Path   = [System.IO.Path]::GetFullPath([System.IO.Path]::Combine($script:ProjectRoot, "docs\handoff\P3_CC_Report\${hCycle}.md"))
+        $hDonePath = [System.IO.Path]::GetFullPath([System.IO.Path]::Combine($script:MaestroDir, "${hCycle}\revision_${hRev}\cc.done.json"))
+        $hP1Path   = [System.IO.Path]::GetFullPath([System.IO.Path]::Combine($script:AllowedP1Root, "h_test_14.md"))
+        $hP3Rel    = "docs/handoff/P3_CC_Report/${hCycle}.md"
+        if (-not (Test-Path ([System.IO.Path]::GetDirectoryName($hP1Path)))) { New-Item -ItemType Directory ([System.IO.Path]::GetDirectoryName($hP1Path)) -Force | Out-Null }
+        "# H14 P1 Test" | Set-Content $hP1Path -Encoding UTF8
+        $hP1Sha = (Get-FileHash -Path $hP1Path -Algorithm SHA256).Hash.ToLower()
+        $hManifest = [PSCustomObject]@{ cycle = $hCycle; revision = $hRev; p1_file = "docs/handoff/P1_Air_Blueprint/h_test_14.md" }
+
+        Clear-HStubEnv
+        $env:STUB_H_P3_PATH   = $hP3Path
+        $env:STUB_H_DONE_PATH = $hDonePath
+        $env:STUB_H_P1_PATH   = $hP1Path
+        $env:STUB_H_CYCLE     = $hCycle
+        $env:STUB_H_REVISION  = "$hRev"
+        $env:STUB_H_P3_REL    = $hP3Rel
+
+        $prev = $Script:ClaudeExeOverride
+        $Script:ClaudeExeOverride = $stubHCmd
+        try {
+            Invoke-ClaudeAgent -ManifestObj $hManifest -P1FullPath $hP1Path
+        } finally {
+            $Script:ClaudeExeOverride = $prev
+            Clear-HStubEnv
+        }
+        $promptFilePath = [System.IO.Path]::GetFullPath([System.IO.Path]::Combine($script:MaestroDir, "${hCycle}\revision_${hRev}\tmp\temp_prompt.txt"))
+        $promptContent  = if (Test-Path $promptFilePath) { Get-Content $promptFilePath -Raw } else { '' }
+        # revision の数値明記、revision_2文字列の禁止、result success、独自値禁止、P1ハッシュ埋め込みを確認
+        $hasRevNum      = $promptContent -match '"revision":\s*2'
+        $hasRevForbid   = $promptContent -match 'revision_2'   # 禁止例として明記されている
+        $hasResultOK    = $promptContent -match '"result":\s*"success"'
+        $hasResultForbid= $promptContent -match 'sandbox_compliant'  # 禁止例として明記されている
+        $hasP1Sha       = $promptContent -match [regex]::Escape($hP1Sha)
+        Assert-That "H14 プロンプトに revision数値・result success・禁止例・P1ハッシュが含まれる" `
+            ($hasRevNum -and $hasRevForbid -and $hasResultOK -and $hasResultForbid -and $hasP1Sha) `
+            "revNum=$hasRevNum revForbid=$hasRevForbid resultOK=$hasResultOK resultForbid=$hasResultForbid p1sha=$hasP1Sha"
+        Assert-That "H14 厳密契約強化でも正常完了しPAUSEなし" (-not (Test-Path $script:PauseFile)) "PAUSEファイルが存在している"
+    }
+
 } finally {
     $Script:ClaudeExeOverride = $null
     Clear-HStubEnv

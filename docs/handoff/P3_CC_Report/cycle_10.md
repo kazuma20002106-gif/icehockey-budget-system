@@ -1,51 +1,64 @@
-# [C10: CC(P3)] Cycle 10 Take 6 実装報告書
+# [C10: CC(P3)] Cycle 10 実機テスト診断対応 実装報告書
 
 作成日: 2026-06-24
 作成者: CC (Claude Code)
-バージョン: v2.1.13
+バージョン: v2.1.14
 対象: `scripts/maestro_runner.ps1` / `scripts/maestro_runner.tests.ps1`
 
 ---
 
 ## 1. 対象と背景
 
-Cycle 10 は「Maestro Runner Phase 2 (CC自動起動とサンドボックス確認)」の実装サイクルです。  
-Take 6 として、Dex の Take 5 レビュー (`docs/handoff/P4_Dex_Review/cycle_10_take5.md`) で指摘された修正必須1件を実施しました。
+Cycle 10 Phase 2 の実機テストで、実Claudeが `cc.done.json` に不正値を書き Maestro Runner がPAUSE停止しました。
+
+```text
+done.json.revision 不一致: 'revision_2' vs manifest '2'
+done.json.result が許可値ではありません: 'sandbox_compliant'
+```
+
+Maestro Runner の安全装置は**正しく動作**しています（仕様違反を検知してPAUSE）。  
+Dex 診断 (`docs/handoff/P4_Dex_Review/cycle_10_live_test_diagnosis.md`) の方針に従い、根本原因である「自動起動CCへの `cc.done.json` 契約の曖昧さ」をプロンプト側の小修正で解消しました。
 
 ---
 
 ## 2. 修正内容
 
-### Take 5 指摘: `$maestroDirRel` 全体除外が広すぎる
+### 2.1 `Invoke-ClaudeAgent` プロンプトに cc.done.json 厳密契約を明記
 
-**問題**: Take 5 で `docs/handoff/maestro/` 配下全体を除外したため、P1/P2 で限定した「P3・cc.done.json・tmp配下のみ許可」という安全条件が崩れていた。`docs/handoff/maestro/evil.txt` などの許可外ファイル作成が検知されなかった。
+`scripts/maestro_runner.ps1` のプロンプト生成部に、`cc.done.json` の各フィールドの厳密な値規則と完成形JSONテンプレートを追加しました。
 
-**修正**:
-- `$maestroDirRel` を削除し、`$logFileRel`（= `docs/handoff/maestro/maestro.log` のみ）に置き換えた。
-- `maestro.log` だけを除外する理由: Runner自身が `Invoke-ClaudeAgent` の baseline〜after 間に `Write-Log` で追記するため誤 PAUSE が発生する。
-- `processed.log` 等その他の maestro 配下ファイルは除外しない（CC による書き込みを検知する必要があるため）。
-- `$logFileRel` 除外はハッシュ比較とdelta検査の両方に適用した。
+**追加した契約**:
+- `cycle`: manifestの cycle と完全一致
+- `revision`: **manifestの revision と完全一致。数値のみ。`revision_2` / `r2` のような文字列・接頭辞付きは禁止**
+- `source_p1_sha256`: P1ファイルのSHA-256（**プロンプト生成時に事前計算して直接埋め込み**、曖昧さを排除）
+- `p3_file`: 相対パス文字列
+- `p3_sha256`: 実際に作成したP3のSHA-256（小文字）
+- `completed_at`: ISO 8601 + タイムゾーン
+- `result`: **必ず `"success"`。`sandbox_compliant` / `ok` / `done` 等の独自値は一切禁止**
 
-**除外設計（Take 6 最終版）**:
-| ファイル | ハッシュ比較 | delta検査 | 理由 |
-|----------|:----------:|:---------:|------|
-| `$allowedP3` (P3ファイル) | 除外 | 除外 | CC正規出力 |
-| `$allowedDone` (cc.done.json) | 除外 | 除外 | CC正規出力 |
-| `$allowedTmp` (tmp/以下) | 除外 | 除外 | CC正規作業領域 |
-| `maestro.log` ($logFileRel) | 除外 | 除外 | Runner自身が baseline〜after間に追記 |
-| その他 maestro/evil.txt 等 | **監視** | **監視** | CC許可外 → PAUSE |
+さらに、`<...>` 部分だけ埋めれば完成する **JSONテンプレート全文** をプロンプトに埋め込みました。
+
+### 2.2 安全監査(git)の実行順序を是正（副次的な堅牢化）
+
+P1のSHA-256事前計算を追加したことに伴い、処理順序を以下に整理しました。
+
+1. **git status 安全監査**（失敗時は即PAUSE）
+2. **P1ファイル存在チェック**（不在ならPAUSE）
+3. P1のSHA-256計算 → プロンプト生成
+
+これにより、git監査という安全ゲートを最優先で通すようになり、P1不在時も無言終了せず確実にPAUSEします（従来は `Get-FileHash` がEAP=Stopで例外→無言離脱する経路がありました）。
 
 ---
 
-## 3. 追加テスト（H12・H13）
+## 3. 追加・修正テスト
 
 | テスト | 内容 | 結果 |
 |--------|------|------|
-| H12 | スタブが `docs/handoff/maestro/evil.txt` を作成 → PAUSE | PASS |
-| H13 | `maestro.log` が変化するだけ（P3+done.json は正常）→ PAUSE なし | PASS |
-| H13(b) | (前提確認) maestro.log は実際に変化した | PASS |
+| H9 | git status 失敗時PAUSE（実行順序是正後も維持） | PASS |
+| H14 | プロンプトに revision数値・result success・禁止例(revision_2/sandbox_compliant)・P1ハッシュが含まれる | PASS |
+| H14(b) | 契約強化後も正常完了しPAUSEなし | PASS |
 
-全テスト: **PASS=52 FAIL=0**
+全テスト: **PASS=54 FAIL=0**
 
 ---
 
@@ -61,29 +74,24 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\maestro_runner
 
 | ファイル | 変更種別 | 内容 |
 |----------|----------|------|
-| `scripts/maestro_runner.ps1` | 修正 | `$maestroDirRel` → `$logFileRel` に置き換え |
-| `scripts/maestro_runner.tests.ps1` | 修正 | H12・H13 テスト追加 |
-| `src/main/resources/application.properties` | バージョン更新 | v2.1.12 → v2.1.13 |
+| `scripts/maestro_runner.ps1` | 修正 | done.json厳密契約をプロンプトに明記・git監査順序是正・P1不在チェック追加 |
+| `scripts/maestro_runner.tests.ps1` | 修正 | H14テスト追加 |
+| `src/main/resources/application.properties` | バージョン更新 | v2.1.13 → v2.1.14 |
 
 ---
 
-## 6. Take 5〜6 の累積変更サマリー
+## 6. 次回実機テスト時の注意（Dex診断より）
 
-| 修正 | 内容 | 対応Take |
-|------|------|---------|
-| Fix1 | `Invoke-Phase2IfAllowed` 共通化 | Take 5 |
-| Fix2 | git status 失敗時 PAUSE + try/catch EAP=Stop 対応 | Take 5 |
-| Fix3 | `--untracked-files=all` + SHA-256 hash 比較 | Take 5 |
-| Fix4 | maestro 配下除外を `maestro.log` のみに絞り直し | Take 6 |
-| H7-H11 | PendingScan/Phase2/git失敗/dirty変化/dirty無変化テスト | Take 5 |
-| H12-H13 | maestro許可外ファイル作成PAUSE/maestro.log変化のみno-PAUSE | Take 6 |
+- `test_automation:r2` は `processed.log` に記録済み → 同じrevisionは再利用せず revision を上げること。
+- `dummy_success.md` / `dummy_fail.md` が存在しない状態でmanifestを投入しないこと（P1→SHA-256→manifest→.ready.json の順序厳守）。
+- 実Claude自動起動は Kazumax 承認後に1ケースずつ実行すること。
 
 ---
 
 ## 7. Stop Conditions 遵守確認
 
 - `git reset --hard` / `git restore .` / `git clean` の自動実行: **なし**
-- 実 Claude 自動起動 (`-Watch -TestPhase2`): **実施していない**
+- 実 Claude 自動起動 (`-Watch -TestPhase2`): **実施していない**（外部通信なしスタブのみ）
 - 本番 P1 での自動起動: **なし**
 - 第3段階への進行: **なし**
 - ANTHROPIC_API_KEY の設定・変更: **なし**

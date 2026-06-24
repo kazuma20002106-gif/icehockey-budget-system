@@ -846,23 +846,8 @@ function Invoke-ClaudeAgent {
     $allowedDone = $doneJsonRelPath
     $allowedTmp  = $tmpRelPath.TrimEnd('/') + '/'
 
-    # プロンプト作成（絶対パスを埋め込む）
-    $promptFile = Join-Path $tmpDir "temp_prompt.txt"
-    $promptText = "あなたはCCです。これはMaestro Runnerによる自動化フェーズ2のサンドボックステストです。`n" +
-"P1ファイル '${P1FullPath}' を読み込んで、指示内容を理解してください。`n" +
-"絶対に製品コード、設定ファイル、テンプレート、CSS、Java、SQL等は変更しないでください。`n`n" +
-"許可されている出力先は以下の3つのみです。それ以外の場所への書き込みはすべて不正とみなされます。`n" +
-"1. P3テスト報告書: ${p3FullPath}`n" +
-"2. 完了合図: ${doneJsonFullPath}`n" +
-"3. 一時ファイル: ${tmpFullPath}\ 配下`n`n" +
-"P3には「読んだP1の要約」「実装せずに確認した内容」「出力したdone.jsonの場所」を書いてください。`n" +
-"作業が完了したら、完了の証拠として ${doneJsonFullPath} を作成してください。`n" +
-"JSONには以下のキーを含めてください: cycle, revision, source_p1_sha256, p3_file, p3_sha256, completed_at, result`n" +
-"【重要】p3_file の値は絶対パスではなく、必ず次の相対パス文字列にすること: ${p3RelPath}`n" +
-"【重要】p3_sha256 は実際に作成した P3 ファイルのSHA-256（小文字）にすること。"
-    Set-Content -Path $promptFile -Value $promptText -Encoding UTF8
-
     # Fix3: Claude起動前にgitベースライン取得 + Fix2: 失敗時はPAUSE（git監査無効化を防ぐ）
+    # 安全監査(git status)はプロンプト生成より前に実行し、失敗時は即PAUSEで抜ける。
     # --untracked-files=all でディレクトリではなく個別ファイルを列挙（Fix3 hash比較の前提）
     # try/catch: $ErrorActionPreference=Stop 環境でstderr ErrorRecord がthrowする問題に対応
     $gitBaseline         = @()
@@ -891,6 +876,48 @@ function Invoke-ClaudeAgent {
         Require-Pause "git status 失敗: 安全監査不能。手動確認後 PAUSE を削除してください。"
         return
     }
+
+    # プロンプト作成（絶対パスを埋め込む）— 安全監査(git)が通った後に実行
+    # done.json 検証用に P1 の SHA-256 を事前計算してプロンプトに直接埋め込む（曖昧さ排除）
+    if (-not (Test-Path $P1FullPath -PathType Leaf)) {
+        Write-Log "P1ファイルが存在しません: $P1FullPath" "ERROR"
+        Require-Pause "P1ファイル不在: 自動起動を中止しました。"
+        return
+    }
+    $p1Sha256ForPrompt = (Get-FileHash -Path $P1FullPath -Algorithm SHA256).Hash.ToLower()
+    $promptFile = Join-Path $tmpDir "temp_prompt.txt"
+    $promptText = "あなたはCCです。これはMaestro Runnerによる自動化フェーズ2のサンドボックステストです。`n" +
+"P1ファイル '${P1FullPath}' を読み込んで、指示内容を理解してください。`n" +
+"絶対に製品コード、設定ファイル、テンプレート、CSS、Java、SQL等は変更しないでください。`n`n" +
+"許可されている出力先は以下の3つのみです。それ以外の場所への書き込みはすべて不正とみなされます。`n" +
+"1. P3テスト報告書: ${p3FullPath}`n" +
+"2. 完了合図: ${doneJsonFullPath}`n" +
+"3. 一時ファイル: ${tmpFullPath}\ 配下`n`n" +
+"P3には「読んだP1の要約」「実装せずに確認した内容」「出力したdone.jsonの場所」を書いてください。`n" +
+"作業が完了したら、完了の証拠として ${doneJsonFullPath} を作成してください。`n`n" +
+"================ cc.done.json の厳密な契約（必ず守ること）================`n" +
+"cc.done.json は以下のキーをすべて含み、各値は下記の規則に厳密一致させること。`n" +
+"自然言語的に値を書き換えたり、独自の値を入れることは禁止です。少しでも違うと自動でPAUSE停止します。`n`n" +
+"- cycle: 文字列 `"${cycle}`" と完全一致させること。`n" +
+"- revision: manifestのrevisionと完全一致させること。値は数値の ${revision} のみ。`n" +
+"           `"revision_${revision}`" や `"r${revision}`" のような文字列・接頭辞付きは禁止。`n" +
+"- source_p1_sha256: P1ファイルのSHA-256（小文字）。値は `"${p1Sha256ForPrompt}`" を使うこと。`n" +
+"- p3_file: 絶対パスではなく、必ず次の相対パス文字列にすること: ${p3RelPath}`n" +
+"- p3_sha256: 実際に作成した P3 ファイルのSHA-256（小文字）にすること。`n" +
+"- completed_at: ISO 8601 形式かつタイムゾーン付き（例: 2026-06-24T13:45:00+09:00 または 末尾Z）にすること。`n" +
+"- result: 必ず文字列 `"success`" のみ。`"sandbox_compliant`"・`"ok`"・`"done`" 等の独自値は一切禁止。`n`n" +
+"【完成形テンプレート】以下の形をそのまま使い、<...> の部分だけ自分で埋めること:`n" +
+"{`n" +
+"  `"cycle`": `"${cycle}`",`n" +
+"  `"revision`": ${revision},`n" +
+"  `"source_p1_sha256`": `"${p1Sha256ForPrompt}`",`n" +
+"  `"p3_file`": `"${p3RelPath}`",`n" +
+"  `"p3_sha256`": `"<実際に作成したP3のSHA-256・小文字>`",`n" +
+"  `"completed_at`": `"<ISO8601+タイムゾーン>`",`n" +
+"  `"result`": `"success`"`n" +
+"}`n" +
+"==========================================================================="
+    Set-Content -Path $promptFile -Value $promptText -Encoding UTF8
 
     # Fix3 enhanced: 起動前dirty許可外ファイルのSHA-256を記録（CC起動後の内容変化検知用）
     # maestro.log のみ除外: Runner自身がbaseline〜after間に追記するため誤PAUSE防止

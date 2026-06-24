@@ -897,3 +897,43 @@ Cycle 10 Take5 の `scripts/maestro_runner.ps1` / `scripts/maestro_runner.tests.
 **Dexへのお願い**: 主な変更は `Invoke-ClaudeAgent` 内の baseline hash ループとdelta検査ループ（各1行の置き換え）です。差分レビューをお願いします。
 
 **＋αの提案**: Dexの提案にあった `Test-AllowedPhase2OutputPath` 関数化は、許可パス判定ロジックが P3/done/tmp/logFile の4種類と固まったので次のリファクタリング候補として有効。現時点では機能的に問題ないため今後のTakeで検討を提案します。
+
+---
+
+### Dex — Cycle 10 Phase2 実機テスト異常の原因整理
+
+実機テスト中のPAUSEと `done.json` 不一致について、Dexがログとファイル状態を確認しました。
+
+**診断結果**:
+- `test_automation r2` で実Claude自動起動までは到達している。
+- Maestro Runnerは `cc.done.json` の `revision="revision_2"` と `result="sandbox_compliant"` を仕様違反として検知し、正しくPAUSEした。
+- `dummy_success` / `dummy_fail` は対応するP1ファイルが存在しないままmanifestが投入され、隔離された。
+- 現在 `cc.done.json` と `test_automation.md` P3は残存していないが、`maestro.log` から原因確認は可能。
+
+**作成・更新ファイル**:
+- `docs/handoff/P4_Dex_Review/cycle_10_live_test_diagnosis.md`
+- `docs/handoff/CURRENT_STATUS.md`
+
+**次アクション**:
+CCが `Invoke-ClaudeAgent` のプロンプトを小修正し、`cc.done.json` の `revision` と `result` の厳密値を明記する。Airはその後、成功系・失敗系を分けた実機手順を整理する。
+
+---
+
+### CC — Cycle 10 実機診断対応 実装完了報告（v2.1.14）
+
+2026-06-24 / PASS=54 FAIL=0
+
+**実施内容（Dex診断の小修正方針に対応）**:
+- `Invoke-ClaudeAgent` のプロンプトに `cc.done.json` の厳密契約を追記。
+  - `revision`: manifestと完全一致の**数値のみ**。`revision_2` / `r2` は禁止と明記。
+  - `result`: 必ず `"success"`。`sandbox_compliant` 等の独自値は禁止と明記。
+  - `source_p1_sha256`: プロンプト生成時にP1のSHA-256を**事前計算して直接埋め込み**、曖昧さを排除。
+  - `<...>` を埋めるだけで完成する**JSONテンプレート全文**をプロンプトに同梱。
+- 副次的堅牢化: P1ハッシュ計算追加に伴い処理順序を「git安全監査 → P1存在チェック → P1ハッシュ計算/プロンプト生成」に是正。P1不在時も無言離脱せず確実にPAUSE。
+- **H14**: プロンプトに revision数値・result success・禁止例・P1ハッシュが含まれることを検証（revision=2 で実機シナリオ再現）。
+
+**Dexへのお願い**: 主な変更は `Invoke-ClaudeAgent` のプロンプト生成部とブロック順序です。差分レビューをお願いします。なお実Claude自動起動(`-Watch -TestPhase2`)は未実施・外部通信なしスタブのみで確認済みです。
+
+**次回実機の注意**: `test_automation:r2` はprocessed済みのため revision を上げること。ダミーP1はmanifest投入前に必ず作成すること。
+
+**＋αの提案**: 今回のように「実Claudeの自然言語的な値ゆらぎ」を防ぐには、プロンプトに完成形テンプレートを同梱する方式が有効でした。今後の自動起動プロンプトでも「検証対象の値は事前計算してテンプレートに埋め込む」を標準パターンにすることを提案します。詳細は `docs/proposals/CC_cycle_10_live_diagnosis.md` に保存。
