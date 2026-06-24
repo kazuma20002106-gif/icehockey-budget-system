@@ -22,7 +22,8 @@
 param (
     [switch]$Test,
     [switch]$TestResume,
-    [switch]$Watch
+    [switch]$Watch,
+    [switch]$TestPhase2
 )
 
 Set-StrictMode -Version Latest
@@ -546,7 +547,7 @@ function Invoke-PendingScan {
 # $Script:ClaudeExeOverride が設定されていればそのパスを使用（テスト用）。
 # ─────────────────────────────────────────────────────────────────────────
 function Invoke-ClaudeRaw {
-    param([string[]]$ArgList, [int]$TimeoutSec = 60)
+    param([string[]]$ArgList, [int]$TimeoutSec = 60, [string]$WorkingDirectory = '')
 
     $exe = if ($Script:ClaudeExeOverride) { $Script:ClaudeExeOverride } else {
         try { Get-ClaudeExe } catch { throw "claude.exe 検出失敗: $_" }
@@ -567,6 +568,7 @@ function Invoke-ClaudeRaw {
     $psi.RedirectStandardError  = $true
     $psi.UseShellExecute        = $false
     $psi.CreateNoWindow         = $true
+    if ($WorkingDirectory) { $psi.WorkingDirectory = $WorkingDirectory }
 
     $proc = [System.Diagnostics.Process]::new()
     $proc.StartInfo = $psi
@@ -787,6 +789,189 @@ function Test-ClaudeResume {
 }
 
 # ─────────────────────────────────────────────────────────────────────────
+# 第2段階 Phase2: Invoke-ClaudeAgent (CC自動起動)
+# Fix3: Claude起動前にgitベースライン取得 → 差分のみを許可パス監査
+# Fix4: Push-Location/Pop-Location を try/finally で例外安全化
+# Fix5: cc.done.json の JSONパース + 全フィールド検証
+# ─────────────────────────────────────────────────────────────────────────
+function Invoke-ClaudeAgent {
+    param([PSCustomObject]$ManifestObj, [string]$P1FullPath)
+
+    $cycle    = $ManifestObj.cycle
+    $revision = $ManifestObj.revision
+
+    # ディレクトリ作成
+    $sandboxDir = Join-Path $MaestroDir "sandbox"
+    if (-not (Test-Path $sandboxDir)) { New-Item -ItemType Directory -Path $sandboxDir -Force | Out-Null }
+
+    $runDir = Join-Path $MaestroDir "$cycle\revision_$revision"
+    if (-not (Test-Path $runDir)) { New-Item -ItemType Directory -Path $runDir -Force | Out-Null }
+
+    $tmpDir = Join-Path $runDir "tmp"
+    if (-not (Test-Path $tmpDir)) { New-Item -ItemType Directory -Path $tmpDir -Force | Out-Null }
+
+    # 絶対パスに解決（git status 照合用にスラッシュ統一済み相対パスも保持）
+    $p3RelPath        = "docs/handoff/P3_CC_Report/${cycle}.md"
+    $p3FullPath       = [System.IO.Path]::GetFullPath([System.IO.Path]::Combine($ProjectRoot, $p3RelPath))
+
+    $doneJsonRelPath  = "docs/handoff/maestro/${cycle}/revision_${revision}/cc.done.json"
+    $doneJsonFullPath = [System.IO.Path]::GetFullPath([System.IO.Path]::Combine($ProjectRoot, $doneJsonRelPath))
+
+    $tmpFullPath = [System.IO.Path]::GetFullPath($tmpDir)
+    $tmpRelPath  = $tmpFullPath.Substring($ProjectRoot.Length).TrimStart('\', '/') -replace '\\', '/'
+
+    # プロンプト作成（絶対パスを埋め込む）
+    $promptFile = Join-Path $tmpDir "temp_prompt.txt"
+    $promptText = "あなたはCCです。これはMaestro Runnerによる自動化フェーズ2のサンドボックステストです。`n" +
+"P1ファイル '${P1FullPath}' を読み込んで、指示内容を理解してください。`n" +
+"絶対に製品コード、設定ファイル、テンプレート、CSS、Java、SQL等は変更しないでください。`n`n" +
+"許可されている出力先は以下の3つのみです。それ以外の場所への書き込みはすべて不正とみなされます。`n" +
+"1. P3テスト報告書: ${p3FullPath}`n" +
+"2. 完了合図: ${doneJsonFullPath}`n" +
+"3. 一時ファイル: ${tmpFullPath}\ 配下`n`n" +
+"P3には「読んだP1の要約」「実装せずに確認した内容」「出力したdone.jsonの場所」を書いてください。`n" +
+"作業が完了したら、完了の証拠として ${doneJsonFullPath} を作成してください。`n" +
+"JSONには以下のキーを含めてください: cycle, revision, source_p1_sha256, p3_file, p3_sha256, completed_at, result"
+    Set-Content -Path $promptFile -Value $promptText -Encoding UTF8
+
+    # Fix3: Claude起動前にgitベースライン取得（既存差分を基準として差し引く）
+    $gitBaseline = @()
+    Push-Location -LiteralPath $ProjectRoot
+    try {
+        $rawBaseline = git status --porcelain 2>$null
+        if ($rawBaseline) {
+            $gitBaseline = @($rawBaseline -split "`n" | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+        }
+    } finally {
+        Pop-Location
+    }
+
+    Write-Log "CC(Claude Code) を自動起動します..." "INFO"
+
+    # Fix4: WorkingDirectory を明示指定してサンドボックス隔離を保証
+    $r = $null
+    try {
+        $promptArg = Get-Content -Path $promptFile -Raw
+        $r = Invoke-ClaudeRaw @('-p', $promptArg, '--print', '--output-format', 'json', '--tools', 'default') -WorkingDirectory $sandboxDir
+    } catch {
+        Write-Log "CCプロセス呼び出し失敗: $_" "ERROR"
+        Require-Pause "CC呼び出し失敗"
+        return
+    }
+
+    $exitCode = $r.ExitCode
+    $failed   = $false
+
+    # 判定1: 終了コード
+    if ($exitCode -ne 0) {
+        Write-Log "CC終了コードが 0 ではありません: $exitCode" "ERROR"
+        $failed = $true
+    }
+
+    # 判定2: P3の存在
+    if (-not (Test-Path $p3FullPath)) {
+        Write-Log "P3報告書が作成されていません: $p3FullPath" "ERROR"
+        $failed = $true
+    }
+
+    # 判定3: cc.done.json の存在 + Fix5: 全フィールド検証
+    if (-not (Test-Path $doneJsonFullPath)) {
+        Write-Log "cc.done.json が作成されていません: $doneJsonFullPath" "ERROR"
+        $failed = $true
+    } else {
+        $doneJson = $null
+        try {
+            $doneRaw  = Get-Content -Path $doneJsonFullPath -Raw -Encoding UTF8
+            $doneJson = $doneRaw | ConvertFrom-Json
+        } catch {
+            Write-Log "cc.done.json のJSONパース失敗: $_" "ERROR"
+            $failed = $true
+        }
+        if ($null -ne $doneJson) {
+            if ([string]$doneJson.cycle -ne [string]$cycle) {
+                Write-Log "done.json.cycle 不一致: '$($doneJson.cycle)' vs manifest '$cycle'" "ERROR"
+                $failed = $true
+            }
+            if ([string]$doneJson.revision -ne [string]$revision) {
+                Write-Log "done.json.revision 不一致: '$($doneJson.revision)' vs manifest '$revision'" "ERROR"
+                $failed = $true
+            }
+            $p1Sha256 = (Get-FileHash -Path $P1FullPath -Algorithm SHA256).Hash.ToLower()
+            if ([string]$doneJson.source_p1_sha256 -ne $p1Sha256) {
+                Write-Log "done.json.source_p1_sha256 がP1ファイルのSHA256と不一致" "ERROR"
+                $failed = $true
+            }
+            $p3FileInDone  = ([string]$doneJson.p3_file) -replace '\\', '/'
+            $expectedP3Rel = $p3RelPath
+            if ($p3FileInDone -ne $expectedP3Rel) {
+                Write-Log "done.json.p3_file が許可パスと不一致: '$p3FileInDone' (expected '$expectedP3Rel')" "ERROR"
+                $failed = $true
+            }
+            if (Test-Path $p3FullPath) {
+                $actualP3Sha256 = (Get-FileHash -Path $p3FullPath -Algorithm SHA256).Hash.ToLower()
+                if ([string]$doneJson.p3_sha256 -ne $actualP3Sha256) {
+                    Write-Log "done.json.p3_sha256 が実際のP3ファイルのSHA256と不一致" "ERROR"
+                    $failed = $true
+                }
+            }
+            if (-not ([string]$doneJson.completed_at -match '^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}([+-]\d{2}:\d{2}|Z)$')) {
+                Write-Log "done.json.completed_at がISO 8601+TZ形式ではありません: '$($doneJson.completed_at)'" "ERROR"
+                $failed = $true
+            }
+            $allowedResults = @('success')
+            if ($allowedResults -notcontains [string]$doneJson.result) {
+                Write-Log "done.json.result が許可値ではありません: '$($doneJson.result)'" "ERROR"
+                $failed = $true
+            }
+        }
+    }
+
+    # 判定4: Fix3: gitベースライン差分で許可パス監査（既存の汚れた作業ツリーに耐える）
+    $gitAfter = @()
+    Push-Location -LiteralPath $ProjectRoot
+    try {
+        $rawAfter = git status --porcelain 2>$null
+        if ($rawAfter) {
+            $gitAfter = @($rawAfter -split "`n" | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+        }
+    } finally {
+        Pop-Location
+    }
+
+    $deltaLines   = $gitAfter | Where-Object { $gitBaseline -notcontains $_ }
+    $allowedP3    = $p3RelPath
+    $allowedDone  = $doneJsonRelPath
+    $allowedTmp   = $tmpRelPath.TrimEnd('/') + '/'
+    $invalidPaths = @()
+
+    foreach ($line in $deltaLines) {
+        if ([string]::IsNullOrWhiteSpace($line)) { continue }
+        $modPath = $line.Substring(3).Trim(' "') -replace '\\', '/'
+        if ($modPath -eq $allowedP3)   { continue }
+        if ($modPath -eq $allowedDone) { continue }
+        if ($modPath.StartsWith($allowedTmp, [System.StringComparison]::OrdinalIgnoreCase)) { continue }
+        $invalidPaths += $modPath
+    }
+
+    if ($invalidPaths.Count -gt 0) {
+        Write-Log "許可外のファイル変更を検知しました:" "ERROR"
+        foreach ($p in $invalidPaths) { Write-Log "  $p" "ERROR" }
+        if (Test-Path $p3FullPath) {
+            $bt = [char]96 + [char]96 + [char]96
+            Add-Content -Path $p3FullPath -Value "`n`n### [SYSTEM] 不正差分検知`n`n以下の許可外パスが変更されました:`n`n${bt}`n$($invalidPaths -join "`n")`n${bt}" -Encoding UTF8
+        }
+        $failed = $true
+    }
+
+    if ($failed) {
+        Require-Pause "CC異常終了 または 不正差分検知。自動ロールバックはしません。手動で確認・復旧してください。"
+        return
+    }
+
+    Write-Log ">>> CCの処理が完了しました。Dexにレビューを依頼してください。" "OK"
+}
+
+# ─────────────────────────────────────────────────────────────────────────
 # Start-Watching: メイン監視ループ
 # mutex取得後の全処理を try/finally で囲み、異常終了でも確実に解放
 # ─────────────────────────────────────────────────────────────────────────
@@ -872,7 +1057,21 @@ function Start-Watching {
                 }
 
                 Write-Log ">>> バリデーション合格: $($result.cycle) (r$($result.revision))" "OK"
-                Write-Log ">>> 【第2段階未実装】Kazumax の承認後に CC を手動起動してください。" "WARN"
+                
+                # Fix7: cycle名ガードは -TestPhase2 があっても外さない
+                # -TestPhase2 は Phase2機能を有効化するスイッチに留め、cycle名判定は必須
+                if ($TestPhase2) {
+                    if ($result.cycle -match "test|dummy") {
+                        $p1FullPath = [System.IO.Path]::GetFullPath([System.IO.Path]::Combine($ProjectRoot, $result.p1_file))
+                        Invoke-ClaudeAgent -ManifestObj $result -P1FullPath $p1FullPath
+                    } else {
+                        Write-Log ">>> 本番P1の自動起動は禁止: cycle名が test/dummy 系ではありません ($($result.cycle))" "WARN"
+                        Write-Log ">>> 任意cycleの自動起動には -AllowNonDummyPhase2 とKazumax承認が別途必要です。" "WARN"
+                    }
+                } else {
+                    Write-Log ">>> 【第2段階】-TestPhase2 なしでは自動起動しません。Kazumax承認後に -TestPhase2 を付けて実行してください。" "WARN"
+                }
+                
                 Write-Log "────────────────────────────────────────────" "INFO"
             }
         } finally {

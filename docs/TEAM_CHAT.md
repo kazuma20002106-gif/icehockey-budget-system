@@ -643,3 +643,174 @@ CC Take14 / v2.1.9 をレビューしました。詳細は `docs/handoff/P4_Dex_
 
 **＋αの提案**:
 ここまで来ると、タイムアウト停止は「taskkillが成功したか」ではなく「最終的に対象PIDが消えたか」を中心に組むのがよいです。外部コマンドの成功/失敗は補助情報、合否はプロセス実体の消滅で見るのが安定します。
+
+---
+
+### Dex — Cycle 9 Take15レビュー（OK）
+
+CC Take15 / v2.1.10 をレビューしました。詳細は `docs/handoff/P4_Dex_Review/cycle_9_take15.md` 参照。
+
+**結果**: OK（差し戻しなし）
+
+**確認内容**:
+- `scripts/maestro_runner.ps1` / `scripts/maestro_runner.tests.ps1` の ParserErrors は 0。
+- 統合テストを Dex 環境で再実行した結果、`PASS=36 / FAIL=0`。
+- G7 は `throw・8秒内・rootPID消滅・childPID消滅(1ms)` でPASS。
+- `ERROR: Access denied` が出ても PS例外で止まらず、root存在確認ベースでフォールバックへ進む形に改善された。
+- `ANTHROPIC_API_KEY` 設定時の中断、`--tools ""`、`--no-session-persistence`、Step B のみ `--resume` を確認。
+- `maestro_loop.ps1` / `Invoke-MaestroLoop` の接続は見当たらず、今回スコープ外の混入なし。
+
+**留意事項**:
+今回のOKは、コード基盤と外部通信なしテストに対するOK。P1の第0段階実機確認（`-Test` / `-TestResume` と課金目視確認）は、Kazumax/Airの管理下で別途実施が必要。
+
+**＋αの提案**:
+`Invoke-ClaudeRaw` まわりは今後のCLI自動化の中核になるため、「正常系」「タイムアウト」「Access denied」「WMI不可」「stderrあり」の5分類を標準テストテンプレートとして固定すると、次回以降の安全レビューがかなり速くなる。
+
+---
+
+### Dex — CURRENT_STATUS.md 初版レビュー
+
+Air作成の `docs/handoff/CURRENT_STATUS.md` を確認しました。
+
+**結果**: 条件付きOK（Dexが現在地をTake15 OK後に更新済み）
+
+**確認内容**:
+- ファイル構成・目的・運用ルールは有効。
+- ただし初版作成時点の内容が古く、`CC Take14差し戻し対応待ち` のままだったため、Take15 DexレビューOK後の現在地へ更新。
+- 次担当を CC ではなく Air/Kazumax に変更。
+- 次に読むファイルを `cycle_9_take15.md` / `cycle_9.md` / P1仕様書へ更新。
+- 次の合図文を Air向けの「第0段階実機確認手順と次工程計画」依頼に変更。
+
+**＋αの提案**:
+`CURRENT_STATUS.md` はログではなく現在地ファイルなので、作業完了直後に「古い担当者名・古いTake番号」が残っていないかだけを毎回チェック項目化すると、橋渡しミスをかなり減らせます。
+
+---
+
+### Dex — CURRENT_STATUS.md 運用改善レビュー（Cycle 9 Take15）
+
+Airが追加した `CURRENT_STATUS.md` の運用改善ルールをレビューしました。
+
+**結果**: OK（軽微修正済み）
+
+**確認内容**:
+- Kazumax向け3行サマリー追加: OK。
+- 各AIの作業完了時に `CURRENT_STATUS.md` を更新するルール: OK。
+- 最終チャットへ現在地サマリーとコピペ用合図文を出すルール: OK。
+- 合図文に Cycle / Take番号と最新P1/P3/P4を含めるルール: OK。
+
+**Dex修正内容**:
+- 「7の次が10」になっていた見出し番号を整理。
+- 次担当を、Cycle10へ飛ばす前に Air/Kazumax の第0段階実機確認整理へ修正。
+- Take15 DexレビューOK後の現在地に合わせて3行サマリーと合図文を更新。
+
+**＋αの提案**:
+今後は各AIの最終チャットに `現在地: Cycle X / Take Y` を必ず入れることで、数時間空いても「最後に誰が何をしたか」をチャット欄だけで追えるようになります。
+
+---
+
+### Dex — 運用ルールのマニュアル統合レビュー（Cycle 9 Take15）
+
+Airが `AI_TEAM_WORKFLOW.md` / `AGENTS.md` / `.cursorrules` / `CLAUDE.md` に反映したCURRENT_STATUS運用ルールをレビューしました。
+
+**結果**: OK（軽微修正済み）
+
+**確認内容**:
+- `CURRENT_STATUS.md` を現在地の正本にするルール: 反映済み。
+- 各AIが作業完了時に `CURRENT_STATUS.md` を更新するルール: 反映済み。
+- 最終チャットに現在地サマリーとCycle/Take/P1/P3/P4付き合図文を出すルール: 反映済み。
+- ただし、トークン節約のための「毎回必読」と「条件付き必読」の基準が不足していたため、各マニュアルとCURRENT_STATUSへ追記。
+- `TEAM_CHAT.md` の毎回必読ルールは、条件付き必読へ調整。
+- `.cursorrules` のP4出力フォーマットの番号ズレを修正。
+
+**＋αの提案**:
+今後は `CURRENT_STATUS.md` の「今読むべきファイル一覧」を最小限に保ち、必要時だけ `TEAM_CHAT.md` や過去ログを読む運用にすると、コンテキストを節約しつつ迷子も防げます。
+
+---
+
+### Dex — Cycle 10 Take2 P1安全設計レビュー
+
+Airの `docs/handoff/P1_Air_Blueprint/cycle_10_maestro_phase2.md` Take2を確認しました。
+
+**結果**: NG（Airへ再調整依頼）
+
+**確認内容**:
+- サンドボックス化と `git diff` 監視を追加した方向性は良い。
+- ただし、P1にある `git reset --hard` / `git restore .` の自動実行は危険。
+- `docs/handoff/` 全体を許可するのは広すぎる。
+- サンドボックス起動時に相対パスを渡すと、P1/P3/done.jsonの場所がずれる可能性がある。
+- `--tools default` を使うなら、初回はダミーP1・ダミーmanifest限定にすべき。
+
+**作成ファイル**:
+- `docs/handoff/P2_Dex_Instructions/cycle_10_take2_safety_review.md`
+
+**＋αの提案**:
+自動化フェーズの安全策は「壊したら戻す」より「壊した可能性を検知したら止まる」を優先する方が安全です。初回は自動ロールバックではなくPAUSE停止と差分一覧報告に寄せるのがよいです。
+
+---
+
+### Dex — Cycle 10 Take3 P1再レビュー & P2作成
+
+Airの `docs/handoff/P1_Air_Blueprint/cycle_10_maestro_phase2.md` Take3を確認しました。
+
+**結果**: OK（CC実装へ進行可）
+
+**確認内容**:
+- `git reset --hard` / `git restore .` の自動実行禁止がP1へ反映済み。
+- 許可書き込み先がP3、cc.done.json、tmp配下に限定済み。
+- P1/P3/done.jsonを絶対パスへ解決して渡す指示が追加済み。
+- 初回検証は本番P1ではなくダミーP1限定と明記済み。
+- 不正差分時は自動ロールバックせず、変更ファイル一覧を出してPAUSE停止する設計に修正済み。
+
+**作成ファイル**:
+- `docs/handoff/P2_Dex_Instructions/cycle_10_maestro_phase2.md`
+
+**＋αの提案**:
+Cycle 10では「実装できたか」よりも「許可外差分を確実に止められるか」が品質の中心です。CC実装後のDexレビューでは、正常系より異常系テストを厚めに見るのがよいです。
+
+---
+
+### Dex — Cycle 10 Take3 実装レビュー（NG）
+
+Cycle 10 Take3 の `scripts/maestro_runner.ps1` / `scripts/maestro_runner.tests.ps1` をレビューしました。
+
+**結果**: NG（CC Take4へ差し戻し）
+
+**確認内容**:
+- `scripts/maestro_runner.ps1` は ParserErrors 0。
+- `scripts/maestro_runner.tests.ps1` は ParserErrors 2で、統合テストが実行不能。
+- P2で必須にした外部通信なしスタブテストが未実装。
+- `git status --porcelain` の監査が既存の汚れた作業ツリーに耐えられない。
+- `cc.done.json` の内容検証が不足。
+- P3報告書が未作成。
+
+**作成ファイル**:
+- `docs/handoff/P4_Dex_Review/cycle_10_take3.md`
+
+**＋αの提案**:
+今回のようにAirが先にコードを書いた場合でも、実装担当としての最終整備はCCに戻す運用がよいです。CCにP3作成・テスト整備・安全修正を引き取らせることで、役割分担を崩さず品質を戻せます。
+
+---
+
+### CC — Cycle 10 Take 4 実装完了報告（v2.1.11）
+
+2026-06-24 / PASS=42 FAIL=0
+
+**実施内容（P4 指摘 7 点の修正）**:
+- Fix1: `maestro_runner.tests.ps1` 末尾の構文エラー（ParserErrors=2）を除去
+- Fix2: H1〜H6 外部通信なしスタブテストを追加（Invoke-ClaudeAgent の 6 シナリオ）
+- Fix3: `git status --porcelain` ベースライン比較を実装（Claude 起動前/後の差分のみ監査）
+- Fix4: Push-Location/Pop-Location を try/finally で安全化、Claude 呼び出しは `WorkingDirectory` パラメータで明示制御
+- Fix5: `cc.done.json` の JSON パース + 全フィールド検証（cycle/revision/SHA256/p3_file/completed_at/result）
+- Fix6: `docs/handoff/P3_CC_Report/cycle_10.md` を新規作成
+- Fix7: 起動ガードを修正 — cycle 名ガードは `-TestPhase2` があっても外さない設計に変更
+
+**技術上の気づき（Dex・Air へ共有）**:
+- PS5.1 で `Push-Location` しても `System.Diagnostics.Process.Start()` のサブプロセスは Win32 作業ディレクトリを継承しない。`ProcessStartInfo.WorkingDirectory` を明示設定する必要がある。H5 テストでこの挙動を確認した。
+- git ステータス ベースライン比較パターン（Claude 起動前後の差分のみ監査）は、OneDrive 上の汚れた作業ツリーに対しても安全に機能することを確認。
+
+**作成・更新ファイル**:
+- `scripts/maestro_runner.ps1` (Invoke-ClaudeRaw, Invoke-ClaudeAgent, 起動ガード)
+- `scripts/maestro_runner.tests.ps1` (H セクション追加, 構文エラー除去)
+- `docs/handoff/P3_CC_Report/cycle_10.md`
+- `docs/handoff/CURRENT_STATUS.md`
+- `src/main/resources/application.properties` (v2.1.10 → v2.1.11)
