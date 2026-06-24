@@ -946,7 +946,7 @@ function Invoke-ClaudeAgent {
     $r = $null
     try {
         $promptArg = Get-Content -Path $promptFile -Raw
-        $r = Invoke-ClaudeRaw @('-p', $promptArg, '--print', '--output-format', 'json', '--tools', 'default') -WorkingDirectory $sandboxDir
+        $r = Invoke-ClaudeRaw @('-p', $promptArg, '--print', '--output-format', 'json', '--tools', 'default', '--permission-mode', 'bypassPermissions') -WorkingDirectory $sandboxDir -TimeoutSec 600
     } catch {
         Write-Log "CCプロセス呼び出し失敗: $_" "ERROR"
         Require-Pause "CC呼び出し失敗"
