@@ -1,138 +1,156 @@
-# [C8.3: CC(P3)] Cycle 8.3 実装報告書
+# [C8.3: CC(P3)] Cycle 8.3 実装報告書 (Take2)
 
-作成日: 2026-06-25
-作成者: CC (Claude Code)
-バージョン: v2.2.0
-参照P2: `docs/handoff/P2_Dex_to_CC/cycle_8_3.md`
-
----
-
-## 1. 変更ファイル一覧
-
-| ファイル | 変更種別 | 内容 |
-|----------|----------|------|
-| `src/main/java/.../mapper/ProjectMapper.java` | 修正 | `findFiltered` に `targetCategory`・`projectName` パラメータ追加 |
-| `src/main/resources/mapper/ProjectMapper.xml` | 修正 | `target_category =` / `name LIKE CONCAT(...)` のWHERE条件追加 |
-| `src/main/java/.../controller/ActivityController.java` | 修正 | `list`・`exportYear` に `targetCategory`・`projectName` 追加、model属性追加 |
-| `src/main/java/.../service/ExcelExportService.java` | 修正 | 補助金区分ラベルhelper・種別ソートhelper・シート名sanitize helper・circledNumber追加、`buildCombinedWorkbook` ソート/グループ化/シート名再設計、`exportForm24` 単独出力を左側固定化、`populate22Summary` 旅行雑費集計追加 |
-| `src/main/resources/templates/activity/list.html` | 修正 | 絞り込みに種別・事業名追加（年度→月→補助金区分→種別→事業名順）、Excel出力リンクにパラメータ引き継ぎ |
-| `src/main/resources/templates/activity/form.html` | 修正 | 宿泊設定input-group化（単価×泊数）・accommodationCost readonly化・旅行雑費フル計算式UI・tfoot2行分割 |
-| `src/main/resources/application.properties` | バージョン更新 | v2.1.14 → v2.2.0 |
+作成日: 2026-06-25  
+作成者: CC (Claude Code)  
+バージョン: v2.2.1  
+参照P2: `docs/handoff/P2_Dex_to_CC/cycle_8_3.md`  
+差し戻し指示: `docs/handoff/P4_Rollback/cycle_8_3.md`
 
 ---
 
-## 2. `Project#getBudgetType()` を使わない補助金区分名取得
+## Take2 修正対応サマリ
 
-Air草案の `project.getBudgetType().getName()` はコンパイルエラーになるため、P2指示に従い `ExcelExportService` 内に `budgetTypeLabel(Integer budgetTypeId)` private helperを追加しました。
+| 修正番号 | 内容 | 結果 |
+|----------|------|------|
+| Fix1 | 2-2-1旅行雑費セルの確認 | 確認済み（コード変更なし） |
+| Fix2 | 事業名による補助金区分判定の除去 | 完了 |
+| Fix3 | 複数選択の単体様式出力を新シート名・グループ化へ統一 | 完了 |
 
+---
+
+## 1. Fix1: 2-2-1旅行雑費セル確認結果
+
+### 確認方法
+
+`書類.xlsx` を openpyxl (data_only=True) で読み込み、SHEET_22（様式２－２－１）のR20C4セル（0-indexed row=19, col=3）の値を hex エンコードで確認。
+
+### 確認結果
+
+```
+R20 C4 (0-indexed row=19): hex = e291a220 e69785 e8a18c e99b91 e8b2bb
+                            UTF-8 decode = "③ 旅行雑費"
+```
+
+**row=19 (0-indexed) = R20 に「③ 旅行雑費」が確定。**
+
+実装済みの `writeSafeNumeric(sheet22, 19, 9, totalTravelMisc)` は正しい。
+
+P3 Take1 の「推定・要目視確認」記載は今回確認完了により解消。コードへのコメントも「確認済み」表記に更新済み。
+
+---
+
+## 2. Fix2: 事業名による補助金区分判定の除去
+
+### 2-a. populate26 タイトル修正
+
+**変更前:**
 ```java
-private String budgetTypeLabel(Integer budgetTypeId) {
-    if (budgetTypeId == null) return "不明";
-    switch (budgetTypeId) {
-        case 1: return "選手強化費";
-        case 2: return "トップチーム活用事業";
-        case 3: return "ふるさと選手活動支援";
-        default: return "区分" + budgetTypeId;
-    }
+String title = "選手強化費　　領収書１";
+if ("トップチーム".equals(project.getName())) {
+    title = "トップチーム選手強化事業　領収書１";
+} else if ("ふるさと".equals(project.getName())) {
+    title = "ふるさと選手強化事業　領収書１";
 }
 ```
 
-`ActivityController#budgetLabel` と同じ対応（case 1/2/3）で実装しています。
-
----
-
-## 3. 様式2-2-1 旅行雑費の出力セル・行番号根拠
-
-### 実装した計算式
-
+**変更後:**
 ```java
-totalTravelMisc += nz(sum.getTravelMiscCost()) * parts.size() * nz(sum.getTravelMiscDays());
+// タイトル: budgetTypeId ベースで決定（project.getName() による補助金区分判定は使わない）
+String title = budgetTypeLabel(project.getBudgetTypeId()) + "　　領収書１";
 ```
 
-### 出力先セル: **row=19 (0-indexed) = R20 (1-indexed), col=9 (J列)**
+結果: budgetTypeId=1 → "選手強化費　　領収書１" / 2 → "トップチーム活用事業　　領収書１" / 3 → "ふるさと選手活動支援　　領収書１"
 
-**根拠（推定）**: 既存 `populate22Summary` のセル割当パターン：
+### 2-b. populate24Side タイトル修正
 
-| row(0-indexed) | Excel行 | 科目 |
-|---|---|---|
-| 15 | R16 | 交通費 |
-| 17 | R18 | 宿泊費 |
-| **19** | **R20** | **旅行雑費（今回追加）** |
-| 21 | R22 | 駐車料金 |
-| 23 | R24 | 借用料 |
-| 25 | R26 | 報償費 |
-| 27 | R28 | 需用費 |
-| 29 | R30 | 役務費 |
+**変更前:**
+```java
+writeSafe(sheet, 1, 0, "令和" + rYear + "年度　国スポ選手強化プロジェクト（①選手強化費）事業実施報告書");
+```
 
-交通費→宿泊費→?→駐車料金と2行おきに並ぶパターンから、R20が旅行雑費行と推定しました。
+**変更後:**
+```java
+Integer btId = project.getBudgetTypeId();
+String budgetPart = (btId != null && btId >= 1 && btId <= 3)
+        ? circledNumber(btId) + budgetTypeLabel(btId)
+        : budgetTypeLabel(btId);
+writeSafe(sheet, 1, 0, "令和" + rYear + "年度　国スポ選手強化プロジェクト（" + budgetPart + "）事業実施報告書");
+```
 
-**⚠️ 要目視確認**: `書類.xlsx` の様式2-2-1 で旅行雑費が実際にR20（Excel上の行番号20）にあることを Kazumax または Dex が確認してください。もし違う行であれば `populate22Summary` の `writeSafeNumeric(sheet22, 19, 9, totalTravelMisc)` の `19` を正しい行番号(0-indexed)に修正する必要があります。
+結果: budgetTypeId=1 → "①選手強化費" / 2 → "②トップチーム活用事業" / 3 → "③ふるさと選手活動支援"
+
+### project.getName() 残存確認
+
+```
+rg "project\.getName\(\)" ExcelExportService.java
+```
+
+残存箇所: **1件** (line 895, `pruneTemplateEllipses24Side` 内)
+
+```java
+String keepProject  = (project != null) ? "PROJECT:"  + project.getName() : null;
+```
+
+これは帳票テンプレート上の図形（丸印）削除用途（PROJECT:強化練習 / PROJECT:遠征試合 の選択）であり、**補助金区分判定ではない**。差し戻し指示にも「補助金区分判定ではないため残してよい」と明記されているため除去対象外。
 
 ---
 
-## 4. コンパイル結果
+## 3. Fix3: 複数選択の単体様式出力に新シート名・グループ化を適用
+
+### 3-a. exportForm24 (multi-ID)
+
+**変更前:** 単純に 2 件ずつペアリング（グループ化なし）、シート名 `"2-4_" + id1 + "_" + id2`
+
+**変更後:** `buildCombinedWorkbook` と同じロジックを適用
+- `budgetTypeId + targetCategory` でグループ化
+- グループ内でのみペアリング
+- シート名: `2-4_[補助金区分]_[種別]_[①②③]`（sanitize + uniqueName）
+
+単独出力（1件）のシート名も `"2-4_" + id` → `2-4_[補助金区分]_[種別]_①` に変更。
+
+### 3-b. exportForm25 / exportForm26 (exportMultiSheet)
+
+**変更前:** `exportMultiSheet(SHEET_25, ...)` / `exportMultiSheet(SHEET_26, ...)`
+- シート名: `[事業名]_[id]` 形式（事業名ベース）
+- 削除判定: `sName.matches(".*_\\d+$")`
+
+**変更後:** `exportMultiSheet("2-5", SHEET_25, ...)` / `exportMultiSheet("2-6", SHEET_26, ...)`
+- ソート: budgetTypeId → categoryOrder → eventDate → id
+- グループカウンター: `Map<String, Integer>` でグループ内連番
+- シート名: `2-5_[補助金区分]_[種別]_[①②③]` / `2-6_...`
+- 削除判定: `!sName.startsWith(prefix + "_")`
+
+---
+
+## 4. 変更ファイル一覧
+
+| ファイル | 変更内容 |
+|----------|---------|
+| `src/main/java/.../service/ExcelExportService.java` | Fix1コメント更新、Fix2 populate26/populate24Side タイトル修正、Fix3 exportForm24/exportMultiSheet 新シート名・グループ化 |
+| `src/main/resources/application.properties` | v2.2.0 → v2.2.1 |
+
+---
+
+## 5. コンパイル結果
 
 ```
 .\mvnw.cmd -q -DskipTests compile
 Exit: 0
+target/classes/application.properties の app.version=v2.2.1 確認済み
 ```
-
-`target/classes/application.properties` の `app.version=v2.2.0` も確認済みです。
 
 ---
 
-## 5. 実装詳細
+## 6. 出力経路ごとの仕様統一確認
 
-### 5.1 Excelシート名・グループ化（buildCombinedWorkbook）
-
-ソート順:
-1. `budgetTypeId` 昇順
-2. 種別順（成年男子→成年女子→少年男子→少年女子→その他）
-3. 活動日昇順
-4. ID昇順
-
-グループキー: `budgetTypeId + "_" + targetCategory`
-
-シート名形式: `2-4_[補助金区分]_[種別]_[①②③]`（例: `2-4_選手強化費_成年男子_①`）
-
-Excelシート名禁止文字（`/\?*[]:`)は `_` に置換。31文字制限は `uniqueName` の28文字切り詰めで対応（最長ケースで約22文字）。
-
-出力順: 2-4全て → 2-5全て → 2-6全てをworbook cloneの順序で制御。
-
-### 5.2 様式2-4 単独出力
-
-旧: 奇数番=左、偶数番=右（相方自動連行）
-新: **常に左=対象、右=空欄**
-
-### 5.3 宿泊費UI
-
-- 基本情報セクション: `[単価]円 × [泊数]泊` の input-group で統合
-- ※単価は1泊分・最大3泊 を表示
-- `accommodationRate` を 個人別支出 ヘッダーから 基本情報 へ移動
-- 様式2-6の宿泊費セルを `readonly` に変更（`disabled` は不使用）
-
-### 5.4 旅行雑費UI
-
-```
-[単価]円 × [日数]日 × [人数]人 = [合計]円
-```
-
-- 人数は名簿の有効行数に自動連動（`updateCounts()` → `updateTravelMiscTotal()`)
-- `name` 属性は `summary.travelMiscCost` / `summary.travelMiscDays` を維持
-- 合計表示はJS計算のみ（保存項目なし）
-
-### 5.5 tfoot 総合計レイアウト
-
-2行構成に変更:
-- 1行目: 交通費合計 / 宿泊費合計（既存ID維持）
-- 2行目: 総合計 `fs-5` で大きく表示（既存 `grandTotal` ID維持）
-
----
-
-## 6. 未確認事項
-
-- **旅行雑費セル（R20）の目視確認が必要**（上記3参照）
-- Excel出力の動作確認（シート名・ソート順・2-4ペアリング）は、アプリ起動後に実施が必要
+| 出力経路 | ソート | グループ化 | 新シート名 |
+|----------|--------|-----------|------------|
+| `exportAllFormsForProjects` (all) | ✓ | ✓ | ✓ |
+| `exportYearlySummary` | ✓ | ✓ | ✓ |
+| `exportForm24` (単独) | N/A | N/A | ✓ |
+| `exportForm24` (複数) | ✓ | ✓ | ✓ |
+| `exportForm25` (複数) | ✓ | ✓ (カウンター) | ✓ |
+| `exportForm26` (複数) | ✓ | ✓ (カウンター) | ✓ |
 
 ---
 

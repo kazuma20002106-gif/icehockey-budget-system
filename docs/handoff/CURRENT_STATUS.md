@@ -1,8 +1,8 @@
 # 📍 CURRENT STATUS（現在地確認）
 
 > **💡 Kazumax向け3行サマリー**
-> - **今**: Cycle 8.3の実装をCCが完了（v2.2.0）。コンパイルOK。
-> - **次**: DexがCCの実装差分をレビューする（P4）。
+> - **今**: CC Cycle 8.3 Take2 修正完了（v2.2.1）。DexのNG指摘3件すべて対応済み。
+> - **次**: Dex が P3 報告書を読んで再レビュー（P4）を行う。
 > - **Kazumaxの次アクション**: 下部の合図文をDexへ渡してください。
 
 ---
@@ -12,24 +12,23 @@
 ## 1. 現在のサイクル名とフェーズ
 
 **Cycle 8.3: UI改善・Excelシート名適正化・決算書旅行雑費修正**  
-**CC実装完了 / Dexレビュー待ち**
+**Take2 CC修正完了 / Dex再レビュー待ち**
 
 ## 2. 現在の担当者
 
-**Dex** - CCの実装差分をレビュー（P4）
+完了: **CC** - Dex差し戻し指示 Fix1/Fix2/Fix3 をすべて修正（v2.2.1）
 
 ## 3. 次に作業する担当者
 
-**CC** - Dexのレビュー結果次第（差し戻しあれば修正、OKなら完了）
+**Dex** - CC修正完了の再レビュー (P4)
 
 ## 4. 今読むべきファイル一覧
 
 Dexが次に参照すべきファイル:
 
 - `docs/handoff/CURRENT_STATUS.md`
-- `docs/handoff/P1_Air_Blueprint/cycle_8_3_draft.md`
-- `docs/handoff/P2_Dex_to_CC/cycle_8_3.md`
-- `docs/handoff/P3_CC_Report/cycle_8_3.md`
+- `docs/handoff/P3_CC_Report/cycle_8_3.md` (Take2 更新済み)
+- `docs/handoff/P4_Rollback/cycle_8_3.md` (差し戻し指示)
 
 ### 条件付きで読むファイル
 
@@ -46,9 +45,23 @@ Dexが次に参照すべきファイル:
 
 - **P1/P2草案 (Air)**: `docs/handoff/P1_Air_Blueprint/cycle_8_3_draft.md`
 - **P2補強版 (Dex)**: `docs/handoff/P2_Dex_to_CC/cycle_8_3.md`
-- **P3 (CC Report)**: `docs/handoff/P3_CC_Report/cycle_8_3.md`（作成済み）
+- **P3 (CC Report)**: `docs/handoff/P3_CC_Report/cycle_8_3.md`（Take2 更新済み）
+- **P4 (Dex Review)**: `docs/handoff/P4_Dex_Review/cycle_8_3.md`
+- **P4 Rollback**: `docs/handoff/P4_Rollback/cycle_8_3.md`
 
-## 6. 現在のStop Conditions / 禁止事項
+## 6. Take2 修正内容サマリー
+
+| Fix | 内容 | 状態 |
+|-----|------|------|
+| Fix1 | 2-2-1旅行雑費セル確認（openpyxl読み込みでR20=③旅行雑費を確定） | ✅ 確認済 |
+| Fix2a | populate26 タイトルを budgetTypeId ベースへ変更 | ✅ 完了 |
+| Fix2b | populate24Side タイトル "①選手強化費" 固定を budgetTypeId ベースへ変更 | ✅ 完了 |
+| Fix3a | exportForm24 multi-ID をグループ化対応・新シート名適用 | ✅ 完了 |
+| Fix3b | exportMultiSheet (2-5/2-6) をソート・新シート名対応 | ✅ 完了 |
+
+コンパイル: Exit 0 / app.version=v2.2.1 確認済み
+
+## 7. 現在のStop Conditions / 禁止事項
 
 以下はまだ禁止です。
 
@@ -58,21 +71,6 @@ Dexが次に参照すべきファイル:
 - 自動ロールバック
 - 第3段階への進行
 - Kazumaxの明示承認なしの外部モデル/API呼び出し・課金発生操作
-
-## 7. CC実装完了サマリー（v2.2.0）
-
-| 項目 | 内容 |
-|------|------|
-| コンパイル | `mvnw compile` Exit: 0 |
-| バージョン | v2.1.14 → v2.2.0 |
-| 絞り込み検索 | 種別・事業名を追加、一覧とExcel出力で同一条件を使用 |
-| Excelシート名 | `2-4_選手強化費_成年男子_①` 形式、グループ化・ソート実装 |
-| 2-4単独出力 | 常に左=対象・右=空欄（偶数番判定ロジック廃止） |
-| 2-2-1旅行雑費 | `単価×人数×日数` で集計（R20セル推定・目視確認必要） |
-| 宿泊費UI | 単価×泊数 input-group、rateは基本情報へ移動 |
-| 宿泊費入力欄 | 2-6宿泊費セルを readonly 化 |
-| 旅行雑費UI | `[単価]円×[日数]日×[人数]人=[合計]円` フル計算式 |
-| 総合計表示 | tfoot を2行（旅費合計行 + 大きな総合計行）に分割 |
 
 ## 8. 次回実機テスト時の注意（Cycle 10 Maestro引き継ぎ）
 
@@ -101,14 +99,12 @@ Dexが次に参照すべきファイル:
 ## 11. Kazumaxが次にコピペする合図文
 
 ```text
-Dex、CCがCycle 8.3の実装を完了したよ。
+Dex、CCがCycle 8.3 Take2の修正を完了したよ。
 
 最新のファイルは以下の通り。
-- Air草案: docs/handoff/P1_Air_Blueprint/cycle_8_3_draft.md
-- Dex補強版P2: docs/handoff/P2_Dex_to_CC/cycle_8_3.md
-- CC実装報告(P3): docs/handoff/P3_CC_Report/cycle_8_3.md
+- P3 (CC Report): docs/handoff/P3_CC_Report/cycle_8_3.md（Take2 更新済み）
+- P4 Rollback: docs/handoff/P4_Rollback/cycle_8_3.md
 - 現在地: docs/handoff/CURRENT_STATUS.md
 
-@.cursorrules を厳守してDIFFレビュー（P4）をして！
-作業が終わったら CURRENT_STATUS.md を更新して、ルールのテンプレートに従って次への合図文を出してね。
+P3を読んでDIFFレビュー（P4）をして！
 ```

@@ -124,28 +124,54 @@ public class ExcelExportService {
             if (projectIds.size() == 1) {
                 // 単独出力: 常に左=対象、右=空欄
                 int id = projectIds.get(0);
+                Project p = projectMapper.findById(id);
+                String btLabel = budgetTypeLabel(p != null ? p.getBudgetTypeId() : null);
+                String cat = (p != null && p.getTargetCategory() != null) ? p.getTargetCategory() : "";
                 Sheet newSheet = workbook.cloneSheet(templateIndex);
-                workbook.setSheetName(workbook.getSheetIndex(newSheet), "2-4_" + id);
+                String nm = sanitizeSheetName("2-4_" + btLabel + "_" + cat + "_" + circledNumber(1));
+                workbook.setSheetName(workbook.getSheetIndex(newSheet), uniqueName(workbook, nm));
                 populate24Side(newSheet, id, 0);
-                pruneTemplateEllipses24Side(newSheet, 0, projectMapper.findById(id));
+                pruneTemplateEllipses24Side(newSheet, 0, p);
                 clearSide24(newSheet, 17);
                 pruneTemplateEllipses24Side(newSheet, 17, null);
             } else {
-                for (int i = 0; i < projectIds.size(); i += 2) {
-                    int id1 = projectIds.get(i);
-                    Integer id2 = (i + 1 < projectIds.size()) ? projectIds.get(i + 1) : null;
+                // ソート・グループ化を buildCombinedWorkbook と同じルールで適用
+                List<Project> sorted24 = new ArrayList<>();
+                for (int id : projectIds) {
+                    Project p = projectMapper.findById(id);
+                    if (p != null) sorted24.add(p);
+                }
+                sorted24.sort(Comparator
+                    .comparingInt((Project p) -> p.getBudgetTypeId() == null ? 99 : p.getBudgetTypeId())
+                    .thenComparingInt((Project p) -> categoryOrder(p.getTargetCategory()))
+                    .thenComparing((Project p) -> p.getEventDate() == null ? LocalDate.of(9999, 12, 31) : p.getEventDate())
+                    .thenComparingInt((Project p) -> p.getId() == null ? Integer.MAX_VALUE : p.getId()));
 
-                    Sheet newSheet = workbook.cloneSheet(templateIndex);
-                    workbook.setSheetName(workbook.getSheetIndex(newSheet), "2-4_" + id1 + (id2 != null ? "_" + id2 : ""));
-
-                    populate24Side(newSheet, id1, 0);
-                    pruneTemplateEllipses24Side(newSheet, 0, projectMapper.findById(id1));
-                    if (id2 != null) {
-                        populate24Side(newSheet, id2, 17);
-                        pruneTemplateEllipses24Side(newSheet, 17, projectMapper.findById(id2));
-                    } else {
-                        clearSide24(newSheet, 17);
-                        pruneTemplateEllipses24Side(newSheet, 17, null);
+                Map<String, List<Project>> groups24 = new LinkedHashMap<>();
+                for (Project p : sorted24) {
+                    String key = (p.getBudgetTypeId() == null ? "0" : p.getBudgetTypeId())
+                            + "_" + (p.getTargetCategory() == null ? "" : p.getTargetCategory());
+                    groups24.computeIfAbsent(key, k -> new ArrayList<>()).add(p);
+                }
+                for (Map.Entry<String, List<Project>> entry : groups24.entrySet()) {
+                    List<Project> gList = entry.getValue();
+                    String btLabel = budgetTypeLabel(gList.get(0).getBudgetTypeId());
+                    String cat = gList.get(0).getTargetCategory() == null ? "" : gList.get(0).getTargetCategory();
+                    for (int i = 0, sheetNum = 1; i < gList.size(); i += 2, sheetNum++) {
+                        Project left = gList.get(i);
+                        Project right = (i + 1 < gList.size()) ? gList.get(i + 1) : null;
+                        Sheet newSheet = workbook.cloneSheet(templateIndex);
+                        String nm = sanitizeSheetName("2-4_" + btLabel + "_" + cat + "_" + circledNumber(sheetNum));
+                        workbook.setSheetName(workbook.getSheetIndex(newSheet), uniqueName(workbook, nm));
+                        populate24Side(newSheet, left.getId(), 0);
+                        pruneTemplateEllipses24Side(newSheet, 0, left);
+                        if (right != null) {
+                            populate24Side(newSheet, right.getId(), 17);
+                            pruneTemplateEllipses24Side(newSheet, 17, right);
+                        } else {
+                            clearSide24(newSheet, 17);
+                            pruneTemplateEllipses24Side(newSheet, 17, null);
+                        }
                     }
                 }
             }
@@ -170,7 +196,11 @@ public class ExcelExportService {
         if (project.getEventDate() != null) {
             int rYear = getReiwaYear(project.getFiscalYear() != null
                     ? project.getFiscalYear() : project.getEventDate().getYear());
-            writeSafe(sheet, 1, 0, "令和" + rYear + "年度　国スポ選手強化プロジェクト（①選手強化費）事業実施報告書");
+            Integer btId = project.getBudgetTypeId();
+            String budgetPart = (btId != null && btId >= 1 && btId <= 3)
+                    ? circledNumber(btId) + budgetTypeLabel(btId)
+                    : budgetTypeLabel(btId);
+            writeSafe(sheet, 1, 0, "令和" + rYear + "年度　国スポ選手強化プロジェクト（" + budgetPart + "）事業実施報告書");
         }
 
         // 期日: 令和X年Y月Z日(曜) 形式
@@ -268,7 +298,7 @@ public class ExcelExportService {
     }
 
     public void exportForm25(List<Integer> projectIds, OutputStream outputStream) throws Exception {
-        exportMultiSheet(SHEET_25, projectIds, outputStream,
+        exportMultiSheet("2-5", SHEET_25, projectIds, outputStream,
                 (sheet, project, summary, participants) -> populate25(sheet, project, participants));
     }
 
@@ -351,7 +381,7 @@ public class ExcelExportService {
     }
 
     public void exportForm26(List<Integer> projectIds, OutputStream outputStream) throws Exception {
-        exportMultiSheet(SHEET_26, projectIds, outputStream,
+        exportMultiSheet("2-6", SHEET_26, projectIds, outputStream,
                 (sheet, project, summary, participants) -> populate26(sheet, project, participants));
     }
 
@@ -362,13 +392,8 @@ public class ExcelExportService {
             writeSafeNumeric(sheet, 2, 9, getReiwaYear(fy));
         }
 
-        // タイトル
-        String title = "選手強化費　　領収書１";
-        if ("トップチーム".equals(project.getName())) {
-            title = "トップチーム選手強化事業　領収書１";
-        } else if ("ふるさと".equals(project.getName())) {
-            title = "ふるさと選手強化事業　領収書１";
-        }
+        // タイトル: budgetTypeId ベースで決定（project.getName() による補助金区分判定は使わない）
+        String title = budgetTypeLabel(project.getBudgetTypeId()) + "　　領収書１";
         writeSafe(sheet, 1, 15, title);
 
         // 2-6 は交通費か宿泊費か雑費が1円以上の人のみ
@@ -518,8 +543,7 @@ public class ExcelExportService {
 
         writeSafeNumeric(sheet22, 15, 9, totalTransport);
         writeSafeNumeric(sheet22, 17, 9, totalAccommodation);
-        // 旅行雑費行: row=19(0-indexed)=R20。交通費(R16)→宿泊費(R18)→旅行雑費(R20)→駐車(R22)の2行おきパターンから推定。
-        // 目視確認が必要: 書類.xlsx の様式2-2-1で旅行雑費がR20であることを確認してください。
+        // 旅行雑費行: row=19(0-indexed)=R20（書類.xlsx 実読確認済み: R20C4 = "③ 旅行雑費"）
         writeSafeNumeric(sheet22, 19, 9, totalTravelMisc);
         writeSafeNumeric(sheet22, 21, 9, totalParking);
         writeSafeNumeric(sheet22, 23, 9, totalRental);
@@ -707,7 +731,7 @@ public class ExcelExportService {
         void populate(Sheet sheet, Project project, ProjectSummaryExpense summary, List<ProjectParticipant> participants);
     }
 
-    private void exportMultiSheet(String templateName, List<Integer> projectIds, OutputStream outputStream, SheetPopulator populator) throws Exception {
+    private void exportMultiSheet(String prefix, String templateName, List<Integer> projectIds, OutputStream outputStream, SheetPopulator populator) throws Exception {
         ClassPathResource resource = new ClassPathResource("書類.xlsx");
         try (InputStream is = resource.getInputStream();
              Workbook workbook = WorkbookFactory.create(is)) {
@@ -715,23 +739,37 @@ public class ExcelExportService {
             int templateIndex = workbook.getSheetIndex(templateName);
             if (templateIndex == -1) throw new IllegalArgumentException("Template sheet not found: " + templateName);
 
+            // buildCombinedWorkbook と同じソート・グループ化ルールを適用
+            List<Project> sorted = new ArrayList<>();
             for (int id : projectIds) {
-                Project project = projectMapper.findById(id);
-                ProjectSummaryExpense summary = summaryMapper.findByProjectId(id);
-                List<ProjectParticipant> participants = getLoadedParticipants(id);
+                Project p = projectMapper.findById(id);
+                if (p != null) sorted.add(p);
+            }
+            sorted.sort(Comparator
+                .comparingInt((Project p) -> p.getBudgetTypeId() == null ? 99 : p.getBudgetTypeId())
+                .thenComparingInt((Project p) -> categoryOrder(p.getTargetCategory()))
+                .thenComparing((Project p) -> p.getEventDate() == null ? LocalDate.of(9999, 12, 31) : p.getEventDate())
+                .thenComparingInt((Project p) -> p.getId() == null ? Integer.MAX_VALUE : p.getId()));
+
+            Map<String, Integer> counter = new LinkedHashMap<>();
+            for (Project project : sorted) {
+                String key = (project.getBudgetTypeId() == null ? "0" : project.getBudgetTypeId())
+                        + "_" + (project.getTargetCategory() == null ? "" : project.getTargetCategory());
+                int num = counter.merge(key, 1, Integer::sum);
+                String btLabel = budgetTypeLabel(project.getBudgetTypeId());
+                String cat = project.getTargetCategory() == null ? "" : project.getTargetCategory();
+                ProjectSummaryExpense summary = summaryMapper.findByProjectId(project.getId());
+                List<ProjectParticipant> participants = getLoadedParticipants(project.getId());
 
                 Sheet newSheet = workbook.cloneSheet(templateIndex);
-                String safeName = project.getName().replaceAll("[\\\\/?*:\\[\\]]", "_");
-                if (safeName.length() > 20) safeName = safeName.substring(0, 20);
-                String finalName = safeName + "_" + id;
-                workbook.setSheetName(workbook.getSheetIndex(newSheet), finalName);
+                String nm = sanitizeSheetName(prefix + "_" + btLabel + "_" + cat + "_" + circledNumber(num));
+                workbook.setSheetName(workbook.getSheetIndex(newSheet), uniqueName(workbook, nm));
 
                 populator.populate(newSheet, project, summary, participants);
             }
 
             for (int i = workbook.getNumberOfSheets() - 1; i >= 0; i--) {
-                String sName = workbook.getSheetName(i);
-                if (!sName.matches(".*_\\d+$")) {
+                if (!workbook.getSheetName(i).startsWith(prefix + "_")) {
                     workbook.removeSheetAt(i);
                 }
             }
