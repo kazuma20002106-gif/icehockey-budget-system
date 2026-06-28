@@ -7,6 +7,7 @@
 .sticky-table-wrap thead th { position: sticky; top: 0; z-index: 2; background: #f8f9fa; box-shadow: 0 1px 0 #dee2e6; }
 </style>
 <div>
+<div class="content-narrow-wrap">
     <div class="d-flex justify-content-between align-items-center mb-2">
         <h3 class="fw-bold mb-0">
             名簿管理
@@ -24,28 +25,28 @@
     <div class="card border-0 shadow-sm mb-3">
         <div class="card-header bg-primary text-white">新規メンバー追加</div>
         <div class="card-body p-2">
-            <form th:action="@{/members/add}" method="post" class="row g-2">
-                <div class="col-md-3">
+            <form th:action="@{/members/add}" method="post" class="row g-2 align-items-end">
+                <div class="col-auto" style="width:185px;">
                     <label class="form-label small mb-1">氏名</label>
                     <input type="text" name="name" class="form-control form-control-sm" required>
                 </div>
-                <div class="col-md-2">
+                <div class="col-auto" style="width:78px;">
                     <label class="form-label small mb-1">年齢</label>
                     <input type="number" name="age" class="form-control form-control-sm" min="0">
                 </div>
-                <div class="col-md-2">
+                <div class="col-auto" style="width:110px;">
                     <label class="form-label small mb-1">種別</label>
                     <select name="role" class="form-select form-select-sm">
                         <option value="選手">選手</option>
                         <option value="指導者">指導者</option>
                     </select>
                 </div>
-                <div class="col-md-3">
+                <div class="col-auto" style="width:175px;">
                     <label class="form-label small mb-1">主な出発地点</label>
                     <input type="text" name="departurePoint" class="form-control form-control-sm" placeholder="例：宮崎西">
                 </div>
-                <div class="col-md-2 d-flex align-items-end">
-                    <button type="submit" class="btn btn-sm btn-primary w-100">追加</button>
+                <div class="col-auto">
+                    <button type="submit" class="btn btn-sm btn-primary">追加</button>
                 </div>
             </form>
         </div>
@@ -63,12 +64,12 @@
                 <table class="table table-hover mb-0 align-middle">
                     <thead class="table-light">
                         <tr>
-                            <th style="width:6%;">ID</th>
+                            <th style="width:45px;">ID</th>
                             <th>氏名</th>
-                            <th style="width:12%;">年齢</th>
-                            <th style="width:14%;">種別</th>
+                            <th style="width:85px;">年齢</th>
+                            <th style="width:100px;">種別</th>
                             <th>主な出発地点</th>
-                            <th class="text-end" style="width:20%;">操作</th>
+                            <th class="text-end" style="width:120px;">操作</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -79,6 +80,7 @@
                                        title="変更すると自動保存されます" required></td>
                             <td><input type="number" class="form-control form-control-sm" data-field="age"
                                        th:value="${m.age}" min="0" onchange="saveMember(this)"
+                                       style="max-width:68px;"
                                        title="変更すると自動保存されます"></td>
                             <td>
                                 <select class="form-select form-select-sm" data-field="role" onchange="saveMember(this)"
@@ -103,6 +105,7 @@
             </div>
         </div>
     </div>
+</div><!-- /.content-narrow-wrap -->
 
     <script>
         // ===== 行の自動保存 =====

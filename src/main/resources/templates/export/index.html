@@ -7,39 +7,39 @@
     .sticky-table-wrap thead th { position: sticky; top: 0; z-index: 2; background: #f8f9fa; box-shadow: 0 1px 0 #dee2e6; }
     </style>
     <div>
-        <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-4 border-bottom">
+    <div class="content-narrow-wrap">
+        <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
             <h1 class="h2">提出データ出力・集計</h1>
         </div>
 
         <!-- 蓄積状況のサマリー -->
-        <div class="row mb-4">
-            <div class="col-md-6">
-                <div class="card text-white bg-primary mb-3 shadow-sm">
-                    <div class="card-body">
-                        <h5 class="card-title">登録済み事業数</h5>
-                        <p class="card-text fs-2 fw-bold" th:text="${projects.size()} + ' 件'"></p>
+        <div class="row mb-3">
+            <div class="col-auto">
+                <div class="card text-white bg-primary shadow-sm">
+                    <div class="card-body py-2 px-3">
+                        <h6 class="card-title mb-1">登録済み事業数</h6>
+                        <p class="card-text fs-4 fw-bold mb-0" th:text="${projects.size()} + ' 件'"></p>
                     </div>
                 </div>
             </div>
-            <!-- In a complete app, we'd add total costs etc. here -->
         </div>
 
         <div class="card shadow-sm">
             <div class="card-header bg-white d-flex justify-content-between align-items-center">
                 <h5 class="mb-0">出力する事業の選択（範囲指定）</h5>
             </div>
-            <div class="card-body">
+            <div class="card-body p-2">
                 <form th:action="@{/export/download}" method="post" id="exportForm">
-                    <div class="table-responsive sticky-table-wrap mb-4">
-                        <table class="table table-hover table-striped border">
+                    <div class="table-responsive sticky-table-wrap mb-3">
+                        <table class="table table-hover table-striped border mb-0">
                             <thead class="table-light">
                                 <tr>
-                                    <th>
+                                    <th style="width:36px;">
                                         <input class="form-check-input" type="checkbox" id="selectAll" onclick="toggleAll(this)" checked>
                                     </th>
-                                    <th>ID</th>
+                                    <th style="width:45px;">ID</th>
                                     <th>事業名</th>
-                                    <th>期日</th>
+                                    <th style="width:110px;">期日</th>
                                     <th>場所</th>
                                 </tr>
                             </thead>
@@ -60,24 +60,20 @@
                         </table>
                     </div>
 
-                    <div class="row align-items-center bg-light p-3 rounded">
-                        <div class="col-md-auto">
-                            <strong>出力する様式を選択：</strong>
-                        </div>
-                        <div class="col-md-auto">
-                            <select name="exportType" class="form-select w-auto" required>
-                                <option value="all">まとめて（様式2-4・2-5・2-6 一括）</option>
-                                <option value="2-4">様式2-4 (事業実施報告書)</option>
-                                <option value="2-5">様式2-5 (参加者名簿)</option>
-                                <option value="2-6">様式2-6 (事業別領収書)</option>
-                                <option value="2-2">様式2-2 (年間収支報告書 ※選択した事業を合算)</option>
-                            </select>
-                        </div>
-                        <div class="col-md-auto ms-auto d-flex gap-2">
-                            <button type="submit" formaction="/export/preview" class="btn btn-outline-primary btn-lg shadow-sm">
+                    <div class="d-flex flex-wrap align-items-center gap-2 bg-light p-2 rounded">
+                        <strong class="text-nowrap">出力様式：</strong>
+                        <select name="exportType" class="form-select form-select-sm w-auto" required>
+                            <option value="all">まとめて（様式2-4・2-5・2-6 一括）</option>
+                            <option value="2-4">様式2-4 (事業実施報告書)</option>
+                            <option value="2-5">様式2-5 (参加者名簿)</option>
+                            <option value="2-6">様式2-6 (事業別領収書)</option>
+                            <option value="2-2">様式2-2 (年間収支報告書 ※選択事業を合算)</option>
+                        </select>
+                        <div class="d-flex gap-2 ms-auto">
+                            <button type="submit" formaction="/export/preview" class="btn btn-outline-primary btn-sm shadow-sm">
                                 ブラウザでプレビュー
                             </button>
-                            <button type="submit" formaction="/export/download" class="btn btn-primary btn-lg shadow-sm">
+                            <button type="submit" formaction="/export/download" class="btn btn-primary btn-sm shadow-sm">
                                 Excelダウンロード
                             </button>
                         </div>
@@ -85,6 +81,7 @@
                 </form>
             </div>
         </div>
+    </div><!-- /.content-narrow-wrap -->
     </div>
 
     <script th:inline="javascript">
