@@ -21,31 +21,31 @@
     </p>
 
     <!-- 新規メンバー追加 -->
-    <div class="card border-0 shadow-sm mb-4">
+    <div class="card border-0 shadow-sm mb-3">
         <div class="card-header bg-primary text-white">新規メンバー追加</div>
-        <div class="card-body">
-            <form th:action="@{/members/add}" method="post" class="row g-3">
+        <div class="card-body p-2">
+            <form th:action="@{/members/add}" method="post" class="row g-2">
                 <div class="col-md-3">
-                    <label class="form-label">氏名</label>
-                    <input type="text" name="name" class="form-control" required>
+                    <label class="form-label small mb-1">氏名</label>
+                    <input type="text" name="name" class="form-control form-control-sm" required>
                 </div>
                 <div class="col-md-2">
-                    <label class="form-label">年齢</label>
-                    <input type="number" name="age" class="form-control" min="0">
+                    <label class="form-label small mb-1">年齢</label>
+                    <input type="number" name="age" class="form-control form-control-sm" min="0">
                 </div>
                 <div class="col-md-2">
-                    <label class="form-label">種別</label>
-                    <select name="role" class="form-select">
+                    <label class="form-label small mb-1">種別</label>
+                    <select name="role" class="form-select form-select-sm">
                         <option value="選手">選手</option>
                         <option value="指導者">指導者</option>
                     </select>
                 </div>
                 <div class="col-md-3">
-                    <label class="form-label">主な出発地点</label>
-                    <input type="text" name="departurePoint" class="form-control" placeholder="例：宮崎西">
+                    <label class="form-label small mb-1">主な出発地点</label>
+                    <input type="text" name="departurePoint" class="form-control form-control-sm" placeholder="例：宮崎西">
                 </div>
                 <div class="col-md-2 d-flex align-items-end">
-                    <button type="submit" class="btn btn-primary w-100">追加</button>
+                    <button type="submit" class="btn btn-sm btn-primary w-100">追加</button>
                 </div>
             </form>
         </div>

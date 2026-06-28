@@ -556,12 +556,12 @@ public class ExcelExportService {
 
     /** budgetTypeId → 補助金区分ラベル（ActivityController#budgetLabel と対応） */
     private String budgetTypeLabel(Integer budgetTypeId) {
-        if (budgetTypeId == null) return "不明";
+        if (budgetTypeId == null) return "未設定";
         switch (budgetTypeId) {
             case 1: return "選手強化費";
             case 2: return "トップチーム活用事業";
             case 3: return "ふるさと選手活動支援";
-            default: return "区分" + budgetTypeId;
+            default: return "その他";
         }
     }
 
@@ -716,7 +716,7 @@ public class ExcelExportService {
     }
 
     private String uniqueName(Workbook wb, String base) {
-        if (base.length() > 28) base = base.substring(0, 28);
+        if (base.length() > 31) base = base.substring(0, 31);
         String name = base;
         int n = 1;
         while (wb.getSheetIndex(name) != -1) {

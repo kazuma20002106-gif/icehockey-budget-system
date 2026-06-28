@@ -44,9 +44,9 @@
         <input type="hidden" name="project.id" th:if="${editId != null}" th:value="${activityForm.project.id}" />
 
         <!-- ===== 基本情報 ===== -->
-        <div class="card card-section border-0 shadow-sm mb-4">
+        <div class="card card-section border-0 shadow-sm mb-3">
             <div class="card-header hdr-basic">基本情報</div>
-            <div class="card-body">
+            <div class="card-body p-2">
                 <div class="row g-3">
                     <div class="col-md-3">
                         <label class="form-label">補助金区分 <span class="text-danger">*</span></label>
@@ -127,7 +127,7 @@
         </div>
 
         <!-- ===== 参加者名簿（様式2-5） ===== -->
-        <div class="card card-section border-0 shadow-sm mb-4">
+        <div class="card card-section border-0 shadow-sm mb-3">
             <div class="card-header hdr-roster d-flex justify-content-between align-items-center">
                 <span>
                     参加者名簿（様式２－５）
@@ -185,17 +185,17 @@
         </div>
 
         <!-- ===== 個人別支出（様式2-6） ===== -->
-        <div class="card card-section border-0 shadow-sm mb-4">
+        <div class="card card-section border-0 shadow-sm mb-3">
             <div class="card-header hdr-expense d-flex justify-content-between align-items-center">
                 <span>個人別支出（様式２－６）</span>
                 <div class="d-flex align-items-center gap-3">
                     <div class="d-flex align-items-center gap-1">
                         <label class="form-label mb-0 text-white small fw-normal">交通費単価（円/km）</label>
-                        <input type="number" id="transportRate" class="form-control text-end" value="17" style="width:80px;" oninput="recalculateTransportCosts()">
+                        <input type="number" id="transportRate" class="form-control form-control-sm text-end" value="17" style="width:80px;" oninput="recalculateTransportCosts()">
                     </div>
                 </div>
             </div>
-            <div class="card-body">
+            <div class="card-body p-2">
                 <div class="table-responsive p-0" style="max-height: 350px; overflow-y: auto;">
                     <table class="table table-bordered align-middle mb-2" id="expenseTable" style="min-width:1100px;">
                         <thead class="table-light text-center text-nowrap">
@@ -259,9 +259,9 @@
         </div>
 
         <!-- ===== 施設・その他経費 ===== -->
-        <div class="card card-section border-0 shadow-sm mb-4">
+        <div class="card card-section border-0 shadow-sm mb-3">
             <div class="card-header hdr-facility">施設・その他経費</div>
-            <div class="card-body">
+            <div class="card-body p-2">
                 <div class="row g-3">
                     <div class="col-md-3">
                         <label class="form-label">借用料（円）</label>
@@ -314,9 +314,9 @@
         </div>
 
         <!-- ===== 日程・成果 ===== -->
-        <div class="card card-section border-0 shadow-sm mb-4">
+        <div class="card card-section border-0 shadow-sm mb-3">
             <div class="card-header hdr-result">日程・成果</div>
-            <div class="card-body">
+            <div class="card-body p-2">
                 <div class="mb-3">
                     <label class="form-label">日程及び内容</label>
                     <textarea class="form-control" name="project.scheduleContent" rows="3"

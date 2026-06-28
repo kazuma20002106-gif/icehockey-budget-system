@@ -13,26 +13,18 @@
     </div>
 
     <!-- 絞り込み -->
-    <form method="get" action="/activity" class="card border-0 shadow-sm p-3 mb-3">
+    <form method="get" action="/activity" class="card border-0 shadow-sm p-2 mb-3">
         <div class="row g-2 align-items-end">
             <div class="col-auto">
                 <label class="form-label small text-muted mb-1">年度</label>
-                <select name="year" class="form-select">
+                <select name="year" class="form-select form-select-sm">
                     <option th:each="y : ${years}" th:value="${y}" th:text="${y} + '年度'"
                             th:selected="${y == selectedYear}"></option>
                 </select>
             </div>
-            <div class="col-auto" style="min-width: 220px;">
-                <label class="form-label small text-muted mb-1">補助金区分</label>
-                <select name="budgetTypeId" class="form-select">
-                    <option value="" th:selected="${selectedBudgetTypeId == null}">全区分</option>
-                    <option th:each="bt : ${budgetTypes}" th:value="${bt.id}" th:text="${bt.name}"
-                            th:selected="${bt.id == selectedBudgetTypeId}"></option>
-                </select>
-            </div>
             <div class="col-auto">
                 <label class="form-label small text-muted mb-1">月</label>
-                <select name="month" class="form-select">
+                <select name="month" class="form-select form-select-sm">
                     <option value="" th:selected="${selectedMonth == null}">全て</option>
                     <option value="4"  th:selected="${selectedMonth == 4}">4月</option>
                     <option value="5"  th:selected="${selectedMonth == 5}">5月</option>
@@ -48,9 +40,17 @@
                     <option value="3"  th:selected="${selectedMonth == 3}">3月</option>
                 </select>
             </div>
+            <div class="col-auto" style="min-width: 200px;">
+                <label class="form-label small text-muted mb-1">補助金区分</label>
+                <select name="budgetTypeId" class="form-select form-select-sm">
+                    <option value="" th:selected="${selectedBudgetTypeId == null}">全区分</option>
+                    <option th:each="bt : ${budgetTypes}" th:value="${bt.id}" th:text="${bt.name}"
+                            th:selected="${bt.id == selectedBudgetTypeId}"></option>
+                </select>
+            </div>
             <div class="col-auto">
                 <label class="form-label small text-muted mb-1">種別</label>
-                <select name="targetCategory" class="form-select">
+                <select name="targetCategory" class="form-select form-select-sm">
                     <option value="" th:selected="${selectedTargetCategory == null or selectedTargetCategory == ''}">全種別</option>
                     <option value="成年男子" th:selected="${selectedTargetCategory == '成年男子'}">成年男子</option>
                     <option value="成年女子" th:selected="${selectedTargetCategory == '成年女子'}">成年女子</option>
@@ -60,11 +60,11 @@
             </div>
             <div class="col-auto">
                 <label class="form-label small text-muted mb-1">事業名</label>
-                <input type="text" name="projectName" class="form-select" placeholder="部分一致"
+                <input type="text" name="projectName" class="form-control form-control-sm" placeholder="部分一致"
                        th:value="${selectedProjectName}" style="min-width:120px;">
             </div>
             <div class="col-auto">
-                <button type="submit" class="btn btn-outline-secondary">絞り込み</button>
+                <button type="submit" class="btn btn-sm btn-outline-secondary">絞り込み</button>
             </div>
             <div class="col text-end">
                 <a class="btn btn-success"

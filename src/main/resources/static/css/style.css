@@ -54,7 +54,7 @@ body {
 
 /* Main Content */
 .main-content {
-    padding: 30px;
+    padding: 16px 24px;
 }
 
 /* Cards */
@@ -92,7 +92,7 @@ body {
 
 .table tbody td {
     vertical-align: middle;
-    padding: 12px;
+    padding: 6px 8px;
     border-bottom: 1px solid #f1f3f5;
 }
 
@@ -100,7 +100,7 @@ body {
 .btn {
     border-radius: 6px;
     font-weight: 500;
-    padding: 8px 16px;
+    padding: 6px 12px;
     transition: all 0.2s;
 }
 
@@ -108,7 +108,7 @@ body {
 .form-control, .form-select {
     border-radius: 6px;
     border: 1px solid #ced4da;
-    padding: 10px 15px;
+    padding: 6px 10px;
 }
 
 .form-control:focus, .form-select:focus {
