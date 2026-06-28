@@ -190,5 +190,5 @@ select.form-select {
 /* 情報量が少ない画面用の適正幅コンテナ */
 .content-narrow-wrap {
     max-width: 900px;
-    margin: 0 auto;
+    margin: 0;
 }
