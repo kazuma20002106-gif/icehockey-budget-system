@@ -509,26 +509,68 @@ public class ExcelExportService {
     }
 
     private void populate22Summary(Sheet sheet22, List<Integer> projectIds) {
-        int totalRental = 0, totalSupplies = 0, totalParking = 0, totalCompensation = 0, totalService = 0;
-        int totalTransport = 0, totalAccommodation = 0, totalTravelMisc = 0;
+        long[] catRental = new long[4];
+        long[] catSupplies = new long[4];
+        long[] catParking = new long[4];
+        long[] catCompensation = new long[4];
+        long[] catService = new long[4];
+        long[] catTravelMisc = new long[4];
+        long[] catTransport = new long[4];
+        long[] catAccommodation = new long[4];
+
+        long totalRental = 0, totalSupplies = 0, totalParking = 0, totalCompensation = 0, totalService = 0;
+        long totalTransport = 0, totalAccommodation = 0, totalTravelMisc = 0;
 
         for (int id : projectIds) {
+            Project p = projectMapper.findById(id);
+            if (p == null) continue;
+
+            String cat = p.getTargetCategory();
+            int catIdx = -1;
+            if ("成年男子".equals(cat)) catIdx = 0;
+            else if ("少年男子".equals(cat)) catIdx = 1;
+            else if ("成年女子".equals(cat)) catIdx = 2;
+            else if ("少年女子".equals(cat)) catIdx = 3;
+
             ProjectSummaryExpense sum = summaryMapper.findByProjectId(id);
             List<ProjectParticipant> parts = getLoadedParticipants(id);
+
+            long pRental = 0, pSupplies = 0, pParking = 0, pComp = 0, pServ = 0, pTravelMisc = 0;
             if (sum != null) {
-                totalRental += nz(sum.getRentalCost());
-                totalSupplies += nz(sum.getSuppliesCost());
-                totalParking += nz(sum.getParkingCost());
-                totalCompensation += nz(sum.getCompensationCost());
-                totalService += nz(sum.getServiceCost());
-                // 旅行雑費 = 単価 × 参加人数 × 日数（新仕様）
-                totalTravelMisc += nz(sum.getTravelMiscCost()) * parts.size() * nz(sum.getTravelMiscDays());
+                pRental = nz(sum.getRentalCost());
+                pSupplies = nz(sum.getSuppliesCost());
+                pParking = nz(sum.getParkingCost());
+                pComp = nz(sum.getCompensationCost());
+                pServ = nz(sum.getServiceCost());
+                pTravelMisc = (long) nz(sum.getTravelMiscCost()) * parts.size() * nz(sum.getTravelMiscDays());
             }
-            for (ProjectParticipant p : parts) {
-                if (p.getExpense() != null) {
-                    totalTransport += nz(p.getExpense().getTransportCost());
-                    totalAccommodation += nz(p.getExpense().getAccommodationCost());
+
+            long pTrans = 0, pAccom = 0;
+            for (ProjectParticipant part : parts) {
+                if (part.getExpense() != null) {
+                    pTrans += nz(part.getExpense().getTransportCost());
+                    pAccom += nz(part.getExpense().getAccommodationCost());
                 }
+            }
+
+            totalRental += pRental;
+            totalSupplies += pSupplies;
+            totalParking += pParking;
+            totalCompensation += pComp;
+            totalService += pServ;
+            totalTravelMisc += pTravelMisc;
+            totalTransport += pTrans;
+            totalAccommodation += pAccom;
+
+            if (catIdx >= 0) {
+                catRental[catIdx] += pRental;
+                catSupplies[catIdx] += pSupplies;
+                catParking[catIdx] += pParking;
+                catCompensation[catIdx] += pComp;
+                catService[catIdx] += pServ;
+                catTravelMisc[catIdx] += pTravelMisc;
+                catTransport[catIdx] += pTrans;
+                catAccommodation[catIdx] += pAccom;
             }
         }
 
@@ -541,15 +583,40 @@ public class ExcelExportService {
             }
         }
 
+        // 1. ダミー数値をクリア (Rows 15,17,19,21,23,25,27,29 とその+1行の Cols 18, 31 をクリア)
+        int[] itemRows = {15, 17, 19, 21, 23, 25, 27, 29};
+        for (int r : itemRows) {
+            writeSafe(sheet22, r, 18, ""); // 成年男子
+            writeSafe(sheet22, r + 1, 18, ""); // 少年男子
+            writeSafe(sheet22, r, 31, ""); // 成年女子
+            writeSafe(sheet22, r + 1, 31, ""); // 少年女子
+        }
+
+        // 2. 決算額（全合計）の書き込み (Col J = 9)
         writeSafeNumeric(sheet22, 15, 9, totalTransport);
         writeSafeNumeric(sheet22, 17, 9, totalAccommodation);
-        // 旅行雑費行: row=19(0-indexed)=R20（書類.xlsx 実読確認済み: R20C4 = "③ 旅行雑費"）
         writeSafeNumeric(sheet22, 19, 9, totalTravelMisc);
         writeSafeNumeric(sheet22, 21, 9, totalParking);
         writeSafeNumeric(sheet22, 23, 9, totalRental);
         writeSafeNumeric(sheet22, 25, 9, totalCompensation);
         writeSafeNumeric(sheet22, 27, 9, totalSupplies);
         writeSafeNumeric(sheet22, 29, 9, totalService);
+
+        // 3. 内訳（カテゴリ別合計）の書き込み
+        for (int i = 0; i < 4; i++) {
+            int col = (i == 0 || i == 1) ? 18 : 31;
+            int offset = (i == 1 || i == 3) ? 1 : 0;
+
+            // 決算額が0になる項目は空白にした方が綺麗なので、0より大きい場合のみ出力する
+            if (catTransport[i] > 0) writeSafeNumeric(sheet22, 15 + offset, col, catTransport[i]);
+            if (catAccommodation[i] > 0) writeSafeNumeric(sheet22, 17 + offset, col, catAccommodation[i]);
+            if (catTravelMisc[i] > 0) writeSafeNumeric(sheet22, 19 + offset, col, catTravelMisc[i]);
+            if (catParking[i] > 0) writeSafeNumeric(sheet22, 21 + offset, col, catParking[i]);
+            if (catRental[i] > 0) writeSafeNumeric(sheet22, 23 + offset, col, catRental[i]);
+            if (catCompensation[i] > 0) writeSafeNumeric(sheet22, 25 + offset, col, catCompensation[i]);
+            if (catSupplies[i] > 0) writeSafeNumeric(sheet22, 27 + offset, col, catSupplies[i]);
+            if (catService[i] > 0) writeSafeNumeric(sheet22, 29 + offset, col, catService[i]);
+        }
     }
 
     // ===== シート名生成ヘルパー =====
@@ -793,6 +860,14 @@ public class ExcelExportService {
         org.apache.poi.ss.usermodel.Cell cell = row.getCell(colIndex);
         if (cell == null) cell = row.createCell(colIndex);
         cell.setCellValue(value);
+    }
+
+    private void writeSafeNumeric(Sheet sheet, int rowIndex, int colIndex, long value) {
+        Row row = sheet.getRow(rowIndex);
+        if (row == null) row = sheet.createRow(rowIndex);
+        org.apache.poi.ss.usermodel.Cell cell = row.getCell(colIndex);
+        if (cell == null) cell = row.createCell(colIndex);
+        cell.setCellValue((double) value);
     }
 
     private String getCellString(Sheet sheet, int rowIndex, int colIndex) {
