@@ -1,9 +1,13 @@
 # 📍 CURRENT STATUS（現在地確認）
 
+> [!CAUTION]
+> **【Kazumax代表からの全体絶対ルール】**
+> 「入力が簡単になっても、合算がうまくいってなかったらツールとしては全く意味がなく、正しくない書類を作るゴミツールになってしまう。全体の数値に関する部分は絶対に間違いがあってはならない。その点を踏まえて実装すること！」
+
 > **💡 Kazumax向け3行サマリー**
-> - **今**: CC Cycle 8.3 Take2 修正完了（v2.2.1）。DexのNG指摘3件すべて対応済み。
-> - **次**: Dex が P3 報告書を読んで再レビュー（P4）を行う。
-> - **Kazumaxの次アクション**: 下部の合図文をDexへ渡してください。
+> - **今**: CCのTake3修正が完了（v2.3.6）し、Dex（P4）へ再提出済み。
+> - **次**: DexがP4レビューを行い、OK/NGを判定する。
+> - **Kazumaxの次アクション**: 下記の合図文をDexへ渡してください。
 
 ---
 
@@ -11,24 +15,24 @@
 
 ## 1. 現在のサイクル名とフェーズ
 
-**Cycle 8.3: UI改善・Excelシート名適正化・決算書旅行雑費修正**  
-**Take2 CC修正完了 / Dex再レビュー待ち**
+**Cycle 9: 様式2-2-1（選手強化）Excel出力の金額計算ロジック修正（Take3 P4レビュー待ち）**  
+**フェーズ: CC(P3) Take3 完了 / Dex(P4) レビュー待ち**
 
-## 2. 現在の担当者
+## 2. 現在の担当・完了待ち
+完了: **CC** - Take3修正・コンパイル・コミット・push完了（v2.3.6）
 
-完了: **CC** - Dex差し戻し指示 Fix1/Fix2/Fix3 をすべて修正（v2.2.1）
+## 3. 次に作業する担当
 
-## 3. 次に作業する担当者
-
-**Dex** - CC修正完了の再レビュー (P4)
+**Dex** - P4レビュー（差し戻し全5項目の対応確認）
 
 ## 4. 今読むべきファイル一覧
 
 Dexが次に参照すべきファイル:
 
 - `docs/handoff/CURRENT_STATUS.md`
-- `docs/handoff/P3_CC_Report/cycle_8_3.md` (Take2 更新済み)
-- `docs/handoff/P4_Rollback/cycle_8_3.md` (差し戻し指示)
+- `docs/handoff/P3_CC_to_Dex/cycle_9_post_review_take3.md`
+- `docs/handoff/P4_Rollback/cycle_9_post_review.md`
+- `docs/handoff/P4_Dex_Review/cycle_9_post_review.md`
 
 ### 条件付きで読むファイル
 
@@ -43,25 +47,33 @@ Dexが次に参照すべきファイル:
 
 ## 5. 最新のハンドオフファイル
 
-- **P1/P2草案 (Air)**: `docs/handoff/P1_Air_Blueprint/cycle_8_3_draft.md`
-- **P2補強版 (Dex)**: `docs/handoff/P2_Dex_to_CC/cycle_8_3.md`
-- **P3 (CC Report)**: `docs/handoff/P3_CC_Report/cycle_8_3.md`（Take2 更新済み）
-- **P4 (Dex Review)**: `docs/handoff/P4_Dex_Review/cycle_8_3.md`
-- **P4 Rollback**: `docs/handoff/P4_Rollback/cycle_8_3.md`
+- **P2実装指示書**: `docs/handoff/P2_Dex_to_CC/cycle_9.md`
+- **P3報告書(Take3)**: `docs/handoff/P3_CC_to_Dex/cycle_9_post_review_take3.md`
+- **P4事後レビュー**: `docs/handoff/P4_Dex_Review/cycle_9_post_review.md`
+- **差し戻し指示**: `docs/handoff/P4_Rollback/cycle_9_post_review.md`
+- **P4事後レビュー Take2**: `docs/handoff/P4_Dex_Review/cycle_9_post_review_take2.md`
+- **差し戻し指示 Take2**: `docs/handoff/P4_Rollback/cycle_9_post_review_take2.md`
+- **CC判断/マニュアルレビュー**: `docs/handoff/P4_Dex_Review/cycle_9_cc_judgement_and_air_manual_review.md`
+- **CC作業中判断**: `docs/handoff/P4_Rollback/cycle_9_cc_judgement.md`
 
-## 6. Take2 修正内容サマリー
+## 6. v2.3.0 Dexレビュー結果（前サイクル）
+
+- 判定: **OK**
+- P4 v2.3.0: `docs/handoff/P4_Dex_Review/cycle_8_3_v2_3_0.md`
+- Dex側でも `書類.xlsx` をopenpyxlで読み、`R20 = ③ 旅行雑費` を確認済み。
+- `project.getName()` による補助金区分判定は除去済み。
+- 複数選択の単体様式出力も新シート名・グループ化へ統一済み。
+- UIコンパクト化と検索順変更も確認済み。
+
+## 7. Cycle 9 修正方針（UI最適化）
 
 | Fix | 内容 | 状態 |
 |-----|------|------|
-| Fix1 | 2-2-1旅行雑費セル確認（openpyxl読み込みでR20=③旅行雑費を確定） | ✅ 確認済 |
-| Fix2a | populate26 タイトルを budgetTypeId ベースへ変更 | ✅ 完了 |
-| Fix2b | populate24Side タイトル "①選手強化費" 固定を budgetTypeId ベースへ変更 | ✅ 完了 |
-| Fix3a | exportForm24 multi-ID をグループ化対応・新シート名適用 | ✅ 完了 |
-| Fix3b | exportMultiSheet (2-5/2-6) をソート・新シート名対応 | ✅ 完了 |
+| Fix1 | 名簿管理画面の横幅縮小（不要な余白削除） | 完了 / P4 OK |
+| Fix2 | データ出力エリアの最大幅固定 | 完了 / P4 OK |
+| Fix3 | 全体的なレスポンシブ見直し | 完了 / P4 OK |
 
-コンパイル: Exit 0 / app.version=v2.2.1 確認済み
-
-## 7. 現在のStop Conditions / 禁止事項
+## 8. 現在のStop Conditions / 禁止事項
 
 以下はまだ禁止です。
 
@@ -72,7 +84,7 @@ Dexが次に参照すべきファイル:
 - 第3段階への進行
 - Kazumaxの明示承認なしの外部モデル/API呼び出し・課金発生操作
 
-## 8. 次回実機テスト時の注意（Cycle 10 Maestro引き継ぎ）
+## 9. 次回実機テスト時の注意（Cycle 10 Maestro引き継ぎ）
 
 - `test_automation:r2` はprocessed済みなので、次回はrevisionを上げる。
 - ダミーP1はmanifest投入前に必ず作る。
@@ -82,7 +94,7 @@ Dexが次に参照すべきファイル:
 - `dummy_fail:r3` はprocessed済みのため、異常系再テストは `revision: 4` 以上で行う。
 - 現時点では `docs/handoff/maestro/PAUSE` が存在する。再テスト前に意図して削除すること。
 
-## 9. 各AIの作業完了時ルール（必須）
+## 10. 各AIの作業完了時ルール（必須）
 
 作業を終えるAIは、次担当へバトンを渡す前に必ず以下を行うこと。
 
@@ -90,21 +102,31 @@ Dexが次に参照すべきファイル:
 2. 最終チャットに「現在地サマリー」と「Kazumaxが次にコピペする合図文」を出す。
 3. 合図文には、Cycle/Take、最新P1/P3/P4のパス、次担当者が読むべきファイルを含める。
 
-## 10. このファイル自体の運用ルール
+## 11. このファイル自体の運用ルール
 
 - **Single Source of Truth**: プロジェクトの現在地を示す単一の情報源として扱う。
 - **履歴を積みすぎない**: 過去の詳細は各P1/P3/P4とTEAM_CHATに残し、このファイルは常に「今の瞬間」だけを示す。
 - **必要時だけ読む**: AGENTS/AI_TEAM_WORKFLOW/TEAM_CHAT/proposalsは、CURRENT_STATUSや担当ルールで必要になった時だけ読む。
 
-## 11. Kazumaxが次にコピペする合図文
+## 12. Kazumaxが次にコピーする合図文
 
 ```text
-Dex、CCがCycle 8.3 Take2の修正を完了したよ。
+まず AGENTS.md、docs/handoff/WORKFLOW_RULES.md、docs/handoff/CURRENT_STATUS.md を読んで、現在地・次担当・完了時ルールを確認してから作業して。
+長文レビューや次担当への正式引き継ぎは docs/handoff/ に保存し、チャットは短い合図文だけにして。
+プラスアルファ提案がある場合は docs/proposals/ にも同じ内容を保存して。
 
-最新のファイルは以下の通り。
-- P3 (CC Report): docs/handoff/P3_CC_Report/cycle_8_3.md（Take2 更新済み）
-- P4 Rollback: docs/handoff/P4_Rollback/cycle_8_3.md
-- 現在地: docs/handoff/CURRENT_STATUS.md
+CCへ：
+Take2作業中の判断はA案です。
+Kazumaxの明示承認を受けたうえで、replace.py / test.py / src/main/resources/templates/test.py を個別削除してください。
+詳細は以下を読んでTake3修正してください。
 
-P3を読んでDIFFレビュー（P4）をして！
+- P3 Take2: docs/handoff/P3_CC_to_Dex/cycle_9_post_review_take2.md
+- Dex判断: docs/handoff/P4_Rollback/cycle_9_cc_judgement.md
+
+Airへ：
+マニュアル対策の客観レビューを保存しました。
+方向性はOKですが、起動文への WORKFLOW_RULES.md 追加、Kazumax承認文言の明確化、Air直接編集禁止領域の明文化を検討してください。
+
+- Dexレビュー: docs/handoff/P4_Dex_Review/cycle_9_cc_judgement_and_air_manual_review.md
+- 提案: docs/proposals/Dex_workflow_rules_bootstrap_update.md
 ```
