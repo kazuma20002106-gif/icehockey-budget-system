@@ -13,15 +13,16 @@ Cycle 12 年度末決算ファイル一括出力（全様式対応）
 - **12A**: Dex(P4) Take3再レビューOK。年度末決算ファイル一括出力の土台は完了
 - **12B**: Dex(P4) Take2再レビューOK。予算管理・様式2-3連動は完了
 - **12C**: Dex(P4) Take2再レビューOK。年度末出力UI・タブプレビューは完了
-- **Cycle 12全体**: Dex(P4) Take2再レビューOK。`v2.4.3` / `c1db501` として、handoff/proposals自己完結性と `ActivityController.java` のCycle 12A互換ルート取り込みを確認済み。CCがKazumax実機確認チェックリスト6項目を代行実施し、全てOK。ただし確認中にCycle 12スコープ外の既存バグ（活動一覧の支出合計が旅行雑費を含まず過小集計）を発見。Kazumaxの最終ジャッジ待ち
+- **Cycle 12全体**: Dex(P4) Take2再レビューOK。`v2.4.3` / `c1db501` として、handoff/proposals自己完結性と `ActivityController.java` のCycle 12A互換ルート取り込みを確認済み。CCがKazumax実機確認チェックリスト6項目を代行実施し、全てOK。確認中にCycle 12スコープ外の既存バグ（旅行雑費の合算漏れ）を発見し、`ActivityController.java`だけでなく`ExportController.java`にも同種の箇所を追加確認。現在Dexが同じ実機確認を並行実施中
 
 ## 次の担当
-**Kazumax最終ジャッジ**: `docs/handoff/P3_CC_to_Dex/cycle_12_kazumax_realmachine_check.md` の実施結果（チェックリスト6項目は全OK）と、新規発見バグの扱いを確認し、Cycle 12を完了として次サイクルへ進めるか判断してください。新規バグの修正は `docs/proposals/CC_activity_list_travel_misc_total_bug.md` を次サイクルの起票候補としてAirへ回す想定です。
+**Dex(P4)**: `docs/handoff/P3_CC_to_Dex/cycle_12_realmachine_check_and_bug_report_for_dex.md`（CC実施結果＋新規バグ2箇所の一本化報告・依頼事項あり）を読み、独立確認のうえKazumaxと今後の対応を相談してください。新規バグの修正提案は `docs/proposals/CC_activity_list_travel_misc_total_bug.md` にあります。
 
 ## 読むべきファイル
 - `docs/handoff/CURRENT_STATUS.md`（このファイル）
-- `docs/handoff/P3_CC_to_Dex/cycle_12_kazumax_realmachine_check.md`（CCによるKazumaxチェックリスト代行実施記録・新規バグ発見あり・最優先）
-- `docs/proposals/CC_activity_list_travel_misc_total_bug.md`（新規発見バグの＋α提案。次サイクル起票候補）
+- `docs/handoff/P3_CC_to_Dex/cycle_12_realmachine_check_and_bug_report_for_dex.md`（CCによるDex向け一本化報告・依頼事項あり・最優先）
+- `docs/handoff/P3_CC_to_Dex/cycle_12_kazumax_realmachine_check.md`（CCによるKazumaxチェックリスト代行実施記録）
+- `docs/proposals/CC_activity_list_travel_misc_total_bug.md`（新規発見バグ2箇所の＋α提案。次サイクル起票候補）
 - `docs/handoff/P4_Dex_Review/cycle_12_final_hardening_take2.md`（DexのCycle 12最終硬化 Take2 P4 OKレビュー）
 - `docs/handoff/P3_CC_to_Dex/cycle_12_final_hardening_take2.md`（CCのTake2修正 完了報告）
 - `docs/handoff/P4_Rollback/cycle_12_final_hardening.md`（DexのCycle 12最終硬化 P4 NGレビュー・Take2で対応済み）
@@ -65,13 +66,15 @@ Cycle 12 年度末決算ファイル一括出力（全様式対応）
 - 本物原本にはトップチーム用2-2-1シートが存在する。今回はKazumax判断により出力対象に含める
 - 2-2の直値セル、2-1セル座標、外部リンクはDex最終指示書の内容を優先し、推測で実装しない
 
-## Kazumax用メモ（Cycle 12最終確認・実施済み）
+## Kazumaxが次にコピーする合図文（DexへのCC報告確認依頼）
 ```text
-CCがKazumax最終確認チェックリスト6項目を代行実施しました。全項目OKです。
-docs/handoff/P3_CC_to_Dex/cycle_12_kazumax_realmachine_check.md を確認してください。
+まず AGENTS.md、docs/handoff/WORKFLOW_RULES.md、docs/handoff/CURRENT_STATUS.md を読んで、現在地・次担当・完了時ルールを確認してから作業して。
+このプロジェクトに docs/PROJECT_RULES.md がある場合は、それも読んで危険領域と検証条件を確認して。
+長文レビューや次担当への正式引き継ぎは docs/handoff/ に保存し、チャットは短い合図文だけにして。
+プラスアルファ提案がある場合は docs/proposals/ にも同じ内容を保存して。
 
-ただし確認中に、Cycle 12のスコープ外の既存バグ（活動一覧の支出合計が旅行雑費を含まず過小集計される。Excel出力自体は正しい）を発見しました。
-docs/proposals/CC_activity_list_travel_misc_total_bug.md に詳細と修正方針案があります。
-
-Cycle 12自体を完了とするか、この新規バグ対応を先に行うかはKazumax判断でお願いします。
+Dexへ：
+CCがKazumax最終確認チェックリスト6項目を代行実施し、全項目OKでした。
+確認中に、Cycle 12スコープ外の既存バグ（旅行雑費が画面プレビューの合算から漏れている。Excel出力自体は正しい）を、ActivityController.javaとExportController.javaの2箇所で発見しました。
+docs/handoff/P3_CC_to_Dex/cycle_12_realmachine_check_and_bug_report_for_dex.md を読み、CCからの依頼事項（独立確認・網羅性再確認・legacy画面の位置づけ確認など）を踏まえて、あなたの実機確認結果と合わせて報告してください。
 ```
