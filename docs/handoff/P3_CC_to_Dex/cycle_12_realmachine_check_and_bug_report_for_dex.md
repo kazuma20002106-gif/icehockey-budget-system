@@ -106,6 +106,13 @@ if (!exList.isEmpty()) {
 3. legacy `/export`画面（様式2-2/2-4/2-5/2-6の個別選択出力）が、Cycle 12で追加された「年度末決算ファイル出力」と役割がどう違うか、今も現役の導線として維持すべきかを確認してほしい（Kazumaxへの確認が必要ならその旨まとめてほしい）。
 4. 修正のタイミングについて、Cycle 12を先に完了として次サイクルで扱うか、Cycle 12の一部として先に片付けるべき緊急度かを判断してほしい。CCとしては、Excel出力自体は正しく実害が「画面表示のみ」に限定されているため、Cycle 12は完了扱いとし、本件は次サイクルの課題として起票する方が安全と考えるが、最終判断はDex/Kazumaxに委ねる。
 
+## 追記（Kazumaxからの回答・依頼事項1と2に対する回答）
+
+- **依頼事項3（legacy `/export`画面の現役性）**: Kazumax確認により、「🖨️ 提出データ出力・集計」画面は今も実際に使われている現役導線。箇所Bの修正優先度は箇所Aと同等に引き上げる。
+- **依頼事項2（`exList.get(0)`問題の実害）**: `schema.sql`の`expenses`テーブルを確認した結果、`project_participant_id`に一意制約はなく、1参加者に複数`expenses`行を持つことがDB構造上可能と判明。したがって`ExportController.preview()`の`exList.get(0)`はバグと確定（実データでの発生有無は別途要確認）。
+
+詳細は `docs/proposals/CC_activity_list_travel_misc_total_bug.md` の該当セクションを更新済み。
+
 ## 参照ファイル
 
 - `docs/handoff/P3_CC_to_Dex/cycle_12_kazumax_realmachine_check.md`（チェックリスト詳細ログ）
