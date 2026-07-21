@@ -209,6 +209,30 @@ public class ActivityController {
         excelExportService.exportYearlySummary(ids, response.getOutputStream());
     }
 
+    // ===== Cycle 12A: 年度末決算ファイル一括出力（様式2-1/2-2/2-2-1×3＋既存2-4/2-5/2-6） =====
+    @GetMapping("/export/annual")
+    public void exportAnnual(@RequestParam(value = "year", required = false) Integer year,
+                             @RequestParam(value = "budgetTypeId", required = false) Integer budgetTypeId,
+                             @RequestParam(value = "month", required = false) Integer month,
+                             @RequestParam(value = "targetCategory", required = false) String targetCategory,
+                             @RequestParam(value = "projectName", required = false) String projectName,
+                             HttpServletResponse response) throws Exception {
+        if (year == null) year = currentFiscalYear();
+        List<Project> projects = projectMapper.findFiltered(year, budgetTypeId, month, targetCategory, projectName);
+        if (projects.isEmpty()) {
+            // 対象事業0件のまま出力すると、様式2-1の対象年度等が誤った内容になり得るため出力を止める
+            response.sendRedirect("/activity?year=" + year + "&error=no_data_for_annual_export");
+            return;
+        }
+        List<Integer> ids = projects.stream().map(Project::getId).collect(Collectors.toList());
+
+        String fname = year + "年度_年度末決算書類.xlsx";
+        response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+        response.setHeader("Content-Disposition",
+                "attachment; filename*=UTF-8''" + java.net.URLEncoder.encode(fname, "UTF-8").replace("+", "%20"));
+        excelExportService.exportAnnualClosingBook(year, ids, response.getOutputStream());
+    }
+
     // ===== ヘルパー =====
     private void prepareFormModel(Model model, ActivityForm form, Integer editId) {
         model.addAttribute("activityForm", form);

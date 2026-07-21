@@ -13,14 +13,16 @@ Cycle 12 年度末決算ファイル一括出力（全様式対応）
 - **12A**: Dex(P4) Take3再レビューOK。年度末決算ファイル一括出力の土台は完了
 - **12B**: Dex(P4) Take2再レビューOK。予算管理・様式2-3連動は完了
 - **12C**: Dex(P4) Take2再レビューOK。年度末出力UI・タブプレビューは完了
-- **Cycle 12全体**: Dex(P4)全体レビューで機能面はおおむねOK。最終ゲート指摘（未追跡ファイル・clean compile未完了・予算保存検証強化）を受け、CC(P3)が最終硬化を実施済み（`v2.4.3`）。Dex(P4)の事後レビュー待ち
+- **Cycle 12全体**: CC(P3)がTake2硬化を実施（`v2.4.3`のまま、handoff/proposals取り込み整理＋`ActivityController.java`のCycle 12A互換ルート取り込み）。Dex(P4)の再レビュー待ち
 
 ## 次の担当
-**Dex(P4)**: `docs/handoff/P3_CC_to_Dex/cycle_12_final_hardening.md` を読み、CCの最終硬化（予算保存検証強化・バージョン更新・clean compile代替検証・未追跡ファイル取り込み確認）を事後レビューしてください。
+**Dex(P4) Take2再レビュー**: `docs/handoff/P3_CC_to_Dex/cycle_12_final_hardening_take2.md` を読み、CCのTake2修正（handoff/proposals取り込み・ActivityController.java整理）を再レビューしてください。
 
 ## 読むべきファイル
 - `docs/handoff/CURRENT_STATUS.md`（このファイル）
-- `docs/handoff/P3_CC_to_Dex/cycle_12_final_hardening.md`（CCの最終硬化 完了報告・最優先）
+- `docs/handoff/P3_CC_to_Dex/cycle_12_final_hardening_take2.md`（CCのTake2修正 完了報告・最優先）
+- `docs/handoff/P4_Rollback/cycle_12_final_hardening.md`（DexのCycle 12最終硬化 P4 NGレビュー・Take2で対応済み）
+- `docs/handoff/P3_CC_to_Dex/cycle_12_final_hardening.md`（CCの最終硬化 Take1完了報告）
 - `docs/handoff/P4_Rollback/cycle_12_final_hardening_cc_instructions.md`（DexのCC向け最終硬化指示）
 - `docs/handoff/P4_Rollback/cycle_12_overall_final_review.md`（DexのCycle 12全体レビュー。最終ゲート指摘あり）
 - `docs/handoff/P4_Dex_Review/cycle_12c_preview_ui_take2.md`（Dexの12C Take2 P4 OKレビュー）
@@ -60,14 +62,14 @@ Cycle 12 年度末決算ファイル一括出力（全様式対応）
 - 本物原本にはトップチーム用2-2-1シートが存在する。今回はKazumax判断により出力対象に含める
 - 2-2の直値セル、2-1セル座標、外部リンクはDex最終指示書の内容を優先し、推測で実装しない
 
-## Kazumaxが次にコピーする合図文（CCへのCycle 12最終硬化依頼）
+## Kazumaxが次にコピーする合図文（DexへのCycle 12最終硬化Take2再レビュー依頼）
 ```text
 まず AGENTS.md、docs/handoff/WORKFLOW_RULES.md、docs/handoff/CURRENT_STATUS.md を読んで、現在地・次担当・完了時ルールを確認してから作業して。
 このプロジェクトに docs/PROJECT_RULES.md がある場合は、それも読んで危険領域と検証条件を確認して。
 長文レビューや次担当への正式引き継ぎは docs/handoff/ に保存し、チャットは短い合図文だけにして。
 プラスアルファ提案がある場合は docs/proposals/ にも同じ内容を保存して。
 
-CCへ：
-DexがCycle 12全体レビューを行い、機能面はおおむねOKでしたが、最終ゲートとして未追跡ファイル・clean compile未完了・予算保存検証強化の指摘が出ました。
-docs/handoff/P4_Rollback/cycle_12_final_hardening_cc_instructions.md を読んで、必要な最終硬化を実施してください。
+Dexへ：
+CCがCycle 12最終硬化のTake2修正（handoff/proposals取り込み・ActivityController.java整理）を完了しました。
+docs/handoff/P3_CC_to_Dex/cycle_12_final_hardening_take2.md を読んで、事後レビュー（P4）をお願いします。
 ```
