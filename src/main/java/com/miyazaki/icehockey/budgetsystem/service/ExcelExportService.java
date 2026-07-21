@@ -1,9 +1,11 @@
 package com.miyazaki.icehockey.budgetsystem.service;
 
+import com.miyazaki.icehockey.budgetsystem.mapper.BudgetAllocationMapper;
 import com.miyazaki.icehockey.budgetsystem.mapper.ExpenseMapper;
 import com.miyazaki.icehockey.budgetsystem.mapper.ProjectMapper;
 import com.miyazaki.icehockey.budgetsystem.mapper.ProjectParticipantMapper;
 import com.miyazaki.icehockey.budgetsystem.mapper.ProjectSummaryExpenseMapper;
+import com.miyazaki.icehockey.budgetsystem.model.BudgetAllocation;
 import com.miyazaki.icehockey.budgetsystem.model.Expense;
 import com.miyazaki.icehockey.budgetsystem.model.Project;
 import com.miyazaki.icehockey.budgetsystem.model.ProjectParticipant;
@@ -39,6 +41,7 @@ public class ExcelExportService {
     @Autowired private ProjectParticipantMapper participantMapper;
     @Autowired private ExpenseMapper expenseMapper;
     @Autowired private UserSettingService userSettingService;
+    @Autowired private BudgetAllocationMapper budgetAllocationMapper;
 
     // ===== 令和変換・日付 helper =====
 
@@ -660,6 +663,11 @@ public class ExcelExportService {
     private static final String SHEET_25 = "様式２－５①事業別参加者名簿（選手強化）";
     private static final String SHEET_26 = "様式２－６①事業別領収書１（選手強化）";
     private static final String SHEET_22 = "様式２－２－１　事業別決算書（選手強化費）";
+    private static final String SHEET_21 = "様式２－１";
+    private static final String SHEET_22_OVERVIEW = "様式２－２";
+    private static final String SHEET_22_1_TOP = "様式２－２－１　事業別決算書（トップチーム活用)";
+    private static final String SHEET_22_1_FURUSATO = "様式２－２－１　事業別決算書（ふるさと）";
+    private static final String SHEET_23 = "様式２－３";
 
     public void exportAllFormsForProjects(List<Integer> projectIds, OutputStream outputStream) throws Exception {
         buildCombinedWorkbook(projectIds, false, outputStream);
@@ -779,6 +787,690 @@ public class ExcelExportService {
             }
 
             workbook.write(outputStream);
+        }
+    }
+
+    // ===== Cycle 12A: 年度末決算ファイル一括出力 =====
+
+    /**
+     * 様式2-1・様式2-2（数式で自動計算）・2-2-1×3区分（選手強化費/トップチーム活用/ふるさと）・
+     * 様式2-3（内示額・決算額）と、既存の2-4/2-5/2-6一括出力を1ブックにまとめて出力する。
+     * 大容量プレビューはCycle 12C対象のため今回は含めない。
+     */
+    public void exportAnnualClosingBook(int year, List<Integer> projectIds, OutputStream outputStream) throws Exception {
+        exportAnnualClosingBook(year, projectIds, null, outputStream);
+    }
+
+    /**
+     * Cycle 12C: 提出情報（提出日・団体名・代表者）を画面から指定して出力する版。
+     * submissionInfoがnullの場合は従来通り（実行時点の日付、団体名/代表者はテンプレート値のまま）。
+     */
+    public void exportAnnualClosingBook(int year, List<Integer> projectIds, AnnualSubmissionInfo submissionInfo, OutputStream outputStream) throws Exception {
+        AnnualBuildResult result = buildAnnualClosingWorkbook(year, projectIds, submissionInfo);
+        try (Workbook workbook = result.workbook) {
+            workbook.write(outputStream);
+        }
+    }
+
+    /**
+     * Cycle 12C: 年度末出力のプレビュー用データを構築する。Excel出力（buildAnnualClosingWorkbook）と
+     * 完全に同じビルド処理を通すため、プレビューと実際の出力で数値が食い違うことはない。
+     */
+    public AnnualPreviewData buildAnnualPreview(int year, List<Integer> projectIds, AnnualSubmissionInfo submissionInfo) throws Exception {
+        AnnualBuildResult result = buildAnnualClosingWorkbook(year, projectIds, submissionInfo);
+        result.workbook.close();
+        return result.preview;
+    }
+
+    private static class AnnualBuildResult {
+        final Workbook workbook;
+        final AnnualPreviewData preview;
+        AnnualBuildResult(Workbook workbook, AnnualPreviewData preview) {
+            this.workbook = workbook;
+            this.preview = preview;
+        }
+    }
+
+    private AnnualBuildResult buildAnnualClosingWorkbook(int year, List<Integer> projectIds, AnnualSubmissionInfo submissionInfo) throws Exception {
+        ClassPathResource resource = new ClassPathResource("書類.xlsx");
+        Workbook workbook;
+        try (InputStream is = resource.getInputStream()) {
+            workbook = WorkbookFactory.create(is);
+        }
+
+        AnnualPreviewData preview = new AnnualPreviewData();
+
+        List<Project> allProjects = new ArrayList<>();
+        for (int id : projectIds) {
+            Project p = projectMapper.findById(id);
+            if (p != null) allProjects.add(p);
+        }
+        sortProjectsForExport(allProjects);
+
+        Sheet sheet21 = workbook.getSheet(SHEET_21);
+        if (sheet21 != null) populateForm21(sheet21, year, submissionInfo, preview.getForm21());
+
+        Map<String, CostTotals> byTypeCategory = populateAnnual221(workbook, allProjects, preview);
+
+        Sheet sheet23 = workbook.getSheet(SHEET_23);
+        if (sheet23 != null) populateForm23(sheet23, year, byTypeCategory, preview.getForm23());
+
+        int idx24 = workbook.getSheetIndex(SHEET_24);
+        int idx25 = workbook.getSheetIndex(SHEET_25);
+        int idx26 = workbook.getSheetIndex(SHEET_26);
+        generateActivityFormSheets(workbook, allProjects, idx24, idx25, idx26);
+
+        for (int i = workbook.getNumberOfSheets() - 1; i >= 0; i--) {
+            String name = workbook.getSheetName(i);
+            boolean generated = name.startsWith("2-4_") || name.startsWith("2-5_") || name.startsWith("2-6_");
+            boolean keepBase = name.equals(SHEET_21) || name.equals(SHEET_22_OVERVIEW)
+                    || name.equals(SHEET_22) || name.equals(SHEET_22_1_TOP) || name.equals(SHEET_22_1_FURUSATO)
+                    || name.equals(SHEET_23);
+            if (!generated && !keepBase) {
+                workbook.removeSheetAt(i);
+            }
+        }
+
+        workbook.setForceFormulaRecalculation(true);
+        return new AnnualBuildResult(workbook, preview);
+    }
+
+    /** buildCombinedWorkbook等と同じソート順（補助金区分→種別→活動日→ID）を適用する */
+    private void sortProjectsForExport(List<Project> projects) {
+        projects.sort(Comparator
+            .comparingInt((Project p) -> p.getBudgetTypeId() == null ? 99 : p.getBudgetTypeId())
+            .thenComparingInt((Project p) -> categoryOrder(p.getTargetCategory()))
+            .thenComparing((Project p) -> p.getEventDate() == null ? LocalDate.of(9999, 12, 31) : p.getEventDate())
+            .thenComparingInt((Project p) -> p.getId() == null ? Integer.MAX_VALUE : p.getId()));
+    }
+
+    /**
+     * 様式2-1に提出日・対象年度・団体名/代表者・担当者(AA42)/TEL(AA43)を書き込む。
+     * submissionInfoが指定されていれば画面入力値を使い、なければ従来通り実行時点の日付とテンプレート値を使う
+     * （12Aの `/activity/export/annual` はsubmissionInfo=nullで呼ばれるため、挙動は変えない）。
+     * FAX/E-mail(AA44-45)は、DBに対応するデータ源が存在しないため引き続きテンプレートの既存値のまま。
+     */
+    private void populateForm21(Sheet sheet, int year, AnnualSubmissionInfo submissionInfo, Form21Preview previewOut) {
+        int submitYear, submitMonth, submitDay;
+        if (submissionInfo != null && submissionInfo.getSubmitYear() != null
+                && submissionInfo.getSubmitMonth() != null && submissionInfo.getSubmitDay() != null) {
+            submitYear = submissionInfo.getSubmitYear();
+            submitMonth = submissionInfo.getSubmitMonth();
+            submitDay = submissionInfo.getSubmitDay();
+        } else {
+            LocalDate today = LocalDate.now();
+            submitYear = getReiwaYear(today.getYear());
+            submitMonth = today.getMonthValue();
+            submitDay = today.getDayOfMonth();
+        }
+        writeSafeNumeric(sheet, 2, 28, submitYear);  // AC3: 提出日(年)
+        writeSafeNumeric(sheet, 2, 32, submitMonth); // AG3: 提出日(月)
+        writeSafeNumeric(sheet, 2, 36, submitDay);   // AK3: 提出日(日)
+        writeSafeNumeric(sheet, 14, 4, getReiwaYear(year)); // E15: 対象年度（選択年度を必ず反映）
+
+        if (submissionInfo != null && submissionInfo.getOrganizationNamePart1() != null) {
+            writeSafe(sheet, 8, 27, submissionInfo.getOrganizationNamePart1());  // AB9
+        }
+        if (submissionInfo != null && submissionInfo.getOrganizationNamePart2() != null) {
+            writeSafe(sheet, 8, 34, submissionInfo.getOrganizationNamePart2());  // AI9
+        }
+        if (submissionInfo != null && submissionInfo.getRepresentativeTitleAndName() != null) {
+            writeSafe(sheet, 10, 27, submissionInfo.getRepresentativeTitleAndName()); // AB11
+        }
+
+        previewOut.setSubmitYear(submitYear);
+        previewOut.setSubmitMonth(submitMonth);
+        previewOut.setSubmitDay(submitDay);
+        previewOut.setFiscalYearReiwa(getReiwaYear(year));
+        previewOut.setOrganizationNamePart1(getCellString(sheet, 8, 27));
+        previewOut.setOrganizationNamePart2(getCellString(sheet, 8, 34));
+        previewOut.setRepresentativeTitleAndName(getCellString(sheet, 10, 27));
+
+        try {
+            User activeUser = userSettingService.getActiveUser();
+            if (activeUser != null) {
+                writeSafe(sheet, 41, 26, activeUser.getName());                  // AA42: 担当者
+                writeSafe(sheet, 42, 26, activeUser.getFormattedPhoneNumber());  // AA43: TEL
+            }
+        } catch (Exception e) {
+            // ユーザー取得失敗時はテンプレート値のまま
+        }
+        previewOut.setContactName(getCellString(sheet, 41, 26));
+        previewOut.setContactTel(getCellString(sheet, 42, 26));
+        previewOut.setContactFax(getCellString(sheet, 43, 26));
+        previewOut.setContactEmail(getCellString(sheet, 44, 26));
+    }
+
+    /** 区分別（選手強化費/トップチーム/ふるさと）の費目集計値 */
+    private static class CostTotals {
+        long transport, accommodation, travelMisc, parking, rental, compensation, supplies, service;
+
+        long total() {
+            return transport + accommodation + travelMisc + parking + rental + compensation + supplies + service;
+        }
+    }
+
+    // ===== Cycle 12C: プレビュー用データ構造（Excel出力と同じ集計結果を参照する） =====
+
+    /** 年度末出力の提出情報（画面から入力）。nullの場合は従来通り実行時点の日付・テンプレート値を使う。 */
+    public static class AnnualSubmissionInfo {
+        private Integer submitYear;  // 令和年（数値）
+        private Integer submitMonth;
+        private Integer submitDay;
+        private String organizationNamePart1;
+        private String organizationNamePart2;
+        private String representativeTitleAndName;
+
+        public Integer getSubmitYear() { return submitYear; }
+        public void setSubmitYear(Integer submitYear) { this.submitYear = submitYear; }
+        public Integer getSubmitMonth() { return submitMonth; }
+        public void setSubmitMonth(Integer submitMonth) { this.submitMonth = submitMonth; }
+        public Integer getSubmitDay() { return submitDay; }
+        public void setSubmitDay(Integer submitDay) { this.submitDay = submitDay; }
+        public String getOrganizationNamePart1() { return organizationNamePart1; }
+        public void setOrganizationNamePart1(String v) { this.organizationNamePart1 = v; }
+        public String getOrganizationNamePart2() { return organizationNamePart2; }
+        public void setOrganizationNamePart2(String v) { this.organizationNamePart2 = v; }
+        public String getRepresentativeTitleAndName() { return representativeTitleAndName; }
+        public void setRepresentativeTitleAndName(String v) { this.representativeTitleAndName = v; }
+    }
+
+    /** 費目内訳の表示用ビュー。該当区分で対象外の費目はnullにする（画面側で「対象外」表示に使う）。 */
+    public static class CostBreakdownView {
+        private Long transport, accommodation, travelMisc, parking, rental, compensation, supplies, service;
+        private long total;
+
+        public Long getTransport() { return transport; }
+        public void setTransport(Long v) { this.transport = v; }
+        public Long getAccommodation() { return accommodation; }
+        public void setAccommodation(Long v) { this.accommodation = v; }
+        public Long getTravelMisc() { return travelMisc; }
+        public void setTravelMisc(Long v) { this.travelMisc = v; }
+        public Long getParking() { return parking; }
+        public void setParking(Long v) { this.parking = v; }
+        public Long getRental() { return rental; }
+        public void setRental(Long v) { this.rental = v; }
+        public Long getCompensation() { return compensation; }
+        public void setCompensation(Long v) { this.compensation = v; }
+        public Long getSupplies() { return supplies; }
+        public void setSupplies(Long v) { this.supplies = v; }
+        public Long getService() { return service; }
+        public void setService(Long v) { this.service = v; }
+        public long getTotal() { return total; }
+        public void setTotal(long total) { this.total = total; }
+    }
+
+    public static class Form21Preview {
+        private int submitYear, submitMonth, submitDay, fiscalYearReiwa;
+        private String organizationNamePart1, organizationNamePart2, representativeTitleAndName;
+        private String contactName, contactTel, contactFax, contactEmail;
+
+        public int getSubmitYear() { return submitYear; }
+        public void setSubmitYear(int v) { this.submitYear = v; }
+        public int getSubmitMonth() { return submitMonth; }
+        public void setSubmitMonth(int v) { this.submitMonth = v; }
+        public int getSubmitDay() { return submitDay; }
+        public void setSubmitDay(int v) { this.submitDay = v; }
+        public int getFiscalYearReiwa() { return fiscalYearReiwa; }
+        public void setFiscalYearReiwa(int v) { this.fiscalYearReiwa = v; }
+        public String getOrganizationNamePart1() { return organizationNamePart1; }
+        public void setOrganizationNamePart1(String v) { this.organizationNamePart1 = v; }
+        public String getOrganizationNamePart2() { return organizationNamePart2; }
+        public void setOrganizationNamePart2(String v) { this.organizationNamePart2 = v; }
+        public String getRepresentativeTitleAndName() { return representativeTitleAndName; }
+        public void setRepresentativeTitleAndName(String v) { this.representativeTitleAndName = v; }
+        public String getContactName() { return contactName; }
+        public void setContactName(String v) { this.contactName = v; }
+        public String getContactTel() { return contactTel; }
+        public void setContactTel(String v) { this.contactTel = v; }
+        public String getContactFax() { return contactFax; }
+        public void setContactFax(String v) { this.contactFax = v; }
+        public String getContactEmail() { return contactEmail; }
+        public void setContactEmail(String v) { this.contactEmail = v; }
+    }
+
+    public static class Form22Preview {
+        private Map<String, CostBreakdownView> byBudgetType = new LinkedHashMap<>();
+        private long grandTotal;
+        private boolean matchesForm221Total;
+
+        public Map<String, CostBreakdownView> getByBudgetType() { return byBudgetType; }
+        public long getGrandTotal() { return grandTotal; }
+        public void setGrandTotal(long v) { this.grandTotal = v; }
+        public boolean isMatchesForm221Total() { return matchesForm221Total; }
+        public void setMatchesForm221Total(boolean v) { this.matchesForm221Total = v; }
+    }
+
+    public static class Form23Row {
+        private String budgetTypeLabel;
+        private String targetCategory;
+        private long allocated;
+        private long decided;
+        private long difference;
+
+        public String getBudgetTypeLabel() { return budgetTypeLabel; }
+        public void setBudgetTypeLabel(String v) { this.budgetTypeLabel = v; }
+        public String getTargetCategory() { return targetCategory; }
+        public void setTargetCategory(String v) { this.targetCategory = v; }
+        public long getAllocated() { return allocated; }
+        public void setAllocated(long v) { this.allocated = v; }
+        public long getDecided() { return decided; }
+        public void setDecided(long v) { this.decided = v; }
+        public long getDifference() { return difference; }
+        public void setDifference(long v) { this.difference = v; }
+    }
+
+    public static class Form23Preview {
+        private List<Form23Row> rows = new ArrayList<>();
+        private String topChumNote;
+
+        public List<Form23Row> getRows() { return rows; }
+        public String getTopChumNote() { return topChumNote; }
+        public void setTopChumNote(String v) { this.topChumNote = v; }
+    }
+
+    /** 年度末プレビュー全体。Excel出力と同じ集計ヘルパーの結果をそのまま格納する（プレビュー専用の再計算はしない）。 */
+    public static class AnnualPreviewData {
+        private Form21Preview form21 = new Form21Preview();
+        private Form22Preview form22 = new Form22Preview();
+        private Map<String, CostBreakdownView> form221 = new LinkedHashMap<>(); // key: training/top/furusato
+        private Form23Preview form23 = new Form23Preview();
+        private List<String> warnings = new ArrayList<>();
+
+        public Form21Preview getForm21() { return form21; }
+        public Form22Preview getForm22() { return form22; }
+        public Map<String, CostBreakdownView> getForm221() { return form221; }
+        public Form23Preview getForm23() { return form23; }
+        public List<String> getWarnings() { return warnings; }
+    }
+
+    /**
+     * budgetTypeId(1=選手強化費/2=トップチーム/3=ふるさと)ごとに費目を集計し、
+     * 各2-2-1シートへ書き込む。各区分が対応していない費目（例:トップチームの旅行雑費・駐車料、
+     * ふるさとの借用料・駐車料・報償費）にデータがある場合は、黙って捨てず例外で処理を止める。
+     *
+     * 戻り値は "budgetTypeId_targetCategory" をキーとした種別別集計。2-2-1の内訳欄と様式2-3の
+     * 両方が同じ集計結果を参照できるよう、ここで一度だけ計算する（Cycle 12B: 集計の二重化を避ける）。
+     */
+    private Map<String, CostTotals> populateAnnual221(Workbook workbook, List<Project> allProjects, AnnualPreviewData preview) {
+        Map<Integer, CostTotals> totalsByType = new LinkedHashMap<>();
+        // budgetTypeId_targetCategory 単位の集計。2-2-1内訳欄（選手強化費のみ）と様式2-3（選手強化費・ふるさと）で共用する。
+        Map<String, CostTotals> byTypeCategory = new LinkedHashMap<>();
+
+        for (Project p : allProjects) {
+            Integer bt = p.getBudgetTypeId();
+            if (bt == null || bt < 1 || bt > 3) continue;
+
+            ProjectSummaryExpense summary = summaryMapper.findByProjectId(p.getId());
+            List<ProjectParticipant> participants = getLoadedParticipants(p.getId());
+
+            long transport = 0, accommodation = 0;
+            for (ProjectParticipant part : participants) {
+                if (part.getExpense() != null) {
+                    transport += nz(part.getExpense().getTransportCost());
+                    accommodation += nz(part.getExpense().getAccommodationCost());
+                }
+            }
+            long travelMisc = 0, parking = 0, rental = 0, compensation = 0, supplies = 0, service = 0;
+            if (summary != null) {
+                travelMisc = (long) nz(summary.getTravelMiscCost()) * participants.size() * nz(summary.getTravelMiscDays());
+                parking = nz(summary.getParkingCost());
+                rental = nz(summary.getRentalCost());
+                compensation = nz(summary.getCompensationCost());
+                supplies = nz(summary.getSuppliesCost());
+                service = nz(summary.getServiceCost());
+            }
+
+            if (bt == 2 && (travelMisc > 0 || parking > 0)) {
+                throw new IllegalStateException("トップチーム活用事業「" + p.getName()
+                        + "」に旅行雑費または駐車料金の入力がありますが、様式２－２－１　事業別決算書（トップチーム活用)には"
+                        + "これらを書き込む欄がありません。年度末出力を中止しました。データを確認してください。");
+            }
+            if (bt == 3 && (rental > 0 || parking > 0 || compensation > 0)) {
+                throw new IllegalStateException("ふるさと選手活動支援「" + p.getName()
+                        + "」に借用料・駐車料金・報償費のいずれかの入力がありますが、様式２－２－１　事業別決算書（ふるさと）には"
+                        + "これらを書き込む欄がありません。年度末出力を中止しました。データを確認してください。");
+            }
+
+            CostTotals totals = totalsByType.computeIfAbsent(bt, k -> new CostTotals());
+            totals.transport += transport;
+            totals.accommodation += accommodation;
+            totals.travelMisc += travelMisc;
+            totals.parking += parking;
+            totals.rental += rental;
+            totals.compensation += compensation;
+            totals.supplies += supplies;
+            totals.service += service;
+
+            if (isKnownCategory(p.getTargetCategory())) {
+                String key = bt + "_" + p.getTargetCategory();
+                CostTotals catTotals = byTypeCategory.computeIfAbsent(key, k -> new CostTotals());
+                catTotals.transport += transport;
+                catTotals.accommodation += accommodation;
+                catTotals.travelMisc += travelMisc;
+                catTotals.parking += parking;
+                catTotals.rental += rental;
+                catTotals.compensation += compensation;
+                catTotals.supplies += supplies;
+                catTotals.service += service;
+            }
+            // 種別が未設定/不明な事業は、J列の総額には含まれるが内訳欄・様式2-3には反映できない
+            // （内訳欄・様式2-3の対象行は種別4区分の固定枠のため）。既知の制約。
+        }
+
+        Map<String, CostTotals> trainingByCategory = new LinkedHashMap<>();
+        for (Map.Entry<String, CostTotals> e : byTypeCategory.entrySet()) {
+            if (e.getKey().startsWith("1_")) {
+                trainingByCategory.put(e.getKey().substring(2), e.getValue());
+            }
+        }
+
+        writeTraining221(workbook.getSheet(SHEET_22), totalsByType.getOrDefault(1, new CostTotals()));
+        writeTraining221Breakdown(workbook.getSheet(SHEET_22), trainingByCategory);
+        writeTop221(workbook.getSheet(SHEET_22_1_TOP), totalsByType.getOrDefault(2, new CostTotals()));
+        writeFurusato221(workbook.getSheet(SHEET_22_1_FURUSATO), totalsByType.getOrDefault(3, new CostTotals()));
+
+        // ===== プレビュー用データ（Excel書込と同じtotalsByTypeから作る。二重集計はしない） =====
+        CostTotals trainingTotals = totalsByType.getOrDefault(1, new CostTotals());
+        CostTotals topTotals = totalsByType.getOrDefault(2, new CostTotals());
+        CostTotals furusatoTotals = totalsByType.getOrDefault(3, new CostTotals());
+
+        CostBreakdownView trainingView = toBreakdownView(trainingTotals, true, true, true, true);
+        CostBreakdownView topView = toBreakdownView(topTotals, false, false, true, true);
+        CostBreakdownView furusatoView = toBreakdownView(furusatoTotals, true, false, false, false);
+
+        preview.getForm221().put("training", trainingView);
+        preview.getForm221().put("top", topView);
+        preview.getForm221().put("furusato", furusatoView);
+
+        preview.getForm22().getByBudgetType().put(budgetTypeLabel(1), trainingView);
+        preview.getForm22().getByBudgetType().put(budgetTypeLabel(2), topView);
+        preview.getForm22().getByBudgetType().put(budgetTypeLabel(3), furusatoView);
+        long grandTotal = trainingTotals.total() + topTotals.total() + furusatoTotals.total();
+        preview.getForm22().setGrandTotal(grandTotal);
+        long form221Sum = trainingView.getTotal() + topView.getTotal() + furusatoView.getTotal();
+        boolean matches = grandTotal == form221Sum;
+        preview.getForm22().setMatchesForm221Total(matches);
+        if (!matches) {
+            preview.getWarnings().add("様式2-2の合計と2-2-1の合計が一致しません。データを確認してください。");
+        }
+
+        return byTypeCategory;
+    }
+
+    /** CostTotalsを画面表示用に変換する。対象外の費目はnullにする（画面側で「対象外」表示に使う）。 */
+    private CostBreakdownView toBreakdownView(CostTotals t, boolean travelMiscApplicable, boolean parkingApplicable,
+            boolean rentalApplicable, boolean compensationApplicable) {
+        CostBreakdownView v = new CostBreakdownView();
+        v.setTransport(t.transport);
+        v.setAccommodation(t.accommodation);
+        v.setTravelMisc(travelMiscApplicable ? t.travelMisc : null);
+        v.setParking(parkingApplicable ? t.parking : null);
+        v.setRental(rentalApplicable ? t.rental : null);
+        v.setCompensation(compensationApplicable ? t.compensation : null);
+        v.setSupplies(t.supplies);
+        v.setService(t.service);
+        v.setTotal(t.total());
+        return v;
+    }
+
+    private boolean isKnownCategory(String category) {
+        return "成年男子".equals(category) || "少年男子".equals(category)
+                || "成年女子".equals(category) || "少年女子".equals(category);
+    }
+
+    /** 選手強化費 2-2-1: J16交通費/J18宿泊費/J20旅行雑費/J22駐車料金/J24借用料/J26報償費/J28需用費/J30役務費/J32対象外経費 */
+    private void writeTraining221(Sheet sheet, CostTotals t) {
+        if (sheet == null) return;
+        writeSafeNumeric(sheet, 15, 9, t.transport);
+        writeSafeNumeric(sheet, 17, 9, t.accommodation);
+        writeSafeNumeric(sheet, 19, 9, t.travelMisc);
+        writeSafeNumeric(sheet, 21, 9, t.parking);
+        writeSafeNumeric(sheet, 23, 9, t.rental);
+        writeSafeNumeric(sheet, 25, 9, t.compensation);
+        writeSafeNumeric(sheet, 27, 9, t.supplies);
+        writeSafeNumeric(sheet, 29, 9, t.service);
+        writeSafeNumeric(sheet, 31, 9, 0L); // 対象外経費: DB項目なしのため常に0
+    }
+
+    /**
+     * 選手強化費2-2-1の内訳欄（O列:成年男子/少年男子ラベル→S列に値、AB列:成年女子/少年女子ラベル→AL列に値）へ、
+     * 種別別の集計値を書き込む。原本の実データ（例:S16=830550）を必ず上書きし、過去データが残らないようにする。
+     */
+    private void writeTraining221Breakdown(Sheet sheet, Map<String, CostTotals> byCategory) {
+        if (sheet == null) return;
+        CostTotals male20 = byCategory.getOrDefault("成年男子", new CostTotals());
+        CostTotals male10 = byCategory.getOrDefault("少年男子", new CostTotals());
+        CostTotals female20 = byCategory.getOrDefault("成年女子", new CostTotals());
+        CostTotals female10 = byCategory.getOrDefault("少年女子", new CostTotals());
+
+        writeBreakdownPair(sheet, 15, male20.transport, male10.transport, female20.transport, female10.transport);           // 16/17 交通費
+        writeBreakdownPair(sheet, 17, male20.accommodation, male10.accommodation, female20.accommodation, female10.accommodation); // 18/19 宿泊費
+        writeBreakdownPair(sheet, 19, male20.travelMisc, male10.travelMisc, female20.travelMisc, female10.travelMisc);        // 20/21 旅行雑費
+        writeBreakdownPair(sheet, 21, male20.parking, male10.parking, female20.parking, female10.parking);                   // 22/23 駐車料金
+        writeBreakdownPair(sheet, 23, male20.rental, male10.rental, female20.rental, female10.rental);                       // 24/25 借用料
+        writeBreakdownPair(sheet, 25, male20.compensation, male10.compensation, female20.compensation, female10.compensation); // 26/27 報償費
+        writeBreakdownPair(sheet, 27, male20.supplies, male10.supplies, female20.supplies, female10.supplies);               // 28/29 需用費
+        writeBreakdownPair(sheet, 29, male20.service, male10.service, female20.service, female10.service);                   // 30/31 役務費
+        writeBreakdownPair(sheet, 31, 0L, 0L, 0L, 0L);                                                                        // 32/33 対象外経費（DB項目なし）
+    }
+
+    private void writeBreakdownPair(Sheet sheet, int topRow0idx, long adultMale, long youthMale, long adultFemale, long youthFemale) {
+        writeSafeNumeric(sheet, topRow0idx, 18, adultMale);        // S列（成年男子、S:X結合の金額欄）
+        writeSafeNumeric(sheet, topRow0idx + 1, 18, youthMale);    // S列 次行（少年男子、S:X結合の金額欄）
+        writeSafeNumeric(sheet, topRow0idx, 31, adultFemale);      // AF列（成年女子、AF:AK結合の金額欄。AL列は単位「円」のため書き込み禁止）
+        writeSafeNumeric(sheet, topRow0idx + 1, 31, youthFemale);  // AF列 次行（少年女子、AF:AK結合の金額欄）
+    }
+
+    /** トップチーム活用 2-2-1: J16交通費/J18宿泊費/J22使用料賃借料/J24報償費/J28需用費/J30役務費/J32対象外経費 */
+    private void writeTop221(Sheet sheet, CostTotals t) {
+        if (sheet == null) return;
+        writeSafeNumeric(sheet, 15, 9, t.transport);
+        writeSafeNumeric(sheet, 17, 9, t.accommodation);
+        writeSafeNumeric(sheet, 21, 9, t.rental);
+        writeSafeNumeric(sheet, 23, 9, t.compensation);
+        writeSafeNumeric(sheet, 27, 9, t.supplies);
+        writeSafeNumeric(sheet, 29, 9, t.service);
+        writeSafeNumeric(sheet, 31, 9, 0L);
+    }
+
+    /** ふるさと 2-2-1: J16交通費/J18宿泊費/J20旅行雑費/J28需用費/J30役務費/J32対象外経費 */
+    private void writeFurusato221(Sheet sheet, CostTotals t) {
+        if (sheet == null) return;
+        writeSafeNumeric(sheet, 15, 9, t.transport);
+        writeSafeNumeric(sheet, 17, 9, t.accommodation);
+        writeSafeNumeric(sheet, 19, 9, t.travelMisc);
+        writeSafeNumeric(sheet, 27, 9, t.supplies);
+        writeSafeNumeric(sheet, 29, 9, t.service);
+        writeSafeNumeric(sheet, 31, 9, 0L);
+
+        // 内訳欄(O16/O18/O20)は原本では日付別領収書の内訳テキスト（例:「【5/24】14,110円…」）であり、
+        // DBの集計データからは再現できない。推測で書かず、必ずクリアして過去データを残さない。
+        clearCell(sheet, 15, 14); // O16
+        clearCell(sheet, 17, 14); // O18
+        clearCell(sheet, 19, 14); // O20
+    }
+
+    // ===== Cycle 12B: 様式2-3（変更実績報告書・下部表のみ） =====
+
+    /** 様式2-3のB列種別ラベルが記載される行範囲（1-indexed、原本「補助額変更後」表基準） */
+    private static final int FORM23_TRAINING_ROW_START = 25;
+    private static final int FORM23_TRAINING_ROW_END = 28;
+    private static final int FORM23_FURUSATO_ROW_START = 33;
+    private static final int FORM23_FURUSATO_ROW_END = 33;
+    // トップチーム(29〜31行)は原本が「例）」行のみのため、非例示行が見つからない限り書き込まない。
+
+    /**
+     * 様式2-3の下部「補助額変更後」表に、内示額(K列)と決算額(T列)・総額(AC列)を書き込む。
+     * 上部の「変更理由・移動額」欄はKazumax合意により自動計算しない（触らない）。
+     * トップチームは原本に非例示行がないため、今回は書き込み対象外。
+     */
+    private void populateForm23(Sheet sheet, int fiscalYear, Map<String, CostTotals> byTypeCategory, Form23Preview previewOut) {
+        List<BudgetAllocation> allocations = budgetAllocationMapper.findByFiscalYear(fiscalYear);
+        Map<String, Long> allocatedByKey = new LinkedHashMap<>();
+        for (BudgetAllocation a : allocations) {
+            long amount = a.getAllocatedAmount() == null ? 0L : a.getAllocatedAmount();
+            allocatedByKey.put(a.getBudgetTypeId() + "_" + a.getTargetCategory(), amount);
+        }
+
+        long trainingSectionTotal = writeForm23Section(sheet, 1, FORM23_TRAINING_ROW_START, FORM23_TRAINING_ROW_END,
+                byTypeCategory, allocatedByKey, previewOut);
+        // 総額（合計）はAC25:AK28が1セルに結合されているため、セクション先頭行にのみ書き込む
+        writeSafeNumeric(sheet, FORM23_TRAINING_ROW_START - 1, 28, trainingSectionTotal); // AC25
+
+        long furusatoSectionTotal = writeForm23Section(sheet, 3, FORM23_FURUSATO_ROW_START, FORM23_FURUSATO_ROW_END,
+                byTypeCategory, allocatedByKey, previewOut);
+        writeSafeNumeric(sheet, FORM23_FURUSATO_ROW_START - 1, 28, furusatoSectionTotal); // AC33（単一行のためT列と同額）
+
+        // トップチームの内示額・決算額があっても、原本に非例示行がないため様式2-3へは書き込まない。
+        boolean hasTopData = false;
+        for (String k : byTypeCategory.keySet()) if (k.startsWith("2_")) hasTopData = true;
+        for (String k : allocatedByKey.keySet()) if (k.startsWith("2_")) hasTopData = true;
+        if (hasTopData) {
+            previewOut.setTopChumNote("トップチーム活用事業に内示額または決算額のデータがありますが、"
+                    + "様式2-3の原本には正式な入力行（非例示行）が存在しないため、自動書込していません。");
+        }
+    }
+
+    /**
+     * 指定した補助金区分・行範囲内で、B列を動的検索してK列(内示額)・T列(決算額)を書き込む。
+     * 該当カテゴリの実績または内示額があるのに一致する行が見つからない場合は、黙って捨てず例外で停止する。
+     * 戻り値はセクション内の決算額合計（AC列の結合セルに使う）。
+     */
+    private long writeForm23Section(Sheet sheet, int budgetTypeId, int rowStart, int rowEnd,
+            Map<String, CostTotals> byTypeCategory, Map<String, Long> allocatedByKey, Form23Preview previewOut) {
+        java.util.LinkedHashSet<String> categories = new java.util.LinkedHashSet<>();
+        String prefix = budgetTypeId + "_";
+        for (String k : byTypeCategory.keySet()) if (k.startsWith(prefix)) categories.add(k.substring(prefix.length()));
+        for (String k : allocatedByKey.keySet()) if (k.startsWith(prefix)) categories.add(k.substring(prefix.length()));
+
+        long sectionTotal = 0;
+        for (String category : categories) {
+            long allocated = allocatedByKey.getOrDefault(prefix + category, 0L);
+            CostTotals t = byTypeCategory.getOrDefault(prefix + category, new CostTotals());
+            long decided = t.total();
+            sectionTotal += decided;
+
+            Form23Row row = new Form23Row();
+            row.setBudgetTypeLabel(budgetTypeLabel(budgetTypeId));
+            row.setTargetCategory(category);
+            row.setAllocated(allocated);
+            row.setDecided(decided);
+            row.setDifference(decided - allocated);
+            previewOut.getRows().add(row);
+
+            if (allocated == 0 && decided == 0) continue; // 内示額も決算額も0円なら行探索・書込は不要
+
+            int row1idx = findCategoryRow(sheet, rowStart, rowEnd, category);
+            if (row1idx == -1) {
+                throw new IllegalStateException(budgetTypeLabel(budgetTypeId) + "「" + category
+                        + "」に内示額または決算額のデータがありますが、様式２－３（" + rowStart + "〜" + rowEnd + "行）に該当する種別の行が見つかりません。"
+                        + "年度末出力を中止しました。原本テンプレートまたは種別名を確認してください。");
+            }
+            writeSafeNumeric(sheet, row1idx - 1, 10, allocated); // K列: 内示額
+            writeSafeNumeric(sheet, row1idx - 1, 19, decided);   // T列: 移動後の総額（決算額）
+        }
+        return sectionTotal;
+    }
+
+    /**
+     * B列文字列を正規化して比較し、指定行範囲内でカテゴリ名と一致する行を探す。
+     * 「例）」「例)」で始まる行（原本のサンプル行）は対象外とする。
+     * 完全一致を最優先し、完全一致が無い場合のみ部分一致（前方/後方にふりがな等が付与された表記ゆれ想定）に
+     * フォールバックする。完全一致が取れるならそちらを使うことで、部分一致による誤った行の混同を避ける。
+     * 見つからない場合は -1 を返す。
+     */
+    private int findCategoryRow(Sheet sheet, int rowStart, int rowEnd, String category) {
+        String target = normalizeForMatch(category);
+        Integer containsMatchRow = null;
+        for (int r = rowStart; r <= rowEnd; r++) {
+            Row row = sheet.getRow(r - 1);
+            if (row == null) continue;
+            org.apache.poi.ss.usermodel.Cell bCell = row.getCell(1); // B列
+            if (bCell == null || bCell.getCellType() != org.apache.poi.ss.usermodel.CellType.STRING) continue;
+            String raw = bCell.getStringCellValue();
+            if (raw == null) continue;
+            String normalized = normalizeForMatch(raw);
+            if (normalized.startsWith("例）") || normalized.startsWith("例)")) continue;
+            if (normalized.equals(target)) return r; // 完全一致は即確定
+            if (containsMatchRow == null && normalized.contains(target)) {
+                containsMatchRow = r; // 完全一致が見つからなかった場合のフォールバック候補
+            }
+        }
+        return containsMatchRow != null ? containsMatchRow : -1;
+    }
+
+    /** 空白（半角・全角）を除去して比較する簡易正規化 */
+    private String normalizeForMatch(String s) {
+        if (s == null) return "";
+        return s.replaceAll("[\\s　]", "");
+    }
+
+    /**
+     * 既存2-4/2-5/2-6の生成ロジック（buildCombinedWorkbookと同じ内容）。
+     * 既存メソッドへの影響を避けるため独立メソッドとして切り出している（意図的な重複、P3報告書に記載）。
+     */
+    private void generateActivityFormSheets(Workbook workbook, List<Project> allProjects, int idx24, int idx25, int idx26) {
+        if (idx24 != -1) {
+            Map<String, List<Project>> groups24 = new LinkedHashMap<>();
+            for (Project p : allProjects) {
+                String key = (p.getBudgetTypeId() == null ? "0" : p.getBudgetTypeId())
+                        + "_" + (p.getTargetCategory() == null ? "" : p.getTargetCategory());
+                groups24.computeIfAbsent(key, k -> new ArrayList<>()).add(p);
+            }
+            for (Map.Entry<String, List<Project>> entry : groups24.entrySet()) {
+                List<Project> gList = entry.getValue();
+                String btLabel = budgetTypeLabel(gList.get(0).getBudgetTypeId());
+                String cat = gList.get(0).getTargetCategory() == null ? "" : gList.get(0).getTargetCategory();
+                for (int i = 0, sheetNum = 1; i < gList.size(); i += 2, sheetNum++) {
+                    Project left = gList.get(i);
+                    Project right = (i + 1 < gList.size()) ? gList.get(i + 1) : null;
+                    Sheet s = workbook.cloneSheet(idx24);
+                    String nm = sanitizeSheetName("2-4_" + btLabel + "_" + cat + "_" + circledNumber(sheetNum));
+                    workbook.setSheetName(workbook.getSheetIndex(s), uniqueName(workbook, nm));
+                    populate24Side(s, left.getId(), 0);
+                    pruneTemplateEllipses24Side(s, 0, left);
+                    if (right != null) {
+                        populate24Side(s, right.getId(), 17);
+                        pruneTemplateEllipses24Side(s, 17, right);
+                    } else {
+                        clearSide24(s, 17);
+                        pruneTemplateEllipses24Side(s, 17, null);
+                    }
+                }
+            }
+        }
+
+        if (idx25 != -1) {
+            Map<String, Integer> counter25 = new LinkedHashMap<>();
+            for (Project project : allProjects) {
+                String key = (project.getBudgetTypeId() == null ? "0" : project.getBudgetTypeId())
+                        + "_" + (project.getTargetCategory() == null ? "" : project.getTargetCategory());
+                int num = counter25.merge(key, 1, Integer::sum);
+                String btLabel = budgetTypeLabel(project.getBudgetTypeId());
+                String cat = project.getTargetCategory() == null ? "" : project.getTargetCategory();
+                List<ProjectParticipant> participants = getLoadedParticipants(project.getId());
+                Sheet s = workbook.cloneSheet(idx25);
+                String nm = sanitizeSheetName("2-5_" + btLabel + "_" + cat + "_" + circledNumber(num));
+                workbook.setSheetName(workbook.getSheetIndex(s), uniqueName(workbook, nm));
+                populate25(s, project, participants);
+            }
+        }
+
+        if (idx26 != -1) {
+            Map<String, Integer> counter26 = new LinkedHashMap<>();
+            for (Project project : allProjects) {
+                String key = (project.getBudgetTypeId() == null ? "0" : project.getBudgetTypeId())
+                        + "_" + (project.getTargetCategory() == null ? "" : project.getTargetCategory());
+                int num = counter26.merge(key, 1, Integer::sum);
+                String btLabel = budgetTypeLabel(project.getBudgetTypeId());
+                String cat = project.getTargetCategory() == null ? "" : project.getTargetCategory();
+                List<ProjectParticipant> participants = getLoadedParticipants(project.getId());
+                Sheet s = workbook.cloneSheet(idx26);
+                String nm = sanitizeSheetName("2-6_" + btLabel + "_" + cat + "_" + circledNumber(num));
+                workbook.setSheetName(workbook.getSheetIndex(s), uniqueName(workbook, nm));
+                populate26(s, project, participants);
+            }
         }
     }
 

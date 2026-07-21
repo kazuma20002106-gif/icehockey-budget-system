@@ -12,6 +12,11 @@
         <a href="/activity/new" class="btn btn-primary btn-lg">＋ 新規入力</a>
     </div>
 
+    <div th:if="${param.error != null and param.error[0] == 'no_data_for_annual_export'}"
+         class="alert alert-warning">
+        選択した年度・条件に該当する事業がないため、年度末決算ファイルを出力できませんでした。年度や絞り込み条件を確認してください。
+    </div>
+
     <!-- 絞り込み -->
     <form method="get" action="/activity" class="card border-0 shadow-sm p-2 mb-3">
         <div class="row g-2 align-items-end">
@@ -73,6 +78,10 @@
                 <a class="btn btn-success"
                    th:href="@{/activity/export/year(year=${selectedYear}, budgetTypeId=${selectedBudgetTypeId}, month=${selectedMonth}, targetCategory=${selectedTargetCategory}, projectName=${selectedProjectName})}">
                     年度まとめExcel出力
+                </a>
+                <a class="btn btn-outline-success"
+                   th:href="@{/export/year/setup(year=${selectedYear}, budgetTypeId=${selectedBudgetTypeId}, month=${selectedMonth}, targetCategory=${selectedTargetCategory}, projectName=${selectedProjectName})}">
+                    年度末決算ファイル出力
                 </a>
             </div>
         </div>

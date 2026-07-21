@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{layout :: html(title='年度末決算ファイル プレビュー', content=~{::div}, activePage='export')}">
+<body>
+<div>
+    <div class="d-flex justify-content-between flex-wrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+        <h1 class="h2">年度末決算ファイル プレビュー</h1>
+        <a th:href="@{/export/year/setup(year=${year}, budgetTypeId=${budgetTypeId}, month=${month}, targetCategory=${targetCategory}, projectName=${projectName}, submitYear=${submitYear}, submitMonth=${submitMonth}, submitDay=${submitDay}, organizationNamePart1=${organizationNamePart1}, organizationNamePart2=${organizationNamePart2}, representativeTitleAndName=${representativeTitleAndName})}"
+           class="btn btn-sm btn-outline-secondary">条件を編集</a>
+    </div>
+
+    <div class="alert alert-secondary">
+        対象: <strong th:text="${year} + '年度'"></strong>
+        （<span th:text="${projectCount}"></span> 事業）
+        提出日: 令和<span th:text="${submitYear}"></span>年<span th:text="${submitMonth}"></span>月<span th:text="${submitDay}"></span>日
+    </div>
+
+    <div th:if="${!#lists.isEmpty(preview.warnings)}" class="alert alert-danger">
+        <strong>⚠ 警告</strong>
+        <ul class="mb-0">
+            <li th:each="w : ${preview.warnings}" th:text="${w}"></li>
+        </ul>
+    </div>
+
+    <ul class="nav nav-tabs" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tab-21" type="button">表紙(2-1)</button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-22" type="button">まとめ(2-2)</button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-221-training" type="button">選手強化(2-2-1)</button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-221-top" type="button">トップ(2-2-1)</button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-221-furusato" type="button">ふるさと(2-2-1)</button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-23" type="button">変更報告(2-3)</button>
+        </li>
+    </ul>
+
+    <div class="tab-content border border-top-0 p-3 mb-4">
+
+        <!-- 表紙(2-1) -->
+        <div class="tab-pane fade show active" id="tab-21">
+            <table class="table table-bordered w-auto">
+                <tbody>
+                    <tr><th class="table-light">提出日</th>
+                        <td>令和<span th:text="${preview.form21.submitYear}"></span>年<span th:text="${preview.form21.submitMonth}"></span>月<span th:text="${preview.form21.submitDay}"></span>日</td></tr>
+                    <tr><th class="table-light">対象年度</th><td>令和<span th:text="${preview.form21.fiscalYearReiwa}"></span>年度</td></tr>
+                    <tr><th class="table-light">団体名</th><td th:text="${preview.form21.organizationNamePart1} + ${preview.form21.organizationNamePart2}"></td></tr>
+                    <tr><th class="table-light">代表者職・氏名</th><td th:text="${preview.form21.representativeTitleAndName}"></td></tr>
+                    <tr><th class="table-light">担当者</th><td th:text="${preview.form21.contactName}"></td></tr>
+                    <tr><th class="table-light">TEL</th><td th:text="${preview.form21.contactTel}"></td></tr>
+                    <tr><th class="table-light">FAX</th><td th:text="${preview.form21.contactFax}"></td></tr>
+                    <tr><th class="table-light">E-mail</th><td th:text="${preview.form21.contactEmail}"></td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- まとめ(2-2) -->
+        <div class="tab-pane fade" id="tab-22">
+            <div class="table-responsive">
+                <table class="table table-bordered">
+                    <thead class="table-light">
+                        <tr><th>補助金区分</th><th class="text-end">交通費</th><th class="text-end">宿泊費</th><th class="text-end">旅行雑費</th>
+                            <th class="text-end">駐車料金</th><th class="text-end">借用料</th><th class="text-end">報償費</th>
+                            <th class="text-end">需用費</th><th class="text-end">役務費</th><th class="text-end">支出合計</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr th:each="entry : ${preview.form22.byBudgetType}">
+                            <td th:text="${entry.key}"></td>
+                            <td class="text-end" th:text="${entry.value.transport != null ? #numbers.formatInteger(entry.value.transport,1,'COMMA') : '対象外'}"></td>
+                            <td class="text-end" th:text="${entry.value.accommodation != null ? #numbers.formatInteger(entry.value.accommodation,1,'COMMA') : '対象外'}"></td>
+                            <td class="text-end" th:text="${entry.value.travelMisc != null ? #numbers.formatInteger(entry.value.travelMisc,1,'COMMA') : '対象外'}"></td>
+                            <td class="text-end" th:text="${entry.value.parking != null ? #numbers.formatInteger(entry.value.parking,1,'COMMA') : '対象外'}"></td>
+                            <td class="text-end" th:text="${entry.value.rental != null ? #numbers.formatInteger(entry.value.rental,1,'COMMA') : '対象外'}"></td>
+                            <td class="text-end" th:text="${entry.value.compensation != null ? #numbers.formatInteger(entry.value.compensation,1,'COMMA') : '対象外'}"></td>
+                            <td class="text-end" th:text="${entry.value.supplies != null ? #numbers.formatInteger(entry.value.supplies,1,'COMMA') : '対象外'}"></td>
+                            <td class="text-end" th:text="${entry.value.service != null ? #numbers.formatInteger(entry.value.service,1,'COMMA') : '対象外'}"></td>
+                            <td class="text-end fw-bold" th:text="${#numbers.formatInteger(entry.value.total,1,'COMMA')} + ' 円'"></td>
+                        </tr>
+                        <tr class="table-warning">
+                            <td class="fw-bold">全体合計</td>
+                            <td colspan="8"></td>
+                            <td class="text-end fw-bold fs-5" th:text="${#numbers.formatInteger(preview.form22.grandTotal,1,'COMMA')} + ' 円'"></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div th:if="${preview.form22.matchesForm221Total}" class="alert alert-success mb-0">
+                様式2-2の合計と、選手強化・トップ・ふるさと（2-2-1）の合計は一致しています。
+            </div>
+            <div th:unless="${preview.form22.matchesForm221Total}" class="alert alert-danger mb-0">
+                様式2-2の合計と2-2-1の合計が一致していません。ダウンロード前にデータを確認してください。
+            </div>
+        </div>
+
+        <!-- 2-2-1タブ共通（選手強化/トップ/ふるさと） -->
+        <div class="tab-pane fade" id="tab-221-training" th:with="v=${preview.form221.get('training')}">
+            <table class="table table-bordered w-auto">
+                <tbody>
+                    <tr><th class="table-light">交通費</th><td class="text-end" th:text="${v.transport != null ? #numbers.formatInteger(v.transport,1,'COMMA') + ' 円' : '対象外'}"></td></tr>
+                    <tr><th class="table-light">宿泊費</th><td class="text-end" th:text="${v.accommodation != null ? #numbers.formatInteger(v.accommodation,1,'COMMA') + ' 円' : '対象外'}"></td></tr>
+                    <tr><th class="table-light">旅行雑費</th><td class="text-end" th:text="${v.travelMisc != null ? #numbers.formatInteger(v.travelMisc,1,'COMMA') + ' 円' : '対象外'}"></td></tr>
+                    <tr><th class="table-light">駐車料金</th><td class="text-end" th:text="${v.parking != null ? #numbers.formatInteger(v.parking,1,'COMMA') + ' 円' : '対象外'}"></td></tr>
+                    <tr><th class="table-light">借用料</th><td class="text-end" th:text="${v.rental != null ? #numbers.formatInteger(v.rental,1,'COMMA') + ' 円' : '対象外'}"></td></tr>
+                    <tr><th class="table-light">報償費</th><td class="text-end" th:text="${v.compensation != null ? #numbers.formatInteger(v.compensation,1,'COMMA') + ' 円' : '対象外'}"></td></tr>
+                    <tr><th class="table-light">需用費</th><td class="text-end" th:text="${v.supplies != null ? #numbers.formatInteger(v.supplies,1,'COMMA') + ' 円' : '対象外'}"></td></tr>
+                    <tr><th class="table-light">役務費</th><td class="text-end" th:text="${v.service != null ? #numbers.formatInteger(v.service,1,'COMMA') + ' 円' : '対象外'}"></td></tr>
+                    <tr><th class="table-light">対象外経費</th><td class="text-end">0 円</td></tr>
+                    <tr class="table-warning"><th class="fw-bold">支出合計</th><td class="text-end fw-bold" th:text="${#numbers.formatInteger(v.total,1,'COMMA')} + ' 円'"></td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="tab-pane fade" id="tab-221-top" th:with="v=${preview.form221.get('top')}">
+            <table class="table table-bordered w-auto">
+                <tbody>
+                    <tr><th class="table-light">交通費</th><td class="text-end" th:text="${v.transport != null ? #numbers.formatInteger(v.transport,1,'COMMA') + ' 円' : '対象外'}"></td></tr>
+                    <tr><th class="table-light">宿泊費</th><td class="text-end" th:text="${v.accommodation != null ? #numbers.formatInteger(v.accommodation,1,'COMMA') + ' 円' : '対象外'}"></td></tr>
+                    <tr><th class="table-light">旅行雑費</th><td class="text-end" th:text="${v.travelMisc != null ? #numbers.formatInteger(v.travelMisc,1,'COMMA') + ' 円' : '対象外'}"></td></tr>
+                    <tr><th class="table-light">駐車料金</th><td class="text-end" th:text="${v.parking != null ? #numbers.formatInteger(v.parking,1,'COMMA') + ' 円' : '対象外'}"></td></tr>
+                    <tr><th class="table-light">使用料賃借料</th><td class="text-end" th:text="${v.rental != null ? #numbers.formatInteger(v.rental,1,'COMMA') + ' 円' : '対象外'}"></td></tr>
+                    <tr><th class="table-light">報償費</th><td class="text-end" th:text="${v.compensation != null ? #numbers.formatInteger(v.compensation,1,'COMMA') + ' 円' : '対象外'}"></td></tr>
+                    <tr><th class="table-light">需用費</th><td class="text-end" th:text="${v.supplies != null ? #numbers.formatInteger(v.supplies,1,'COMMA') + ' 円' : '対象外'}"></td></tr>
+                    <tr><th class="table-light">役務費</th><td class="text-end" th:text="${v.service != null ? #numbers.formatInteger(v.service,1,'COMMA') + ' 円' : '対象外'}"></td></tr>
+                    <tr><th class="table-light">対象外経費</th><td class="text-end">0 円</td></tr>
+                    <tr class="table-warning"><th class="fw-bold">支出合計</th><td class="text-end fw-bold" th:text="${#numbers.formatInteger(v.total,1,'COMMA')} + ' 円'"></td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="tab-pane fade" id="tab-221-furusato" th:with="v=${preview.form221.get('furusato')}">
+            <table class="table table-bordered w-auto">
+                <tbody>
+                    <tr><th class="table-light">交通費</th><td class="text-end" th:text="${v.transport != null ? #numbers.formatInteger(v.transport,1,'COMMA') + ' 円' : '対象外'}"></td></tr>
+                    <tr><th class="table-light">宿泊費</th><td class="text-end" th:text="${v.accommodation != null ? #numbers.formatInteger(v.accommodation,1,'COMMA') + ' 円' : '対象外'}"></td></tr>
+                    <tr><th class="table-light">旅行雑費</th><td class="text-end" th:text="${v.travelMisc != null ? #numbers.formatInteger(v.travelMisc,1,'COMMA') + ' 円' : '対象外'}"></td></tr>
+                    <tr><th class="table-light">駐車料金</th><td class="text-end" th:text="${v.parking != null ? #numbers.formatInteger(v.parking,1,'COMMA') + ' 円' : '対象外'}"></td></tr>
+                    <tr><th class="table-light">借用料</th><td class="text-end" th:text="${v.rental != null ? #numbers.formatInteger(v.rental,1,'COMMA') + ' 円' : '対象外'}"></td></tr>
+                    <tr><th class="table-light">報償費</th><td class="text-end" th:text="${v.compensation != null ? #numbers.formatInteger(v.compensation,1,'COMMA') + ' 円' : '対象外'}"></td></tr>
+                    <tr><th class="table-light">需用費</th><td class="text-end" th:text="${v.supplies != null ? #numbers.formatInteger(v.supplies,1,'COMMA') + ' 円' : '対象外'}"></td></tr>
+                    <tr><th class="table-light">役務費</th><td class="text-end" th:text="${v.service != null ? #numbers.formatInteger(v.service,1,'COMMA') + ' 円' : '対象外'}"></td></tr>
+                    <tr><th class="table-light">対象外経費</th><td class="text-end">0 円</td></tr>
+                    <tr class="table-warning"><th class="fw-bold">支出合計</th><td class="text-end fw-bold" th:text="${#numbers.formatInteger(v.total,1,'COMMA')} + ' 円'"></td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- 変更報告(2-3) -->
+        <div class="tab-pane fade" id="tab-23">
+            <div class="table-responsive">
+                <table class="table table-bordered">
+                    <thead class="table-light">
+                        <tr><th>補助金区分</th><th>種別</th><th class="text-end">内示額</th><th class="text-end">決算額</th><th class="text-end">差額</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr th:each="row : ${preview.form23.rows}">
+                            <td th:text="${row.budgetTypeLabel}"></td>
+                            <td th:text="${row.targetCategory}"></td>
+                            <td class="text-end" th:text="${#numbers.formatInteger(row.allocated,1,'COMMA')} + ' 円'"></td>
+                            <td class="text-end" th:text="${#numbers.formatInteger(row.decided,1,'COMMA')} + ' 円'"></td>
+                            <td class="text-end" th:text="${#numbers.formatInteger(row.difference,1,'COMMA')} + ' 円'"></td>
+                        </tr>
+                        <tr th:if="${#lists.isEmpty(preview.form23.rows)}">
+                            <td colspan="5" class="text-center text-muted">内示額・決算額のデータがありません。</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="alert alert-info">
+                上部の「変更理由・移動額」欄は自動計算していません。出力後のExcelで手入力してください。
+            </div>
+            <div th:if="${preview.form23.topChumNote != null}" class="alert alert-warning" th:text="${preview.form23.topChumNote}"></div>
+        </div>
+
+    </div>
+
+    <div class="text-center mb-5">
+        <form method="post" action="/export/year/download" class="d-inline">
+            <input type="hidden" name="year" th:value="${year}">
+            <input type="hidden" name="budgetTypeId" th:value="${budgetTypeId}">
+            <input type="hidden" name="month" th:value="${month}">
+            <input type="hidden" name="targetCategory" th:value="${targetCategory}">
+            <input type="hidden" name="projectName" th:value="${projectName}">
+            <input type="hidden" name="submitYear" th:value="${submitYear}">
+            <input type="hidden" name="submitMonth" th:value="${submitMonth}">
+            <input type="hidden" name="submitDay" th:value="${submitDay}">
+            <input type="hidden" name="organizationNamePart1" th:value="${organizationNamePart1}">
+            <input type="hidden" name="organizationNamePart2" th:value="${organizationNamePart2}">
+            <input type="hidden" name="representativeTitleAndName" th:value="${representativeTitleAndName}">
+            <button type="submit" class="btn btn-lg btn-primary shadow-sm px-5 py-3">
+                <i class="bi bi-file-earmark-excel-fill me-2"></i>この内容でExcelをダウンロード
+            </button>
+        </form>
+    </div>
+</div>
+</body>
+</html>

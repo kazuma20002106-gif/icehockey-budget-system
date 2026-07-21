@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{layout :: html(title='年度末決算ファイル出力', content=~{::div}, activePage='export')}">
+<body>
+<div>
+    <div class="d-flex justify-content-between flex-wrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+        <h1 class="h2">年度末決算ファイル出力</h1>
+        <a href="/export" class="btn btn-sm btn-outline-secondary">通常の出力へ戻る</a>
+    </div>
+
+    <div th:if="${error == 'no_data'}" class="alert alert-warning">
+        選択した年度・条件に該当する事業がないため、プレビュー・出力できません。条件を確認してください。
+    </div>
+
+    <form method="post" action="/export/year/preview">
+        <div class="card shadow-sm mb-3">
+            <div class="card-header bg-white"><strong>1. 対象事業の絞り込み</strong></div>
+            <div class="card-body">
+                <div class="row g-2">
+                    <div class="col-auto">
+                        <label class="form-label small text-muted mb-1">年度</label>
+                        <select name="year" class="form-select form-select-sm">
+                            <option th:each="y : ${years}" th:value="${y}" th:text="${y} + '年度'"
+                                    th:selected="${y == year}"></option>
+                        </select>
+                    </div>
+                    <div class="col-auto">
+                        <label class="form-label small text-muted mb-1">補助金区分</label>
+                        <select name="budgetTypeId" class="form-select form-select-sm">
+                            <option value="" th:selected="${budgetTypeId == null}">全区分</option>
+                            <option value="1" th:selected="${budgetTypeId == 1}">選手強化費</option>
+                            <option value="2" th:selected="${budgetTypeId == 2}">トップチーム活用事業</option>
+                            <option value="3" th:selected="${budgetTypeId == 3}">ふるさと選手活動支援</option>
+                        </select>
+                    </div>
+                    <div class="col-auto">
+                        <label class="form-label small text-muted mb-1">種別</label>
+                        <select name="targetCategory" class="form-select form-select-sm">
+                            <option value="" th:selected="${targetCategory == null}">全種別</option>
+                            <option value="成年男子" th:selected="${targetCategory == '成年男子'}">成年男子</option>
+                            <option value="成年女子" th:selected="${targetCategory == '成年女子'}">成年女子</option>
+                            <option value="少年男子" th:selected="${targetCategory == '少年男子'}">少年男子</option>
+                            <option value="少年女子" th:selected="${targetCategory == '少年女子'}">少年女子</option>
+                        </select>
+                    </div>
+                    <div class="col-auto">
+                        <label class="form-label small text-muted mb-1">月</label>
+                        <select name="month" class="form-select form-select-sm">
+                            <option value="" th:selected="${month == null}">全て</option>
+                            <option th:each="m : ${#numbers.sequence(4,12)}" th:value="${m}" th:text="${m} + '月'" th:selected="${month == m}"></option>
+                            <option th:each="m : ${#numbers.sequence(1,3)}" th:value="${m}" th:text="${m} + '月'" th:selected="${month == m}"></option>
+                        </select>
+                    </div>
+                    <div class="col-auto">
+                        <label class="form-label small text-muted mb-1">事業名</label>
+                        <select name="projectName" class="form-select form-select-sm">
+                            <option value="" th:selected="${projectName == null or projectName == ''}">全事業</option>
+                            <option value="強化練習" th:selected="${projectName == '強化練習'}">強化練習</option>
+                            <option value="遠征試合" th:selected="${projectName == '遠征試合'}">遠征試合</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-text mt-2">通常の活動一覧と同じ条件で絞り込みます（活動一覧から遷移した場合、月・事業名の条件もここに引き継がれます）。条件に一致する事業がすべて年度末決算ファイルの対象になります。</div>
+            </div>
+        </div>
+
+        <div class="card shadow-sm mb-3">
+            <div class="card-header bg-white"><strong>2. 提出情報（様式2-1の表紙に反映されます）</strong></div>
+            <div class="card-body">
+                <div class="row g-2 align-items-end mb-3">
+                    <div class="col-auto">
+                        <label class="form-label small text-muted mb-1">提出日（令和）</label>
+                        <div class="input-group input-group-sm" style="width: auto;">
+                            <span class="input-group-text">令和</span>
+                            <input type="number" name="submitYear" class="form-control" style="width:70px;" min="1"
+                                   th:value="${submitYear != null ? submitYear : defaultSubmitYear}" required>
+                            <span class="input-group-text">年</span>
+                            <input type="number" name="submitMonth" class="form-control" style="width:70px;" min="1" max="12"
+                                   th:value="${submitMonth != null ? submitMonth : defaultSubmitMonth}" required>
+                            <span class="input-group-text">月</span>
+                            <input type="number" name="submitDay" class="form-control" style="width:70px;" min="1" max="31"
+                                   th:value="${submitDay != null ? submitDay : defaultSubmitDay}" required>
+                            <span class="input-group-text">日</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="row g-2 mb-3">
+                    <div class="col-auto">
+                        <label class="form-label small text-muted mb-1">団体名（前半）</label>
+                        <input type="text" name="organizationNamePart1" class="form-control form-control-sm"
+                               th:value="${organizationNamePart1 != null ? organizationNamePart1 : defaultOrgPart1}" required>
+                    </div>
+                    <div class="col-auto">
+                        <label class="form-label small text-muted mb-1">団体名（後半）</label>
+                        <input type="text" name="organizationNamePart2" class="form-control form-control-sm"
+                               th:value="${organizationNamePart2 != null ? organizationNamePart2 : defaultOrgPart2}" required>
+                    </div>
+                </div>
+                <div class="row g-2">
+                    <div class="col-auto">
+                        <label class="form-label small text-muted mb-1">代表者職・氏名</label>
+                        <input type="text" name="representativeTitleAndName" class="form-control form-control-sm" style="min-width:260px;"
+                               th:value="${representativeTitleAndName != null ? representativeTitleAndName : defaultRepresentative}" required>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="text-center mb-5">
+            <button type="submit" class="btn btn-lg btn-primary shadow-sm px-5">
+                プレビューへ進む
+            </button>
+        </div>
+    </form>
+</div>
+</body>
+</html>

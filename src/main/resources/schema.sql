@@ -132,3 +132,16 @@ UPDATE expenses SET transport_method = '航空機' WHERE transport_method = '航
 ALTER TABLE projects ADD COLUMN IF NOT EXISTS accommodation_nights INT DEFAULT 0;
 ALTER TABLE project_summary_expenses ADD COLUMN IF NOT EXISTS travel_misc_cost INT DEFAULT 0;
 ALTER TABLE project_summary_expenses ADD COLUMN IF NOT EXISTS travel_misc_days INT DEFAULT 0;
+
+-- Cycle 12B: 予算管理（内示額）マスタ。決算額は保存せず、既存事業データから都度集計する。
+CREATE TABLE IF NOT EXISTS budget_allocations (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    fiscal_year INT NOT NULL,
+    budget_type_id INT NOT NULL,
+    target_category VARCHAR(100) NOT NULL,
+    allocated_amount BIGINT NOT NULL DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY uq_budget_allocations_year_type_category (fiscal_year, budget_type_id, target_category),
+    FOREIGN KEY (budget_type_id) REFERENCES budget_types(id)
+);

@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.miyazaki.icehockey.budgetsystem.mapper.BudgetAllocationMapper">
+
+    <select id="findByFiscalYear" resultType="com.miyazaki.icehockey.budgetsystem.model.BudgetAllocation">
+        SELECT * FROM budget_allocations WHERE fiscal_year = #{fiscalYear}
+    </select>
+
+    <select id="findOne" resultType="com.miyazaki.icehockey.budgetsystem.model.BudgetAllocation">
+        SELECT * FROM budget_allocations
+        WHERE fiscal_year = #{fiscalYear} AND budget_type_id = #{budgetTypeId} AND target_category = #{targetCategory}
+        LIMIT 1
+    </select>
+
+    <insert id="upsert">
+        INSERT INTO budget_allocations (fiscal_year, budget_type_id, target_category, allocated_amount)
+        VALUES (#{fiscalYear}, #{budgetTypeId}, #{targetCategory}, #{allocatedAmount})
+        ON DUPLICATE KEY UPDATE allocated_amount = #{allocatedAmount}
+    </insert>
+
+</mapper>

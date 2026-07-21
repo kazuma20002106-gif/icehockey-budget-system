@@ -16,10 +16,15 @@ import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 import jakarta.servlet.http.HttpServletResponse;
 
+import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.TreeSet;
+import java.util.stream.Collectors;
 
 @Controller
 @RequestMapping("/export")
@@ -145,6 +150,172 @@ public class ExportController {
             // "all" またはその他: 2-4/2-5/2-6 まとめて出力
             excelExportService.exportAllFormsForProjects(projectIds, response.getOutputStream());
         }
+    }
+
+    // ===== Cycle 12C: 年度末決算ファイル出力の専用導線（提出情報入力→タブプレビュー→ダウンロード） =====
+
+    @GetMapping("/year/setup")
+    public String yearSetup(@RequestParam(value = "year", required = false) Integer year,
+                            @RequestParam(value = "budgetTypeId", required = false) Integer budgetTypeId,
+                            @RequestParam(value = "month", required = false) Integer month,
+                            @RequestParam(value = "targetCategory", required = false) String targetCategory,
+                            @RequestParam(value = "projectName", required = false) String projectName,
+                            @RequestParam(value = "submitYear", required = false) Integer submitYear,
+                            @RequestParam(value = "submitMonth", required = false) Integer submitMonth,
+                            @RequestParam(value = "submitDay", required = false) Integer submitDay,
+                            @RequestParam(value = "organizationNamePart1", required = false) String organizationNamePart1,
+                            @RequestParam(value = "organizationNamePart2", required = false) String organizationNamePart2,
+                            @RequestParam(value = "representativeTitleAndName", required = false) String representativeTitleAndName,
+                            @RequestParam(value = "error", required = false) String error,
+                            Model model) {
+        if (year == null) year = currentFiscalYear();
+        LocalDate today = LocalDate.now();
+
+        model.addAttribute("year", year);
+        model.addAttribute("years", availableFiscalYears());
+        model.addAttribute("budgetTypeId", budgetTypeId);
+        model.addAttribute("month", month);
+        model.addAttribute("targetCategory", targetCategory);
+        model.addAttribute("projectName", projectName);
+        model.addAttribute("error", error);
+        // プレビュー画面の「条件を編集」から戻ってきた場合は、渡された提出情報をそのまま引き継ぐ（Finding P2対応）
+        model.addAttribute("submitYear", submitYear);
+        model.addAttribute("submitMonth", submitMonth);
+        model.addAttribute("submitDay", submitDay);
+        model.addAttribute("organizationNamePart1", organizationNamePart1);
+        model.addAttribute("organizationNamePart2", organizationNamePart2);
+        model.addAttribute("representativeTitleAndName", representativeTitleAndName);
+        model.addAttribute("defaultSubmitYear", today.getYear() - 2018); // 令和年（2019=令和元年基準）
+        model.addAttribute("defaultSubmitMonth", today.getMonthValue());
+        model.addAttribute("defaultSubmitDay", today.getDayOfMonth());
+        model.addAttribute("defaultOrgPart1", "宮崎県アイスホッケー");
+        model.addAttribute("defaultOrgPart2", "連盟");
+        model.addAttribute("defaultRepresentative", "会長　黒木 誠一郎");
+        return "export/year_setup";
+    }
+
+    @PostMapping("/year/preview")
+    public String yearPreview(@RequestParam("year") int year,
+                              @RequestParam(value = "budgetTypeId", required = false) Integer budgetTypeId,
+                              @RequestParam(value = "month", required = false) Integer month,
+                              @RequestParam(value = "targetCategory", required = false) String targetCategory,
+                              @RequestParam(value = "projectName", required = false) String projectName,
+                              @RequestParam("submitYear") int submitYear,
+                              @RequestParam("submitMonth") int submitMonth,
+                              @RequestParam("submitDay") int submitDay,
+                              @RequestParam("organizationNamePart1") String organizationNamePart1,
+                              @RequestParam("organizationNamePart2") String organizationNamePart2,
+                              @RequestParam("representativeTitleAndName") String representativeTitleAndName,
+                              Model model) throws Exception {
+        List<Project> projects = projectMapper.findFiltered(year, budgetTypeId, month, targetCategory, projectName);
+        if (projects.isEmpty()) {
+            return "redirect:" + noDataRedirectUrl(year, budgetTypeId, month, targetCategory, projectName,
+                    submitYear, submitMonth, submitDay, organizationNamePart1, organizationNamePart2, representativeTitleAndName);
+        }
+        List<Integer> ids = projects.stream().map(Project::getId).collect(Collectors.toList());
+
+        ExcelExportService.AnnualSubmissionInfo info = buildSubmissionInfo(
+                submitYear, submitMonth, submitDay, organizationNamePart1, organizationNamePart2, representativeTitleAndName);
+        ExcelExportService.AnnualPreviewData preview = excelExportService.buildAnnualPreview(year, ids, info);
+
+        model.addAttribute("preview", preview);
+        model.addAttribute("year", year);
+        model.addAttribute("budgetTypeId", budgetTypeId);
+        model.addAttribute("month", month);
+        model.addAttribute("targetCategory", targetCategory);
+        model.addAttribute("projectName", projectName);
+        model.addAttribute("submitYear", submitYear);
+        model.addAttribute("submitMonth", submitMonth);
+        model.addAttribute("submitDay", submitDay);
+        model.addAttribute("organizationNamePart1", organizationNamePart1);
+        model.addAttribute("organizationNamePart2", organizationNamePart2);
+        model.addAttribute("representativeTitleAndName", representativeTitleAndName);
+        model.addAttribute("projectCount", ids.size());
+        return "export/year_preview";
+    }
+
+    @PostMapping("/year/download")
+    public void yearDownload(@RequestParam("year") int year,
+                             @RequestParam(value = "budgetTypeId", required = false) Integer budgetTypeId,
+                             @RequestParam(value = "month", required = false) Integer month,
+                             @RequestParam(value = "targetCategory", required = false) String targetCategory,
+                             @RequestParam(value = "projectName", required = false) String projectName,
+                             @RequestParam("submitYear") int submitYear,
+                             @RequestParam("submitMonth") int submitMonth,
+                             @RequestParam("submitDay") int submitDay,
+                             @RequestParam("organizationNamePart1") String organizationNamePart1,
+                             @RequestParam("organizationNamePart2") String organizationNamePart2,
+                             @RequestParam("representativeTitleAndName") String representativeTitleAndName,
+                             HttpServletResponse response) throws Exception {
+        List<Project> projects = projectMapper.findFiltered(year, budgetTypeId, month, targetCategory, projectName);
+        if (projects.isEmpty()) {
+            response.sendRedirect(noDataRedirectUrl(year, budgetTypeId, month, targetCategory, projectName,
+                    submitYear, submitMonth, submitDay, organizationNamePart1, organizationNamePart2, representativeTitleAndName));
+            return;
+        }
+        List<Integer> ids = projects.stream().map(Project::getId).collect(Collectors.toList());
+
+        ExcelExportService.AnnualSubmissionInfo info = buildSubmissionInfo(
+                submitYear, submitMonth, submitDay, organizationNamePart1, organizationNamePart2, representativeTitleAndName);
+
+        String fname = year + "年度_年度末決算書類.xlsx";
+        response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+        response.setHeader("Content-Disposition",
+                "attachment; filename*=UTF-8''" + java.net.URLEncoder.encode(fname, "UTF-8").replace("+", "%20"));
+        excelExportService.exportAnnualClosingBook(year, ids, info, response.getOutputStream());
+    }
+
+    /**
+     * 対象事業0件時のリダイレクト先URL。年度以外の絞り込み条件・提出情報もすべて引き継ぐ
+     * （Finding P1/P2対応：条件が意図せず失われないようにする）。
+     */
+    private String noDataRedirectUrl(int year, Integer budgetTypeId, Integer month, String targetCategory, String projectName,
+            int submitYear, int submitMonth, int submitDay,
+            String organizationNamePart1, String organizationNamePart2, String representativeTitleAndName) {
+        return org.springframework.web.util.UriComponentsBuilder.fromPath("/export/year/setup")
+                .queryParam("year", year)
+                .queryParamIfPresent("budgetTypeId", java.util.Optional.ofNullable(budgetTypeId))
+                .queryParamIfPresent("month", java.util.Optional.ofNullable(month))
+                .queryParamIfPresent("targetCategory", java.util.Optional.ofNullable(targetCategory))
+                .queryParamIfPresent("projectName", java.util.Optional.ofNullable(projectName))
+                .queryParam("submitYear", submitYear)
+                .queryParam("submitMonth", submitMonth)
+                .queryParam("submitDay", submitDay)
+                .queryParam("organizationNamePart1", organizationNamePart1)
+                .queryParam("organizationNamePart2", organizationNamePart2)
+                .queryParam("representativeTitleAndName", representativeTitleAndName)
+                .queryParam("error", "no_data")
+                .build()
+                .toUriString();
+    }
+
+    private ExcelExportService.AnnualSubmissionInfo buildSubmissionInfo(int submitYear, int submitMonth, int submitDay,
+            String organizationNamePart1, String organizationNamePart2, String representativeTitleAndName) {
+        ExcelExportService.AnnualSubmissionInfo info = new ExcelExportService.AnnualSubmissionInfo();
+        info.setSubmitYear(submitYear);
+        info.setSubmitMonth(submitMonth);
+        info.setSubmitDay(submitDay);
+        info.setOrganizationNamePart1(organizationNamePart1);
+        info.setOrganizationNamePart2(organizationNamePart2);
+        info.setRepresentativeTitleAndName(representativeTitleAndName);
+        return info;
+    }
+
+    private int currentFiscalYear() {
+        LocalDate now = LocalDate.now();
+        return now.getMonthValue() >= 4 ? now.getYear() : now.getYear() - 1;
+    }
+
+    private List<Integer> availableFiscalYears() {
+        Set<Integer> years = new TreeSet<>(Collections.reverseOrder());
+        for (Project p : projectMapper.findAll()) {
+            if (p.getEventDate() != null) {
+                int y = p.getEventDate().getMonthValue() >= 4 ? p.getEventDate().getYear() : p.getEventDate().getYear() - 1;
+                years.add(y);
+            }
+        }
+        years.add(currentFiscalYear());
+        return new ArrayList<>(years);
     }
 
     @GetMapping("/test-cells")

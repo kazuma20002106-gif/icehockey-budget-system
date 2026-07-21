@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{layout :: html(title='予算管理', content=~{::div}, activePage='budget')}">
+<body>
+<div>
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h3 class="fw-bold mb-0">予算管理（内示額）</h3>
+    </div>
+
+    <div th:if="${saved}" class="alert alert-success">
+        内示額を保存しました。
+    </div>
+    <div th:if="${error == 'invalid_amount'}" class="alert alert-danger">
+        金額の入力に誤りがあります（負の値、または数値として読み取れない値）。保存されていません。
+    </div>
+    <div th:if="${error == 'invalid_input'}" class="alert alert-danger">
+        送信内容に誤りがあります。保存されていません。
+    </div>
+
+    <!-- 年度選択 -->
+    <form method="get" action="/budget-allocations" class="card border-0 shadow-sm p-2 mb-3">
+        <div class="row g-2 align-items-end">
+            <div class="col-auto">
+                <label class="form-label small text-muted mb-1">年度</label>
+                <select name="year" class="form-select form-select-sm" onchange="this.form.submit()">
+                    <option th:each="y : ${years}" th:value="${y}" th:text="${y} + '年度'"
+                            th:selected="${y == selectedYear}"></option>
+                </select>
+            </div>
+            <div class="col-auto">
+                <button type="submit" class="btn btn-sm btn-outline-secondary">表示</button>
+            </div>
+        </div>
+    </form>
+
+    <div th:if="${#lists.isEmpty(rows)}" class="alert alert-secondary">
+        <span th:text="${selectedYear} + '年度に登録済みの事業がないため、入力対象がありません。'"></span>
+        先に「活動一覧・入力」から事業を登録してください。
+    </div>
+
+    <form method="post" action="/budget-allocations/save" th:if="${!#lists.isEmpty(rows)}">
+        <input type="hidden" name="year" th:value="${selectedYear}">
+        <div class="card border-0 shadow-sm mb-3">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="text-muted">
+                        <tr>
+                            <th class="ps-3">補助金区分</th>
+                            <th>対象区分</th>
+                            <th>内示額（円）</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:each="row : ${rows}">
+                            <td class="ps-3" th:text="${row.budgetTypeLabel}"></td>
+                            <td th:text="${row.targetCategory}"></td>
+                            <td>
+                                <input type="hidden" name="budgetTypeIds" th:value="${row.budgetTypeId}">
+                                <input type="hidden" name="targetCategories" th:value="${row.targetCategory}">
+                                <input type="number" name="allocatedAmounts" class="form-control form-control-sm"
+                                       style="max-width: 200px;" min="0" step="1"
+                                       th:value="${row.allocatedAmount}">
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <button type="submit" class="btn btn-primary">内示額を一括保存</button>
+    </form>
+</div>
+</body>
+</html>
