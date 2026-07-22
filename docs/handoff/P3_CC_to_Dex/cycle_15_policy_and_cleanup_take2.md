@@ -108,7 +108,7 @@ target/classes/application.properties: app.version=v2.4.8
 
 ## commit hash / push結果
 
-本報告書コミット後、`git push origin main` を実行する。結果は次のセクションで更新する。
+コミット `2fc6a33` として `origin main` へpush済み。
 
 ## 次への合図
 
