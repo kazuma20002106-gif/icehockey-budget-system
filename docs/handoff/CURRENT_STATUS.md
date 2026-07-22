@@ -13,12 +13,14 @@
 - **Phase2**: Air(P1)が、Linux VPSへのデプロイに向けたBlueprintを作成し、KazumaxのVPS契約状況を確認中。
 - **Cycle 16**: 完了（UI大改造は行わず、運用制限ルールで対応することに決定）。システム開発フェーズは完結。
 - **最終出荷レビュー**: Air視点（`docs/handoff/P1_Air_Blueprint/final_release_review_air.md`）で異常なし・デプロイ準備完了と判定済み。続けてCC(P3)視点で実装・実機・compile・Excel出力・git状態を検品。`git status`・`app.version`・compile・`/activity`・legacy 2-2/2-6・年度末preview・Excel出力ともに異常なし。年度末Excelの様式2-2内クロスシート式に既知ダミー値`830550`のキャッシュ残りを1件発見したが、参照元セルは正しい値(37,519)に更新済みで`fullCalcOnLoad="true"`により実害なしと確認済み（詳細は`docs/handoff/P3_CC_to_Dex/final_release_review_cc.md`）。Dex(P4)の最終統合レビュー待ち
+- **最終統合レビュー**: Dex(P4)がデクスクルーAを使って最終統合レビューを実施し、デプロイOK / Phase2へ進行可と判定。`docs/handoff/P4_Dex_Review/final_release_integration_review.md`
 
 ## 次の担当
-**Dex(P4)**: `docs/handoff/P1_Air_Blueprint/final_release_review_air.md`（Air視点レビュー）と `docs/handoff/P3_CC_to_Dex/final_release_review_cc.md`（CC視点レビュー・最優先）を読み、最終統合レビュー（デプロイ判定）をお願いします。OKであれば、Kazumaxへ`docs/handoff/P1_Air_Blueprint/phase2_server_deployment.md`のVPS契約状況確認を案内する流れになります。
+**Kazumax / Air(P1)**: `docs/handoff/P4_Dex_Review/final_release_integration_review.md` を確認し、Phase2へ進む。次は `docs/handoff/P1_Air_Blueprint/phase2_server_deployment.md` に沿って、VPS契約済みかどうかを確認する。
 
 ## 読むべきファイル
 - `docs/handoff/CURRENT_STATUS.md`（このファイル）
+- `docs/handoff/P4_Dex_Review/final_release_integration_review.md`（Dexの最終統合レビュー・デプロイOK判定・最優先）
 - `docs/handoff/P1_Air_Blueprint/final_release_review_air.md`（Air視点の最終出荷レビュー・最優先）
 - `docs/handoff/P3_CC_to_Dex/final_release_review_cc.md`（CC視点の最終出荷レビュー・最優先）
 - `docs/handoff/P1_Air_Blueprint/cycle_16_next_phase_planning.md`（Cycle 16 Blueprint。運用制限ルールで対応する方針が確定した経緯）
@@ -92,7 +94,7 @@
 
 ## Kazumax向け短縮チェック
 
-Cycle 15はDex(P4) Take2レビューでOK、AIレビュー上完了です。最終出荷レビューはAir・CCともに「異常なし」判定で、Dex(P4)の最終統合レビュー待ちです。
+Cycle 15はDex(P4) Take2レビューでOK、AIレビュー上完了です。最終出荷レビューはAir・CC・Dexの三者レビューが揃い、Dex最終統合レビューで「デプロイOK / Phase2へ進行可」と判定済みです。
 
 Kazumaxが実機で軽く見るなら:
 1. `/activity?year=2026` を開き、表示ラベルが「決算書計上額」になっている
@@ -102,14 +104,16 @@ Kazumaxが実機で軽く見るなら:
 5. 2-6 previewで個人別明細が表示される
 6. 年度末決算ファイル出力（`/export/year/setup`）からpreview・Excelダウンロードが開ける
 
-## Kazumaxが次にコピーする合図文（Dexへの最終統合レビュー依頼）
+## Kazumaxが次にコピーする合図文（AirへのPhase2開始相談）
 ```text
 まず AGENTS.md、docs/handoff/WORKFLOW_RULES.md、docs/handoff/CURRENT_STATUS.md を読んで、現在地・次担当・完了時ルールを確認してから作業して。
 このプロジェクトに docs/PROJECT_RULES.md がある場合は、それも読んで危険領域と検証条件を確認して。
 長文レビューや次担当への正式引き継ぎは docs/handoff/ に保存し、チャットは短い合図文だけにして。
 プラスアルファ提案がある場合は docs/proposals/ にも同じ内容を保存して。
 
-Dexへ：
-Air視点(異常なし)・CC視点(異常なし、ただし年度末Excelのクロスシート式キャッシュに関する1件の発見事項あり)の最終レビューが揃いました。
-docs/handoff/P1_Air_Blueprint/final_release_review_air.md と docs/handoff/P3_CC_to_Dex/final_release_review_cc.md を読んで、最終統合レビュー(デプロイ判定)をお願いします。
+Airへ：
+Dexの最終統合レビューで、アイスホッケー予算管理システムはデプロイOK / Phase2へ進行可と判定されました。
+docs/handoff/P4_Dex_Review/final_release_integration_review.md と docs/handoff/P1_Air_Blueprint/phase2_server_deployment.md を読んで、Phase2（VPS本番環境構築）の開始相談をお願いします。
+
+まず、VPSが契約済みか未契約かの確認から進めてください。
 ```
