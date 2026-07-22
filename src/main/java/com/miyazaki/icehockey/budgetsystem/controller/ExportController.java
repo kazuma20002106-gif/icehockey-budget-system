@@ -285,6 +285,7 @@ public class ExportController {
                 .queryParam("organizationNamePart2", organizationNamePart2)
                 .queryParam("representativeTitleAndName", representativeTitleAndName)
                 .queryParam("error", "no_data")
+                .encode(java.nio.charset.StandardCharsets.UTF_8)
                 .build()
                 .toUriString();
     }

@@ -13,15 +13,20 @@ Cycle 12 年度末決算ファイル一括出力（全様式対応）
 - **12A**: Dex(P4) Take3再レビューOK。年度末決算ファイル一括出力の土台は完了
 - **12B**: Dex(P4) Take2再レビューOK。予算管理・様式2-3連動は完了
 - **12C**: Dex(P4) Take2再レビューOK。年度末出力UI・タブプレビューは完了
-- **Cycle 12全体**: Dex(P4) Take2再レビューOK。`v2.4.3` / `c1db501` として、handoff/proposals自己完結性と `ActivityController.java` のCycle 12A互換ルート取り込みを確認済み。CCがKazumax実機確認チェックリスト6項目を代行実施し、全てOK。確認中にCycle 12スコープ外の既存バグ（旅行雑費の合算漏れ）を発見し、`ActivityController.java`だけでなく`ExportController.java`にも同種の箇所を追加確認。現在Dexが同じ実機確認を並行実施中
+- **Cycle 12全体**: `v2.4.4`。年度末出力専用フロー `/export/year/preview` / `/export/year/download` の対象事業0件時リダイレクト不具合（日本語提出情報を含む`Location`ヘッダがTomcatに削除される問題）を、CC(P3)がTake3で修正済み。Dex(P4)の再レビュー待ち
+- **Cycle 13候補**: CCが別途発見した旅行雑費の画面表示バグは、Dexとデクスクルーで独立確認済み。legacy `/export` は現役導線であり、`expenses.project_participant_id` にUNIQUE制約がないため `ExportController.preview()` の `exList.get(0)` はバグ確定。詳細は `docs/proposals/Dex_cycle_13_travel_misc_preview_totals_fix.md`（AirへのCycle 13起票トリガー案あり。Cycle 12のTake3完了・Dex再レビュー後に着手）
 
 ## 次の担当
-**Dex(P4)**: `docs/handoff/P3_CC_to_Dex/cycle_12_realmachine_check_and_bug_report_for_dex.md`（CC実施結果＋新規バグ2箇所の一本化報告・依頼事項あり）を読み、独立確認のうえKazumaxと今後の対応を相談してください。新規バグの修正提案は `docs/proposals/CC_activity_list_travel_misc_total_bug.md` にあります。
+**Dex(P4)**: `docs/handoff/P3_CC_to_Dex/cycle_12_practical_check_take3.md`（CCのTake3修正完了報告）を読み、`ExportController.noDataRedirectUrl(...)`のpercent-encoding対応を再レビューしてください。OKであれば、`docs/proposals/Dex_cycle_13_travel_misc_preview_totals_fix.md`のAir起票トリガーをKazumaxへ案内する流れになります。
 
 ## 読むべきファイル
 - `docs/handoff/CURRENT_STATUS.md`（このファイル）
-- `docs/handoff/P3_CC_to_Dex/cycle_12_realmachine_check_and_bug_report_for_dex.md`（CCによるDex向け一本化報告・依頼事項あり・最優先）
+- `docs/handoff/P3_CC_to_Dex/cycle_12_practical_check_take3.md`（CCのTake3修正完了報告・最優先）
+- `docs/handoff/P4_Rollback/cycle_12_practical_check.md`（Dexの実機自動確認NGレポート・元指示）
+- `docs/proposals/Dex_cycle_13_travel_misc_preview_totals_fix.md`（Dexによる旅行雑費バグの独立確認・Cycle 13起票案）
+- `docs/handoff/P3_CC_to_Dex/cycle_12_realmachine_check_and_bug_report_for_dex.md`（CCによるDex向け一本化報告）
 - `docs/handoff/P3_CC_to_Dex/cycle_12_kazumax_realmachine_check.md`（CCによるKazumaxチェックリスト代行実施記録）
+- `docs/proposals/Dex_cycle_13_travel_misc_preview_totals_fix.md`（Dexとデクスクルーによる旅行雑費・legacy previewバグ確認。次サイクル起票候補）
 - `docs/proposals/CC_activity_list_travel_misc_total_bug.md`（新規発見バグ2箇所の＋α提案。次サイクル起票候補）
 - `docs/handoff/P4_Dex_Review/cycle_12_final_hardening_take2.md`（DexのCycle 12最終硬化 Take2 P4 OKレビュー）
 - `docs/handoff/P3_CC_to_Dex/cycle_12_final_hardening_take2.md`（CCのTake2修正 完了報告）
@@ -66,7 +71,7 @@ Cycle 12 年度末決算ファイル一括出力（全様式対応）
 - 本物原本にはトップチーム用2-2-1シートが存在する。今回はKazumax判断により出力対象に含める
 - 2-2の直値セル、2-1セル座標、外部リンクはDex最終指示書の内容を優先し、推測で実装しない
 
-## Kazumaxが次にコピーする合図文（DexへのCC報告確認依頼）
+## Kazumaxが次にコピーする合図文（Dexへの Take3 事後レビュー依頼）
 ```text
 まず AGENTS.md、docs/handoff/WORKFLOW_RULES.md、docs/handoff/CURRENT_STATUS.md を読んで、現在地・次担当・完了時ルールを確認してから作業して。
 このプロジェクトに docs/PROJECT_RULES.md がある場合は、それも読んで危険領域と検証条件を確認して。
@@ -74,7 +79,7 @@ Cycle 12 年度末決算ファイル一括出力（全様式対応）
 プラスアルファ提案がある場合は docs/proposals/ にも同じ内容を保存して。
 
 Dexへ：
-CCがKazumax最終確認チェックリスト6項目を代行実施し、全項目OKでした。
-確認中に、Cycle 12スコープ外の既存バグ（旅行雑費が画面プレビューの合算から漏れている。Excel出力自体は正しい）を、ActivityController.javaとExportController.javaの2箇所で発見しました。
-docs/handoff/P3_CC_to_Dex/cycle_12_realmachine_check_and_bug_report_for_dex.md を読み、CCからの依頼事項（独立確認・網羅性再確認・legacy画面の位置づけ確認など）を踏まえて、あなたの実機確認結果と合わせて報告してください。
+CCがCycle 12実機自動確認のTake3修正（noDataRedirectUrlのpercent-encoding対応）を完了しました。v2.4.4です。
+docs/handoff/P3_CC_to_Dex/cycle_12_practical_check_take3.md を読んで、事後レビュー（P4）をお願いします。
+OKであれば、あなたが作成した docs/proposals/Dex_cycle_13_travel_misc_preview_totals_fix.md のAir起票トリガーへ進める想定です。
 ```
