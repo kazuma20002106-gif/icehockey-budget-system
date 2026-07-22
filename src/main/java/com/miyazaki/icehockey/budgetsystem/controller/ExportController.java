@@ -56,26 +56,27 @@ public class ExportController {
         model.addAttribute("activeUser", userSettingService.getActiveUser());
 
         if ("2-2".equals(exportType)) {
-            int totalRental = 0, totalSupplies = 0, totalParking = 0, totalCompensation = 0, totalService = 0;
-            int totalTransport = 0, totalAccommodation = 0;
+            long totalRental = 0, totalSupplies = 0, totalParking = 0, totalCompensation = 0, totalService = 0;
+            long totalTransport = 0, totalAccommodation = 0, totalTravelMisc = 0;
 
             for (int id : projectIds) {
                 ProjectSummaryExpense sum = summaryMapper.findByProjectId(id);
-                if (sum != null) {
-                    totalRental += sum.getRentalCost();
-                    totalSupplies += sum.getSuppliesCost();
-                    totalParking += sum.getParkingCost();
-                    totalCompensation += sum.getCompensationCost();
-                    totalService += sum.getServiceCost();
-                }
-                
                 List<ProjectParticipant> parts = participantMapper.findByProjectId(id);
+
+                if (sum != null) {
+                    totalRental += nz(sum.getRentalCost());
+                    totalSupplies += nz(sum.getSuppliesCost());
+                    totalParking += nz(sum.getParkingCost());
+                    totalCompensation += nz(sum.getCompensationCost());
+                    totalService += nz(sum.getServiceCost());
+                    totalTravelMisc += nz(sum.getTravelMiscCost()) * parts.size() * nz(sum.getTravelMiscDays());
+                }
+
                 for (ProjectParticipant p : parts) {
                     List<Expense> exList = expenseMapper.findByProjectParticipantId(p.getId());
-                    if (!exList.isEmpty()) {
-                        Expense ex = exList.get(0);
-                        totalTransport += ex.getTransportCost();
-                        totalAccommodation += ex.getAccommodationCost();
+                    for (Expense ex : exList) {
+                        totalTransport += nz(ex.getTransportCost());
+                        totalAccommodation += nz(ex.getAccommodationCost());
                     }
                 }
             }
@@ -87,7 +88,8 @@ public class ExportController {
             model.addAttribute("totalService", totalService);
             model.addAttribute("totalTransport", totalTransport);
             model.addAttribute("totalAccommodation", totalAccommodation);
-            model.addAttribute("grandTotal", totalRental + totalSupplies + totalParking + totalCompensation + totalService + totalTransport + totalAccommodation);
+            model.addAttribute("totalTravelMisc", totalTravelMisc);
+            model.addAttribute("grandTotal", totalRental + totalSupplies + totalParking + totalCompensation + totalService + totalTransport + totalAccommodation + totalTravelMisc);
 
         } else {
             List<Map<String, Object>> previewProjects = new ArrayList<>();
@@ -96,25 +98,30 @@ public class ExportController {
                 if(p != null) {
                     Map<String, Object> pd = new HashMap<>();
                     pd.put("project", p);
-                    
+
                     ProjectSummaryExpense sum = summaryMapper.findByProjectId(id);
                     pd.put("summary", sum != null ? sum : new ProjectSummaryExpense());
-                    
+
                     List<ProjectParticipant> parts = participantMapper.findByProjectId(id);
-                    int transportSum = 0, accommodationSum = 0;
+                    long transportSum = 0, accommodationSum = 0;
                     for (ProjectParticipant part : parts) {
                         List<Expense> exList = expenseMapper.findByProjectParticipantId(part.getId());
-                        if (!exList.isEmpty()) {
-                            Expense ex = exList.get(0);
-                            part.setExpense(ex);
-                            transportSum += ex.getTransportCost();
-                            accommodationSum += ex.getAccommodationCost();
+                        Expense aggregated = Expense.aggregate(exList);
+                        part.setExpense(aggregated);
+                        if (aggregated != null) {
+                            transportSum += nz(aggregated.getTransportCost());
+                            accommodationSum += nz(aggregated.getAccommodationCost());
                         }
                     }
+                    long travelMiscTotal = (sum != null)
+                            ? nz(sum.getTravelMiscCost()) * parts.size() * nz(sum.getTravelMiscDays())
+                            : 0;
+
                     pd.put("participants", parts);
                     pd.put("transportSum", transportSum);
                     pd.put("accommodationSum", accommodationSum);
-                    
+                    pd.put("travelMiscTotal", travelMiscTotal);
+
                     previewProjects.add(pd);
                 }
             }
@@ -301,6 +308,8 @@ public class ExportController {
         info.setRepresentativeTitleAndName(representativeTitleAndName);
         return info;
     }
+
+    private long nz(Integer v) { return v == null ? 0 : v; }
 
     private int currentFiscalYear() {
         LocalDate now = LocalDate.now();

@@ -48,6 +48,10 @@
                                     <td class="text-end fw-bold text-primary" th:text="${#numbers.formatInteger(totalAccommodation, 1, 'COMMA')} + ' 円'"></td>
                                 </tr>
                                 <tr>
+                                    <td>旅行雑費</td>
+                                    <td class="text-end fw-bold text-primary" th:text="${#numbers.formatInteger(totalTravelMisc, 1, 'COMMA')} + ' 円'"></td>
+                                </tr>
+                                <tr>
                                     <td>駐車料金</td>
                                     <td class="text-end fw-bold text-primary" th:text="${#numbers.formatInteger(totalParking, 1, 'COMMA')} + ' 円'"></td>
                                 </tr>
@@ -110,6 +114,12 @@
                                 <td th:text="${pd.transportSum != null ? #numbers.formatInteger(pd.transportSum, 1, 'COMMA') : '0'} + ' 円'"></td>
                                 <th class="table-light">宿泊費合計</th>
                                 <td th:text="${pd.accommodationSum != null ? #numbers.formatInteger(pd.accommodationSum, 1, 'COMMA') : '0'} + ' 円'"></td>
+                            </tr>
+                            <tr>
+                                <th class="table-light">旅行雑費合計（事業サマリ）</th>
+                                <td th:text="${pd.travelMiscTotal != null ? #numbers.formatInteger(pd.travelMiscTotal, 1, 'COMMA') : '0'} + ' 円'"></td>
+                                <th class="table-light"></th>
+                                <td></td>
                             </tr>
                             <tr>
                                 <th class="table-light">借用料</th>

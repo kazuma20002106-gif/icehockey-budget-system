@@ -71,7 +71,7 @@ public class ExcelExportService {
         List<ProjectParticipant> participants = participantMapper.findByProjectId(projectId);
         for (ProjectParticipant p : participants) {
             List<Expense> exList = expenseMapper.findByProjectParticipantId(p.getId());
-            if (!exList.isEmpty()) p.setExpense(exList.get(0));
+            p.setExpense(Expense.aggregate(exList));
         }
         return participants;
     }

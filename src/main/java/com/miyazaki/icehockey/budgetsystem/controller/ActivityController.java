@@ -62,6 +62,7 @@ public class ActivityController {
             if (sum != null) {
                 expenseTotal += nz(sum.getRentalCost()) + nz(sum.getSuppliesCost()) + nz(sum.getParkingCost())
                         + nz(sum.getCompensationCost()) + nz(sum.getServiceCost());
+                expenseTotal += nz(sum.getTravelMiscCost()) * parts.size() * nz(sum.getTravelMiscDays());
             }
             ActivityRow row = new ActivityRow();
             row.setProject(p);
