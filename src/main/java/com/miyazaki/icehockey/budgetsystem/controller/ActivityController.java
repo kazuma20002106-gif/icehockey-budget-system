@@ -40,11 +40,16 @@ public class ActivityController {
                        @RequestParam(value = "month", required = false) Integer month,
                        @RequestParam(value = "targetCategory", required = false) String targetCategory,
                        @RequestParam(value = "projectName", required = false) String projectName,
+                       @RequestParam(value = "printedStatus", required = false) String printedStatus,
+                       @RequestParam(value = "error", required = false) String error,
                        Model model) {
         // 年度未指定なら現在の会計年度
         if (year == null) year = currentFiscalYear();
+        // printedStatus未指定（初回アクセス）は未印刷のみを既定表示にする。ユーザーが明示的に選んだ値はそのまま維持する
+        boolean printedStatusDefaulted = (printedStatus == null || printedStatus.isBlank());
+        String effectivePrintedStatus = printedStatusDefaulted ? "unprinted" : printedStatus;
 
-        List<Project> projects = projectMapper.findFiltered(year, budgetTypeId, month, targetCategory, projectName);
+        List<Project> projects = projectMapper.findFiltered(year, budgetTypeId, month, targetCategory, projectName, effectivePrintedStatus);
 
         List<ActivityRow> rows = new ArrayList<>();
         int totalCount = 0, totalParticipants = 0;
@@ -86,9 +91,11 @@ public class ActivityController {
         model.addAttribute("selectedMonth", month);
         model.addAttribute("selectedTargetCategory", targetCategory);
         model.addAttribute("selectedProjectName", projectName);
+        model.addAttribute("selectedPrintedStatus", effectivePrintedStatus);
         model.addAttribute("totalCount", totalCount);
         model.addAttribute("totalParticipants", totalParticipants);
         model.addAttribute("grandTotal", grandTotal);
+        model.addAttribute("error", error);
         return "activity/list";
     }
 
@@ -105,7 +112,9 @@ public class ActivityController {
 
     // ===== 編集フォーム =====
     @GetMapping("/{id}/edit")
-    public String editForm(@PathVariable("id") int id, Model model) {
+    public String editForm(@PathVariable("id") int id,
+                           @RequestParam(value = "duplicated", required = false) String duplicated,
+                           Model model) {
         Project project = projectMapper.findById(id);
         if (project == null) return "redirect:/activity";
 
@@ -127,6 +136,7 @@ public class ActivityController {
         }
 
         prepareFormModel(model, form, id);
+        model.addAttribute("duplicated", duplicated != null);
         return "activity/form";
     }
 
@@ -172,6 +182,63 @@ public class ActivityController {
         return "redirect:/activity";
     }
 
+    // ===== 一括：印刷ステータス変更 =====
+    @PostMapping("/bulk/status")
+    public String bulkStatus(@RequestParam(value = "projectIds", required = false) List<Integer> projectIds,
+                             @RequestParam("isPrinted") boolean isPrinted,
+                             @RequestParam(value = "year", required = false) Integer year,
+                             @RequestParam(value = "budgetTypeId", required = false) Integer budgetTypeId,
+                             @RequestParam(value = "month", required = false) Integer month,
+                             @RequestParam(value = "targetCategory", required = false) String targetCategory,
+                             @RequestParam(value = "projectName", required = false) String projectName,
+                             @RequestParam(value = "printedStatus", required = false) String printedStatus) {
+        if (projectIds == null || projectIds.isEmpty()) {
+            return "redirect:" + activityRedirectUrl(year, budgetTypeId, month, targetCategory, projectName, printedStatus, "no_selection");
+        }
+        for (Integer id : projectIds) {
+            if (id != null) projectMapper.updatePrinted(id, isPrinted);
+        }
+        return "redirect:" + activityRedirectUrl(year, budgetTypeId, month, targetCategory, projectName, printedStatus, null);
+    }
+
+    // ===== 一括：削除 =====
+    @PostMapping("/bulk/delete")
+    public String bulkDelete(@RequestParam(value = "projectIds", required = false) List<Integer> projectIds,
+                             @RequestParam(value = "year", required = false) Integer year,
+                             @RequestParam(value = "budgetTypeId", required = false) Integer budgetTypeId,
+                             @RequestParam(value = "month", required = false) Integer month,
+                             @RequestParam(value = "targetCategory", required = false) String targetCategory,
+                             @RequestParam(value = "projectName", required = false) String projectName,
+                             @RequestParam(value = "printedStatus", required = false) String printedStatus) {
+        if (projectIds == null || projectIds.isEmpty()) {
+            return "redirect:" + activityRedirectUrl(year, budgetTypeId, month, targetCategory, projectName, printedStatus, "no_selection");
+        }
+        // 存在しないIDが混ざっていても projectMapper.delete は対象0件で正常終了するため500にならない
+        for (Integer id : projectIds) {
+            if (id != null) projectMapper.delete(id);
+        }
+        return "redirect:" + activityRedirectUrl(year, budgetTypeId, month, targetCategory, projectName, printedStatus, null);
+    }
+
+    // ===== 複製（入力ひな形目的。金額項目はコピーしない） =====
+    @PostMapping("/{id}/duplicate")
+    public String duplicate(@PathVariable("id") int id) {
+        Project source = projectMapper.findById(id);
+        if (source == null) return "redirect:/activity";
+
+        List<ProjectParticipant> participants = participantMapper.findByProjectId(id);
+        for (ProjectParticipant p : participants) {
+            List<Expense> exList = expenseMapper.findByProjectParticipantId(p.getId());
+            if (exList.size() > 1) {
+                // 1参加者に複数Expenseがある活動は、編集画面が1参加者1Expense前提のため安全のため複製不可とする
+                return "redirect:/activity?error=duplicate_multi_expense";
+            }
+        }
+
+        int newId = projectService.duplicateProject(source, participants);
+        return "redirect:/activity/" + newId + "/edit?duplicated=1";
+    }
+
     // ===== 単一活動のExcel出力 =====
     // form=all(既定): 2-4/2-5/2-6 をまとめて1ブック / form=2-4|2-5|2-6: 様式単体
     @GetMapping("/{id}/export")
@@ -201,7 +268,7 @@ public class ActivityController {
                            @RequestParam(value = "projectName", required = false) String projectName,
                            HttpServletResponse response) throws Exception {
         if (year == null) year = currentFiscalYear();
-        List<Project> projects = projectMapper.findFiltered(year, budgetTypeId, month, targetCategory, projectName);
+        List<Project> projects = projectMapper.findFiltered(year, budgetTypeId, month, targetCategory, projectName, null);
         List<Integer> ids = projects.stream().map(Project::getId).collect(Collectors.toList());
 
         String fname = year + "年度_まとめ.xlsx";
@@ -220,7 +287,7 @@ public class ActivityController {
                              @RequestParam(value = "projectName", required = false) String projectName,
                              HttpServletResponse response) throws Exception {
         if (year == null) year = currentFiscalYear();
-        List<Project> projects = projectMapper.findFiltered(year, budgetTypeId, month, targetCategory, projectName);
+        List<Project> projects = projectMapper.findFiltered(year, budgetTypeId, month, targetCategory, projectName, null);
         if (projects.isEmpty()) {
             // 対象事業0件のまま出力すると、様式2-1の対象年度等が誤った内容になり得るため出力を止める
             response.sendRedirect("/activity?year=" + year + "&error=no_data_for_annual_export");
@@ -236,6 +303,22 @@ public class ActivityController {
     }
 
     // ===== ヘルパー =====
+    /** 一括処理後、現在の絞り込み条件をできる限り維持したまま /activity へ戻すためのURLを組み立てる */
+    private String activityRedirectUrl(Integer year, Integer budgetTypeId, Integer month, String targetCategory,
+            String projectName, String printedStatus, String error) {
+        return org.springframework.web.util.UriComponentsBuilder.fromPath("/activity")
+                .queryParamIfPresent("year", Optional.ofNullable(year))
+                .queryParamIfPresent("budgetTypeId", Optional.ofNullable(budgetTypeId))
+                .queryParamIfPresent("month", Optional.ofNullable(month))
+                .queryParamIfPresent("targetCategory", Optional.ofNullable(targetCategory))
+                .queryParamIfPresent("projectName", Optional.ofNullable(projectName))
+                .queryParamIfPresent("printedStatus", Optional.ofNullable(printedStatus))
+                .queryParamIfPresent("error", Optional.ofNullable(error))
+                .encode(java.nio.charset.StandardCharsets.UTF_8)
+                .build()
+                .toUriString();
+    }
+
     private void prepareFormModel(Model model, ActivityForm form, Integer editId) {
         model.addAttribute("activityForm", form);
         model.addAttribute("budgetTypes", budgetTypeMapper.findAll());

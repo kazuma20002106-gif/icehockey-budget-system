@@ -145,3 +145,18 @@ CREATE TABLE IF NOT EXISTS budget_allocations (
     UNIQUE KEY uq_budget_allocations_year_type_category (fiscal_year, budget_type_id, target_category),
     FOREIGN KEY (budget_type_id) REFERENCES budget_types(id)
 );
+
+-- Cycle 17: 印刷ステータス管理（既存活動・新規活動とも初期値は未印刷）
+-- 注意: 「ADD COLUMN IF NOT EXISTS」はMariaDB固有構文でありMySQL(Oracle版)では非対応のため使用しない
+--       （Cycle 8のaccommodation_nights等でも同じ構文が使われていたが、実機検証でMySQL 8.0.46でも構文エラーになることを確認した）。
+--       INFORMATION_SCHEMAでの存在確認＋動的SQLで、MySQLでも安全に冪等追加する。
+SET @is_printed_exists = (
+    SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'projects' AND COLUMN_NAME = 'is_printed'
+);
+SET @add_is_printed_sql = IF(@is_printed_exists = 0,
+    'ALTER TABLE projects ADD COLUMN is_printed BOOLEAN NOT NULL DEFAULT FALSE',
+    'SELECT 1');
+PREPARE add_is_printed_stmt FROM @add_is_printed_sql;
+EXECUTE add_is_printed_stmt;
+DEALLOCATE PREPARE add_is_printed_stmt;

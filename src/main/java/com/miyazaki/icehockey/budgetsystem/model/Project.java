@@ -12,6 +12,7 @@ public class Project {
     private String projectOutcome; // 事業の成果
     private Integer accommodationNights; // 宿泊日数（泊数）
     private java.time.LocalDateTime createdAt;
+    private Boolean isPrinted; // 印刷ステータス（未印刷/印刷済）。手動管理のみ、Excel出力での自動変更はしない
 
     public Integer getId() { return id; }
     public void setId(Integer id) { this.id = id; }
@@ -52,4 +53,7 @@ public class Project {
 
     public java.time.LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(java.time.LocalDateTime createdAt) { this.createdAt = createdAt; }
+
+    public Boolean getIsPrinted() { return isPrinted; }
+    public void setIsPrinted(Boolean isPrinted) { this.isPrinted = isPrinted; }
 }

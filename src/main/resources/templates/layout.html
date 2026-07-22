@@ -17,6 +17,9 @@
             
             <ul class="navbar-nav flex-row gap-3 ms-4 me-auto d-none d-md-flex">
                 <li class="nav-item">
+                    <a class="nav-link px-2" th:classappend="${activePage == 'dashboard'} ? 'active fw-bold text-white' : 'text-white-50'" href="/dashboard">📊 ダッシュボード</a>
+                </li>
+                <li class="nav-item">
                     <a class="nav-link px-2" th:classappend="${activePage == 'projects'} ? 'active fw-bold text-white' : 'text-white-50'" href="/activity">📄 活動一覧・入力</a>
                 </li>
                 <li class="nav-item">

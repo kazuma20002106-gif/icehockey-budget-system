@@ -214,7 +214,7 @@ public class ExportController {
                               @RequestParam("organizationNamePart2") String organizationNamePart2,
                               @RequestParam("representativeTitleAndName") String representativeTitleAndName,
                               Model model) throws Exception {
-        List<Project> projects = projectMapper.findFiltered(year, budgetTypeId, month, targetCategory, projectName);
+        List<Project> projects = projectMapper.findFiltered(year, budgetTypeId, month, targetCategory, projectName, null);
         if (projects.isEmpty()) {
             return "redirect:" + noDataRedirectUrl(year, budgetTypeId, month, targetCategory, projectName,
                     submitYear, submitMonth, submitDay, organizationNamePart1, organizationNamePart2, representativeTitleAndName);
@@ -254,7 +254,7 @@ public class ExportController {
                              @RequestParam("organizationNamePart2") String organizationNamePart2,
                              @RequestParam("representativeTitleAndName") String representativeTitleAndName,
                              HttpServletResponse response) throws Exception {
-        List<Project> projects = projectMapper.findFiltered(year, budgetTypeId, month, targetCategory, projectName);
+        List<Project> projects = projectMapper.findFiltered(year, budgetTypeId, month, targetCategory, projectName, null);
         if (projects.isEmpty()) {
             response.sendRedirect(noDataRedirectUrl(year, budgetTypeId, month, targetCategory, projectName,
                     submitYear, submitMonth, submitDay, organizationNamePart1, organizationNamePart2, representativeTitleAndName));

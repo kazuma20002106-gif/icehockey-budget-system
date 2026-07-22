@@ -40,6 +40,10 @@
 
     <h4 class="fw-bold mb-3" th:text="${editId == null} ? '活動日入力（新規）' : '活動日入力（編集）'">活動日入力（新規）</h4>
 
+    <div th:if="${duplicated}" class="alert alert-info">
+        この活動は複製されました。入力ひな形として使用してください。金額項目は未入力（0）、印刷ステータスは未印刷です。内容を確認・入力して保存してください。
+    </div>
+
     <form th:action="@{/activity/save}" method="post" id="activityForm" onsubmit="return validateForm()">
         <input type="hidden" name="project.id" th:if="${editId != null}" th:value="${activityForm.project.id}" />
 

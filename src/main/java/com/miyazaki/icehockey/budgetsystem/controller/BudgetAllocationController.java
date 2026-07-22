@@ -43,7 +43,7 @@ public class BudgetAllocationController {
         }
 
         // その年度に実績として登録済みの (budgetTypeId, targetCategory) 組だけを入力対象にする（Kazumax合意のB案）
-        List<Project> projects = projectMapper.findFiltered(year, null, null, null, null);
+        List<Project> projects = projectMapper.findFiltered(year, null, null, null, null, null);
         LinkedHashSet<String> keys = new LinkedHashSet<>();
         for (Project p : projects) {
             Integer bt = p.getBudgetTypeId();
@@ -100,7 +100,7 @@ public class BudgetAllocationController {
 
         // その年度に実在する (budgetTypeId, targetCategory) の組み合わせのみ保存を許可する
         Set<String> validKeys = new java.util.HashSet<>();
-        for (Project p : projectMapper.findFiltered(year, null, null, null, null)) {
+        for (Project p : projectMapper.findFiltered(year, null, null, null, null, null)) {
             Integer bt = p.getBudgetTypeId();
             String cat = p.getTargetCategory();
             if (bt == null || cat == null || cat.isBlank()) continue;

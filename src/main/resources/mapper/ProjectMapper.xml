@@ -29,6 +29,12 @@
             <if test="projectName != null and projectName != ''">
                 AND name LIKE CONCAT('%', #{projectName}, '%')
             </if>
+            <if test="printedStatus != null and printedStatus == 'unprinted'">
+                AND is_printed = FALSE
+            </if>
+            <if test="printedStatus != null and printedStatus == 'printed'">
+                AND is_printed = TRUE
+            </if>
         </where>
         ORDER BY event_date DESC, id DESC
     </select>
@@ -67,5 +73,9 @@
     <delete id="delete">
         DELETE FROM projects WHERE id = #{id}
     </delete>
+
+    <update id="updatePrinted">
+        UPDATE projects SET is_printed = #{isPrinted} WHERE id = #{id}
+    </update>
 
 </mapper>

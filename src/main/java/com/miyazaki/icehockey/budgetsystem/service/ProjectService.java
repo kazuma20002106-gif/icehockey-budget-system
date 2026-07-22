@@ -2,10 +2,12 @@ package com.miyazaki.icehockey.budgetsystem.service;
 
 import com.miyazaki.icehockey.budgetsystem.mapper.ExpenseMapper;
 import com.miyazaki.icehockey.budgetsystem.mapper.MemberMapper;
+import com.miyazaki.icehockey.budgetsystem.mapper.ProjectMapper;
 import com.miyazaki.icehockey.budgetsystem.mapper.ProjectParticipantMapper;
 import com.miyazaki.icehockey.budgetsystem.mapper.ProjectSummaryExpenseMapper;
 import com.miyazaki.icehockey.budgetsystem.model.Expense;
 import com.miyazaki.icehockey.budgetsystem.model.Member;
+import com.miyazaki.icehockey.budgetsystem.model.Project;
 import com.miyazaki.icehockey.budgetsystem.model.ProjectParticipant;
 import com.miyazaki.icehockey.budgetsystem.model.ProjectSummaryExpense;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -16,6 +18,9 @@ import java.util.List;
 
 @Service
 public class ProjectService {
+
+    @Autowired
+    private ProjectMapper projectMapper;
 
     @Autowired
     private ProjectParticipantMapper participantMapper;
@@ -88,6 +93,67 @@ public class ProjectService {
             e.setProjectParticipantId(p.getId());
             expenseMapper.insert(e);
         }
+    }
+
+    /**
+     * 活動の複製（入力ひな形目的）。
+     * Project基本情報・参加者はコピーするが、決算書計上額に影響する金額項目（交通費・宿泊費・個人雑費・
+     * 事業サマリ経費・旅行雑費単価/日数）は0にリセットし、二重計上を防ぐ。受領日は誤提出防止のためコピーしない。
+     * 呼び出し元で「1参加者に複数Expense」を検出済みであることが前提（このメソッドは各参加者の先頭Expenseのみ扱う）。
+     */
+    @Transactional
+    public int duplicateProject(Project source, List<ProjectParticipant> sourceParticipants) {
+        Project copy = new Project();
+        copy.setName("[コピー] " + source.getName());
+        copy.setBudgetTypeId(source.getBudgetTypeId());
+        copy.setTargetCategory(source.getTargetCategory());
+        copy.setEventDate(source.getEventDate());
+        copy.setLocationVenue(source.getLocationVenue());
+        copy.setLocationAccommodation(source.getLocationAccommodation());
+        copy.setScheduleContent(source.getScheduleContent());
+        copy.setProjectOutcome(source.getProjectOutcome());
+        copy.setAccommodationNights(source.getAccommodationNights());
+        projectMapper.insert(copy); // is_printed は挿入時にDB defaultのFALSEになる
+        int newProjectId = copy.getId();
+
+        ProjectSummaryExpense newSummary = new ProjectSummaryExpense();
+        newSummary.setProjectId(newProjectId);
+        newSummary.setRentalCost(0);
+        newSummary.setSuppliesCost(0);
+        newSummary.setParkingCost(0);
+        newSummary.setCompensationCost(0);
+        newSummary.setServiceCost(0);
+        newSummary.setTravelMiscCost(0);
+        newSummary.setTravelMiscDays(0);
+        summaryExpenseMapper.insert(newSummary);
+
+        for (ProjectParticipant sp : sourceParticipants) {
+            ProjectParticipant np = new ProjectParticipant();
+            np.setProjectId(newProjectId);
+            np.setMemberId(sp.getMemberId());
+            np.setIsAccommodated(sp.getIsAccommodated());
+            participantMapper.insert(np);
+
+            List<Expense> exList = expenseMapper.findByProjectParticipantId(sp.getId());
+            Expense se = exList.isEmpty() ? null : exList.get(0);
+            Expense ne = new Expense();
+            ne.setProjectParticipantId(np.getId());
+            if (se != null) {
+                ne.setExpenseDate(se.getExpenseDate());
+                ne.setTransportMethod(se.getTransportMethod());
+                ne.setTransportRoute(se.getTransportRoute());
+                // transportDistanceKmはコピーしない: 編集画面のJS（自家用車の距離×単価の自動計算）が
+                // 距離が入っているとページ読込時に交通費入力へ 距離×単価 を再セットしてしまい、
+                // サーバー側で0にリセットした金額を保存前に静かに復活させてしまうため（実機検証で確認）。
+            }
+            ne.setTransportCost(0);
+            ne.setAccommodationCost(0);
+            ne.setMiscellaneousCost(0);
+            ne.setReceiptDate(null); // 受領日は誤提出防止のためコピーしない
+            expenseMapper.insert(ne);
+        }
+
+        return newProjectId;
     }
 
     private String extractDeparture(Expense e) {

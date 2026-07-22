@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{layout :: html(title='ダッシュボード', content=~{::div}, activePage='dashboard')}">
+<body>
+<div>
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h3 class="fw-bold mb-0">ダッシュボード</h3>
+        <form method="get" action="/dashboard" class="d-flex align-items-center gap-2">
+            <label class="form-label small text-muted mb-0">年度</label>
+            <select name="year" class="form-select form-select-sm" onchange="this.form.submit()">
+                <option th:each="y : ${years}" th:value="${y}" th:text="${y} + '年度'"
+                        th:selected="${y == year}"></option>
+            </select>
+        </form>
+    </div>
+
+    <!-- サマリーカード -->
+    <div class="row g-3 mb-4">
+        <div class="col-6 col-md-3">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body text-center">
+                    <div class="text-muted small">総活動数</div>
+                    <div class="fs-3 fw-bold"><span th:text="${totalCount}">0</span> 件</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body text-center">
+                    <div class="text-muted small">未印刷 / 印刷済</div>
+                    <div class="fs-3 fw-bold">
+                        <span class="text-warning" th:text="${unprintedCount}">0</span> /
+                        <span class="text-success" th:text="${printedCount}">0</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-md-6">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body text-center">
+                    <div class="text-muted small">決算書計上額合計</div>
+                    <div class="fs-3 fw-bold text-primary"><span th:text="${#numbers.formatInteger(grandTotal, 0, 'COMMA')}">0</span> 円</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 予算配分ごとの使用状況 -->
+    <div class="card border-0 shadow-sm mb-3">
+        <div class="card-header bg-white fw-bold">予算配分ごとの使用状況</div>
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="text-muted">
+                    <tr>
+                        <th class="ps-3">補助金区分</th>
+                        <th>種別</th>
+                        <th class="text-end">使用額</th>
+                        <th class="text-end">予算額</th>
+                        <th class="text-end">残額</th>
+                        <th class="text-end pe-3">使用率</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr th:each="row : ${budgetRows}">
+                        <td class="ps-3" th:text="${row.budgetTypeLabel}">①選手強化費</td>
+                        <td th:text="${row.targetCategory}">成年男子</td>
+                        <td class="text-end" th:text="${#numbers.formatInteger(row.usedAmount, 0, 'COMMA')} + ' 円'">0 円</td>
+                        <td class="text-end" th:text="${#numbers.formatInteger(row.allocatedAmount, 0, 'COMMA')} + ' 円'">0 円</td>
+                        <td class="text-end" th:classappend="${row.remainingAmount < 0} ? 'text-danger fw-bold'"
+                            th:text="${#numbers.formatInteger(row.remainingAmount, 0, 'COMMA')} + ' 円'">0 円</td>
+                        <td class="text-end pe-3">
+                            <span th:if="${row.usageRate == null}">-</span>
+                            <span th:if="${row.usageRate != null}" th:text="${#numbers.formatDecimal(row.usageRate, 1, 1)} + '%'">0.0%</span>
+                        </td>
+                    </tr>
+                    <tr th:if="${#lists.isEmpty(budgetRows)}">
+                        <td colspan="6" class="text-center text-muted py-4">この年度の予算配分・活動実績がありません。</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="d-flex gap-2">
+        <a href="/activity" class="btn btn-outline-primary">📄 活動一覧・入力へ</a>
+        <a href="/budget-allocations" class="btn btn-outline-primary">💰 予算管理へ</a>
+    </div>
+</div>
+</body>
+</html>
