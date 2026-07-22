@@ -55,7 +55,8 @@ public class ActivityController {
             for (ProjectParticipant part : parts) {
                 List<Expense> exList = expenseMapper.findByProjectParticipantId(part.getId());
                 for (Expense e : exList) {
-                    expenseTotal += nz(e.getTransportCost()) + nz(e.getAccommodationCost()) + nz(e.getMiscellaneousCost());
+                    // 決算書計上額（様式2-2系）には個人雑費miscellaneousCostを含めない
+                    expenseTotal += nz(e.getTransportCost()) + nz(e.getAccommodationCost());
                 }
             }
             ProjectSummaryExpense sum = summaryMapper.findByProjectId(p.getId());

@@ -34,6 +34,7 @@ build/
 
 # 実行時ログ（コミット対象外）
 app_run.log
+app_run_latest.pid
 *.log
 
 # Maestro Runner runtime files

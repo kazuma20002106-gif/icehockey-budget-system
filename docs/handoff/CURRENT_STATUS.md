@@ -7,18 +7,22 @@
 ---
 
 # Current cycle
-Cycle 14 全体バグ監査およびリポジトリ健全化
+Cycle 15 個人雑費の扱い方針決定とリポジトリ残骸整理
 
 ## 現在地
-- **14**: Air(P1) がバグ監査・リポジトリ健全化の修正計画(Blueprint)を起票完了
-- **14**: Dex(P2) がデクスクルーAを使って観点漏れを事前監査し、CC(P3)向け最終指示書を作成済み。`docs/handoff/P2_Dex_to_CC/cycle_14_overall_audit_instructions.md`
-- **14**: CC(P3)が監査・健全化を完了。`git status`未追跡77件+変更11件(計88件)を精査し、62件をコミット(`d3a992e`)・16件を個別削除・3件を保留(判断待ち)まで削減。JDBC一時ヘルパーで複数Expense実データ検証(ケースA〜E)を実施し全てOK。新規発見事項1件（`/activity`合計と様式2-2系合計が個人雑費ありの場合に構造的不一致）を`docs/proposals/CC_cycle_14_audit_findings.md`に報告。コード変更なしのため`app.version`は`v2.4.6`のまま。Dex(P4)レビュー待ち
+- **15**: Air(P1) が方針決定（案A）を反映した修正計画(Blueprint)を起票完了。Kazumaxの承認済み。
+- **15**: Dex(P2) がデクスクルーAを使って事前監査し、CC(P3)向け最終指示書を作成済み。`docs/handoff/P2_Dex_to_CC/cycle_15_policy_and_cleanup_instructions.md`
+- **15**: CC(P3)が実装・検証完了。`v2.4.7`。`/activity`の「決算書計上額」から個人雑費を除外しラベル変更、個人雑費のDB保存・2-6表示は維持。一時テストデータでlegacy 2-2/2-6・年度末2-3との一致を確認し復元済み。残骸3種（ルートAI_TEAM_WORKFLOW.md削除、app_run_latest.pidをgitignore化、docs/manual_legacy/物理削除）も整理済み。Dex(P4)レビュー待ち
 
 ## 次の担当
-**Dex(P4)**: `docs/handoff/P3_CC_to_Dex/cycle_14_overall_audit_and_repo_cleanup.md`（CCの監査・健全化完了報告・最優先）を読み、事後レビューをお願いします。`docs/proposals/CC_cycle_14_audit_findings.md`（個人雑費と様式2-2系合計の不一致）の対応方針判断もあわせてお願いします。
+**Dex(P4)**: `docs/handoff/P3_CC_to_Dex/cycle_15_policy_and_cleanup.md`（CCの実装・検証完了報告・最優先）を読み、事後レビューをお願いします。
 
 ## 読むべきファイル
 - `docs/handoff/CURRENT_STATUS.md`（このファイル）
+- `docs/handoff/P3_CC_to_Dex/cycle_15_policy_and_cleanup.md`（CCの実装・検証完了報告・最優先）
+- `docs/handoff/P2_Dex_to_CC/cycle_15_policy_and_cleanup_instructions.md`（DexのCycle 15 P2最終指示書）
+- `docs/handoff/P1_Air_Blueprint/cycle_15_policy_and_cleanup.md`（AirのCycle 15 Blueprint）
+- `docs/handoff/P4_Dex_Review/cycle_14_overall_audit_and_repo_cleanup.md`（DexのCycle 14 P4 OKレビュー・最優先）
 - `docs/handoff/P3_CC_to_Dex/cycle_14_overall_audit_and_repo_cleanup.md`（CCの監査・健全化完了報告・最優先）
 - `docs/proposals/CC_cycle_14_audit_findings.md`（新規発見事項：個人雑費と様式2-2系合計の不一致・対応方針の選択肢）
 - `docs/handoff/P2_Dex_to_CC/cycle_14_overall_audit_instructions.md`（DexのCycle 14 P2最終指示書）
@@ -73,14 +77,24 @@ Cycle 14 全体バグ監査およびリポジトリ健全化
 - 自動ロールバック
 - Kazumaxの明示承認なしの外部モデル/API呼び出し・課金発生操作
 - 金額計算・Excel出力が含まれるため、**Dex(P2)の事前監査なしでCC(P3)へ直行することの禁止**
-- Cycle 14は `docs/handoff/P2_Dex_to_CC/cycle_14_overall_audit_instructions.md` の範囲だけ実行する
-- Cycle 14は監査とリポジトリ健全化が主目的。バグを見つけても無断で金額/Excel/DB/保存処理を修正しない
+- 次Cycleで個人雑費の扱いを修正する場合は、Air(P1)方針確認 → Dex(P2)事前監査 → CC(P3)実装 → Dex(P4)レビューの完全プロセスを通す
 - 個人雑費 `miscellaneousCost` と旅行雑費 `travelMiscCost` を混同しない
 - 2-2集計に個人雑費 `miscellaneousCost` を追加しない
 - DBスキーマ、mapper SQL、Excelテンプレート本体は変更しない
 - 複数Expense対応をpreviewだけに閉じず、Excel出力側の読み込み方針とも金額を一致させる
 
-## Kazumaxが次にコピーする合図文（Dexへの Cycle 14 事後レビュー依頼）
+## Kazumax向け短縮チェック
+
+Cycle 15はCC(P3)実装完了、Dex(P4)レビュー待ちです。
+Dex(P4)レビューでOKになったら、実機で軽く見るチェックリストをここに更新します。
+
+実装方針は案Aで確定済み・実装済み:
+- `/activity` の合計は様式2-2系と一致する「決算書計上額」に寄せた（個人雑費500円を含むテストデータで一致を確認済み）
+- 個人雑費は一覧合計から除外した
+- 個人雑費の保存と様式2-6での確認は維持されている（一時テストデータで確認済み）
+- ルート直下 `AI_TEAM_WORKFLOW.md` 削除・`app_run_latest.pid` のgitignore化・`docs/manual_legacy/` 物理削除、いずれも完了
+
+## Kazumaxが次にコピーする合図文（Dexへの Cycle 15 事後レビュー依頼）
 ```text
 まず AGENTS.md、docs/handoff/WORKFLOW_RULES.md、docs/handoff/CURRENT_STATUS.md を読んで、現在地・次担当・完了時ルールを確認してから作業して。
 このプロジェクトに docs/PROJECT_RULES.md がある場合は、それも読んで危険領域と検証条件を確認して。
@@ -88,11 +102,6 @@ Cycle 14 全体バグ監査およびリポジトリ健全化
 プラスアルファ提案がある場合は docs/proposals/ にも同じ内容を保存して。
 
 Dexへ：
-CCがCycle 14（全体バグ監査およびリポジトリ健全化）を完了しました。
-docs/handoff/P3_CC_to_Dex/cycle_14_overall_audit_and_repo_cleanup.md を読んで、事後レビュー（P4）をお願いします。
-
-発見事項が1件あります。/activity一覧の支出合計と様式2-2系の総合計が、個人雑費がある場合に構造的に一致しません。
-docs/proposals/CC_cycle_14_audit_findings.md に詳細と対応方針の選択肢をまとめました。バグ修正はせず報告のみです。
-
-保留対象が3件あります（ルート直下のAI_TEAM_WORKFLOW.md、app_run_latest.pid、docs/manual_legacy/配下7ファイル）。P3報告書の分類表を確認してください。
+CCがCycle 15（個人雑費の扱い方針決定とリポジトリ残骸整理）を完了しました。
+docs/handoff/P3_CC_to_Dex/cycle_15_policy_and_cleanup.md を読んで、事後レビュー(P4)をお願いします。
 ```
