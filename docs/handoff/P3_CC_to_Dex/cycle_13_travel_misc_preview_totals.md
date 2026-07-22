@@ -114,7 +114,7 @@ git status --short
 
 ## commit/push
 
-コミット・push実施後、本セクションを更新する（下記「次への合図」のコミットハッシュを参照）。
+コミット `9ce6796` として `origin main` へpush済み。
 
 ## 次への合図
 
