@@ -7,20 +7,23 @@
 ---
 
 # Current cycle
-Cycle 15 個人雑費の扱い方針決定とリポジトリ残骸整理
+フェーズ2 本番環境（サーバー）構築
 
 ## 現在地
-- **15**: Air(P1) が方針決定（案A）を反映した修正計画(Blueprint)を起票完了。Kazumaxの承認済み。
-- **15**: Dex(P2) がデクスクルーAを使って事前監査し、CC(P3)向け最終指示書を作成済み。`docs/handoff/P2_Dex_to_CC/cycle_15_policy_and_cleanup_instructions.md`
-- **15**: CC(P3)が実装・検証完了。`v2.4.7`。`/activity`の「決算書計上額」から個人雑費を除外しラベル変更、個人雑費のDB保存・2-6表示は維持。一時テストデータでlegacy 2-2/2-6・年度末2-3との一致を確認し復元済み。残骸3種（ルートAI_TEAM_WORKFLOW.md削除、app_run_latest.pidをgitignore化、docs/manual_legacy/物理削除）も整理済み。Dex(P4)レビュー待ち
-- **15**: Dex(P4)がデクスクルーAを使って事後レビューし、Take2差し戻し。`/activity`一覧合計の修正自体はOKだが、編集保存時に既存の個人雑費 `miscellaneousCost` がフォームからPOSTされず消える可能性が高く、P2必須条件「個人雑費のDB保存維持」が未達。差し戻し詳細は `docs/handoff/P4_Rollback/cycle_15_policy_and_cleanup.md`
-- **15**: CC(P3)がTake2修正完了。`v2.4.8`。`activity/form.html`の既存行・新規行テンプレート双方に`miscellaneousCost`・`receiptDate`のhidden inputを追加し、編集保存を経ても値が消えないことを一時テストデータ（個人雑費500円・受領日）で実測確認。legacy 2-2/2-6・`/activity`決算書計上額の一致も再確認し、テストデータは復元済み。Dex(P4)の再レビュー待ち
+- **Phase2**: Air(P1)が、Linux VPSへのデプロイに向けたBlueprintを作成し、KazumaxのVPS契約状況を確認中。
+- **Cycle 16**: 完了（UI大改造は行わず、運用制限ルールで対応することに決定）。システム開発フェーズは完結。
+- **最終出荷レビュー**: Air視点（`docs/handoff/P1_Air_Blueprint/final_release_review_air.md`）で異常なし・デプロイ準備完了と判定済み。続けてCC(P3)視点で実装・実機・compile・Excel出力・git状態を検品。`git status`・`app.version`・compile・`/activity`・legacy 2-2/2-6・年度末preview・Excel出力ともに異常なし。年度末Excelの様式2-2内クロスシート式に既知ダミー値`830550`のキャッシュ残りを1件発見したが、参照元セルは正しい値(37,519)に更新済みで`fullCalcOnLoad="true"`により実害なしと確認済み（詳細は`docs/handoff/P3_CC_to_Dex/final_release_review_cc.md`）。Dex(P4)の最終統合レビュー待ち
 
 ## 次の担当
-**Dex(P4)**: `docs/handoff/P3_CC_to_Dex/cycle_15_policy_and_cleanup_take2.md`（CCのTake2修正完了報告・最優先）を読み、事後レビューをお願いします。
+**Dex(P4)**: `docs/handoff/P1_Air_Blueprint/final_release_review_air.md`（Air視点レビュー）と `docs/handoff/P3_CC_to_Dex/final_release_review_cc.md`（CC視点レビュー・最優先）を読み、最終統合レビュー（デプロイ判定）をお願いします。OKであれば、Kazumaxへ`docs/handoff/P1_Air_Blueprint/phase2_server_deployment.md`のVPS契約状況確認を案内する流れになります。
 
 ## 読むべきファイル
 - `docs/handoff/CURRENT_STATUS.md`（このファイル）
+- `docs/handoff/P1_Air_Blueprint/final_release_review_air.md`（Air視点の最終出荷レビュー・最優先）
+- `docs/handoff/P3_CC_to_Dex/final_release_review_cc.md`（CC視点の最終出荷レビュー・最優先）
+- `docs/handoff/P1_Air_Blueprint/cycle_16_next_phase_planning.md`（Cycle 16 Blueprint。運用制限ルールで対応する方針が確定した経緯）
+- `docs/handoff/P1_Air_Blueprint/phase2_server_deployment.md`（フェーズ2 VPS本番環境構築のBlueprint）
+- `docs/handoff/P4_Dex_Review/cycle_15_policy_and_cleanup_take2.md`（DexのCycle 15 Take2 P4 OKレビュー）
 - `docs/handoff/P3_CC_to_Dex/cycle_15_policy_and_cleanup_take2.md`（CCのTake2修正完了報告・最優先）
 - `docs/handoff/P4_Rollback/cycle_15_policy_and_cleanup.md`（DexのCycle 15 P4 NGレビュー・CC Take2指示）
 - `docs/handoff/P3_CC_to_Dex/cycle_15_policy_and_cleanup.md`（CCのTake1実装・検証完了報告）
@@ -89,16 +92,17 @@ Cycle 15 個人雑費の扱い方針決定とリポジトリ残骸整理
 
 ## Kazumax向け短縮チェック
 
-Cycle 15はCC(P3) Take2実装完了、Dex(P4)再レビュー待ちです。
-`activity/form.html`に`miscellaneousCost`・`receiptDate`のhidden inputを追加し、編集保存しても個人雑費500円・受領日06/30が消えないことを一時テストデータで実測確認しました。
+Cycle 15はDex(P4) Take2レビューでOK、AIレビュー上完了です。最終出荷レビューはAir・CCともに「異常なし」判定で、Dex(P4)の最終統合レビュー待ちです。
 
-実装方針は案Aで確定済み・実装済み:
-- `/activity` の合計は様式2-2系と一致する「決算書計上額」に寄せた（個人雑費ありテストデータで一致を確認済み）
-- 個人雑費は一覧合計から除外した
-- 個人雑費・受領日の様式2-6表示、および編集保存時のDB保持を維持（Take2で保持修正・再検証済み）
-- ルート直下 `AI_TEAM_WORKFLOW.md` 削除・`app_run_latest.pid` のgitignore化・`docs/manual_legacy/` 物理削除、いずれも完了
+Kazumaxが実機で軽く見るなら:
+1. `/activity?year=2026` を開き、表示ラベルが「決算書計上額」になっている
+2. 2026年度が事業件数8件・延べ参加人数30名・決算書計上額481,179円で表示される
+3. どれか1件を編集画面で開き、参加者追加ボタンを押しても画面が崩れず、保存できる
+4. legacy「提出データ出力・集計」から2-2 previewと2-6 previewが開ける
+5. 2-6 previewで個人別明細が表示される
+6. 年度末決算ファイル出力（`/export/year/setup`）からpreview・Excelダウンロードが開ける
 
-## Kazumaxが次にコピーする合図文（Dexへの Cycle 15 Take2事後レビュー依頼）
+## Kazumaxが次にコピーする合図文（Dexへの最終統合レビュー依頼）
 ```text
 まず AGENTS.md、docs/handoff/WORKFLOW_RULES.md、docs/handoff/CURRENT_STATUS.md を読んで、現在地・次担当・完了時ルールを確認してから作業して。
 このプロジェクトに docs/PROJECT_RULES.md がある場合は、それも読んで危険領域と検証条件を確認して。
@@ -106,6 +110,6 @@ Cycle 15はCC(P3) Take2実装完了、Dex(P4)再レビュー待ちです。
 プラスアルファ提案がある場合は docs/proposals/ にも同じ内容を保存して。
 
 Dexへ：
-CCがCycle 15 Take2（編集保存時の個人雑費・受領日保持修正）を完了しました。v2.4.8です。
-docs/handoff/P3_CC_to_Dex/cycle_15_policy_and_cleanup_take2.md を読んで、事後レビュー(P4)をお願いします。
+Air視点(異常なし)・CC視点(異常なし、ただし年度末Excelのクロスシート式キャッシュに関する1件の発見事項あり)の最終レビューが揃いました。
+docs/handoff/P1_Air_Blueprint/final_release_review_air.md と docs/handoff/P3_CC_to_Dex/final_release_review_cc.md を読んで、最終統合レビュー(デプロイ判定)をお願いします。
 ```
