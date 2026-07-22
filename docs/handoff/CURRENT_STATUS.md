@@ -7,20 +7,23 @@
 ---
 
 # Current cycle
-Cycle 13 旅行雑費の画面表示合算漏れ・legacy preview修正
+Cycle 14 全体バグ監査およびリポジトリ健全化
 
 ## 現在地
-- **13**: Air(P1) がエアクルーA・Bを活用し、修正計画(Blueprint)を起票完了
-- **13**: Dex(P2) がデクスクルーA・Bを活用して事前監査を完了し、CC(P3)向け最終指示書を作成済み
-- **13**: CC(P3)が実装完了。`v2.4.5`。旅行雑費の画面表示合算漏れ（`ActivityController`/`ExportController`）とlegacy previewの複数Expense集計方式（`Expense.aggregate(...)`をpreview/Excel双方で共有）を修正。
-- **13**: Dex(P4)レビューで **NG / Take2差し戻し**。金額本体は概ねOKだが、legacy 2-6 previewの期日・受領日が `Expense.aggregate(...)` の非数値踏襲結果ではなく `pd.project.eventDate` を表示しており、Excel側・P3報告と不一致。
-- **13**: CC(P3)がTake2修正完了。`v2.4.6`。2-6 previewの期日・受領日をExpense優先（なければ事業日フォールバック）へ修正し、一時テストデータで優先順位ロジックの両分岐を確認・復元済み。Dex(P4)の再レビュー待ち
+- **14**: Air(P1) がバグ監査・リポジトリ健全化の修正計画(Blueprint)を起票完了
+- **14**: Dex(P2) がデクスクルーAを使って観点漏れを事前監査し、CC(P3)向け最終指示書を作成済み。`docs/handoff/P2_Dex_to_CC/cycle_14_overall_audit_instructions.md`
+- **14**: CC(P3)が監査・健全化を完了。`git status`未追跡77件+変更11件(計88件)を精査し、62件をコミット(`d3a992e`)・16件を個別削除・3件を保留(判断待ち)まで削減。JDBC一時ヘルパーで複数Expense実データ検証(ケースA〜E)を実施し全てOK。新規発見事項1件（`/activity`合計と様式2-2系合計が個人雑費ありの場合に構造的不一致）を`docs/proposals/CC_cycle_14_audit_findings.md`に報告。コード変更なしのため`app.version`は`v2.4.6`のまま。Dex(P4)レビュー待ち
 
 ## 次の担当
-**Dex(P4)**: `docs/handoff/P3_CC_to_Dex/cycle_13_travel_misc_preview_totals_take2.md`（CCのTake2修正完了報告・最優先）を読み、事後レビューをお願いします。
+**Dex(P4)**: `docs/handoff/P3_CC_to_Dex/cycle_14_overall_audit_and_repo_cleanup.md`（CCの監査・健全化完了報告・最優先）を読み、事後レビューをお願いします。`docs/proposals/CC_cycle_14_audit_findings.md`（個人雑費と様式2-2系合計の不一致）の対応方針判断もあわせてお願いします。
 
 ## 読むべきファイル
 - `docs/handoff/CURRENT_STATUS.md`（このファイル）
+- `docs/handoff/P3_CC_to_Dex/cycle_14_overall_audit_and_repo_cleanup.md`（CCの監査・健全化完了報告・最優先）
+- `docs/proposals/CC_cycle_14_audit_findings.md`（新規発見事項：個人雑費と様式2-2系合計の不一致・対応方針の選択肢）
+- `docs/handoff/P2_Dex_to_CC/cycle_14_overall_audit_instructions.md`（DexのCycle 14 P2最終指示書）
+- `docs/handoff/P1_Air_Blueprint/cycle_14_overall_audit_planning.md`（AirのCycle 14 Blueprint）
+- `docs/handoff/P4_Dex_Review/cycle_13_travel_misc_preview_totals_take2.md`（DexのCycle 13 Take2 P4 OKレビュー・最優先）
 - `docs/handoff/P3_CC_to_Dex/cycle_13_travel_misc_preview_totals_take2.md`（CCのTake2修正完了報告・最優先）
 - `docs/handoff/P4_Rollback/cycle_13_travel_misc_preview_totals.md`（DexのCycle 13 P4 NGレビュー・CC Take2指示）
 - `docs/handoff/P3_CC_to_Dex/cycle_13_travel_misc_preview_totals.md`（CCのCycle 13 Take1実装完了報告）
@@ -66,16 +69,18 @@ Cycle 13 旅行雑費の画面表示合算漏れ・legacy preview修正
 
 ## 現在のStop Conditions / 禁止事項
 - `git reset --hard` / `git restore .` / `git clean` の自動実行
+- `git add .` の自動実行
 - 自動ロールバック
 - Kazumaxの明示承認なしの外部モデル/API呼び出し・課金発生操作
 - 金額計算・Excel出力が含まれるため、**Dex(P2)の事前監査なしでCC(P3)へ直行することの禁止**
-- Cycle 13は `docs/handoff/P2_Dex_to_CC/cycle_13_travel_misc_preview_totals_instructions.md` の範囲だけ実装する
+- Cycle 14は `docs/handoff/P2_Dex_to_CC/cycle_14_overall_audit_instructions.md` の範囲だけ実行する
+- Cycle 14は監査とリポジトリ健全化が主目的。バグを見つけても無断で金額/Excel/DB/保存処理を修正しない
 - 個人雑費 `miscellaneousCost` と旅行雑費 `travelMiscCost` を混同しない
 - 2-2集計に個人雑費 `miscellaneousCost` を追加しない
 - DBスキーマ、mapper SQL、Excelテンプレート本体は変更しない
 - 複数Expense対応をpreviewだけに閉じず、Excel出力側の読み込み方針とも金額を一致させる
 
-## Kazumaxが次にコピーする合図文（Dexへの Cycle 13 Take2事後レビュー依頼）
+## Kazumaxが次にコピーする合図文（Dexへの Cycle 14 事後レビュー依頼）
 ```text
 まず AGENTS.md、docs/handoff/WORKFLOW_RULES.md、docs/handoff/CURRENT_STATUS.md を読んで、現在地・次担当・完了時ルールを確認してから作業して。
 このプロジェクトに docs/PROJECT_RULES.md がある場合は、それも読んで危険領域と検証条件を確認して。
@@ -83,9 +88,11 @@ Cycle 13 旅行雑費の画面表示合算漏れ・legacy preview修正
 プラスアルファ提案がある場合は docs/proposals/ にも同じ内容を保存して。
 
 Dexへ：
-CCがCycle 13 Take2(legacy 2-6 previewの期日・受領日をExpense優先表示へ修正)を完了しました。v2.4.6です。
-docs/handoff/P3_CC_to_Dex/cycle_13_travel_misc_preview_totals_take2.md を読んで、事後レビュー（P4）をお願いします。
+CCがCycle 14（全体バグ監査およびリポジトリ健全化）を完了しました。
+docs/handoff/P3_CC_to_Dex/cycle_14_overall_audit_and_repo_cleanup.md を読んで、事後レビュー（P4）をお願いします。
 
-注意点:
-- 一時的にテストデータ（活動ID5の参加者1名の期日）を書き換えて優先順位ロジックの両分岐を確認し、確認後に元へ戻しています。
+発見事項が1件あります。/activity一覧の支出合計と様式2-2系の総合計が、個人雑費がある場合に構造的に一致しません。
+docs/proposals/CC_cycle_14_audit_findings.md に詳細と対応方針の選択肢をまとめました。バグ修正はせず報告のみです。
+
+保留対象が3件あります（ルート直下のAI_TEAM_WORKFLOW.md、app_run_latest.pid、docs/manual_legacy/配下7ファイル）。P3報告書の分類表を確認してください。
 ```
