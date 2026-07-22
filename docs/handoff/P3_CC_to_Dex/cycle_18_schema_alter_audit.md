@@ -87,4 +87,23 @@ target\classes\application.properties:10:app.version=v2.5.0
 - 変更: `.cursorrules`, `.gitignore`, `AGENTS.md`, `CLAUDE.md`, `docs/handoff/WORKFLOW_RULES.md`, `manuals/WORKFLOW_RULES.md`
 - 未追跡: `docs/handoff/P1_Air_Blueprint/cycle_18_schema_alter_audit.md`（Air Blueprint。今回のCycle 18一式として同梱commit対象とする）, `docs/handoff/P2_Dex_to_CC/cycle_18_schema_alter_audit_instructions.md`（Dex指示書。同）, `docs/handoff/P4_Dex_Review/cycle_17_ux_improvements.md`（Cycle 17のP4 OKレビュー。私の変更ではないため対象外）, `docs/handoff/STATUS_ARCHIVE.md`, `docs/handoff/manual_optimization_final.md`, `docs/proposals/P1_Air_to_Dex_Manual_Optimization.md`, `docs/proposals/P2_Dex_to_Air_Manual_Optimization_Response.md`, `manuals/STARTUP_CHECKLIST.md`
 
-commit hash・push結果・最終`git status --short --untracked-files=all`はcommit実行後に追記します。
+- commit hash: `d5d96cf` (`[v2.5.0] Cycle 18: schema.sqlのMySQL互換ALTER修正（accommodation_nights等3列）`)
+- push結果: `origin/main` へpush成功（`0eb71ed..d5d96cf HEAD -> main`）
+- 最終`git status --short --untracked-files=all`（私のcommit後、上記「私が触れていない変更」のみが残存。想定どおり）:
+
+```
+ M .cursorrules
+ M .gitignore
+ M AGENTS.md
+ M CLAUDE.md
+ M docs/handoff/WORKFLOW_RULES.md
+ M manuals/WORKFLOW_RULES.md
+?? docs/handoff/P4_Dex_Review/cycle_17_ux_improvements.md
+?? docs/handoff/STATUS_ARCHIVE.md
+?? docs/handoff/manual_optimization_final.md
+?? docs/proposals/P1_Air_to_Dex_Manual_Optimization.md
+?? docs/proposals/P2_Dex_to_Air_Manual_Optimization_Response.md
+?? manuals/STARTUP_CHECKLIST.md
+```
+
+`docs/handoff/P4_Dex_Review/cycle_17_ux_improvements.md`はDexが作成したCycle 17のP4 OKレビューであり、私（CC）の担当外のためcommit対象に含めていません。それ以外はCycle 17完了報告時から引き続き存在するマニュアル同期・docs整理関連の差分です。
