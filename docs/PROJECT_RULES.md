@@ -3,6 +3,34 @@
 このファイルは `AGENTS.md`（普遍的チームルール）の補足として、**このプロジェクト固有の危険領域・検証手順・リスク定義**を記載します。
 他プロジェクトには持ち出さないこと。普遍的なルールは `AGENTS.md` と `docs/handoff/WORKFLOW_RULES.md` を参照してください。
 
+> **重要（配置理由）**: このプロジェクト固有の強いルールは、`AGENTS.md` / `CLAUDE.md` / `.cursorrules` ではなく、必ずこのファイルに書きます。理由は、それら3ファイルが `マニュアル同期.ps1` によって `AI共通マニュアルテンプレ` から複数プロジェクトへ無条件上書き（`Copy-Item -Force`）で配布される共通テンプレートだからです。直接書き込んでも、同期が再実行されると跡形もなく消えます。`docs/PROJECT_RULES.md` は同期対象外なので、ここに書いた内容は同期の影響を受けません。（Cycle 10 Take2→Take3で実際にこの事故が発生したため明記しています。）
+
+---
+
+## 0. Air / CC / Dex の追加ルール（このプロジェクト固有）
+
+### Air
+
+- 新しい依頼を受けたら、設計や実装案を出す前に「タスク重要度・事前宣言」（タスク要約／危険度判定／理由／実行計画）を出すこと。
+- Kazumaxが明示的に「承認」「進めて」と返すまで、コード編集をしないこと。
+- 危険タスクは本ファイル「1. 危険ファイル・危険エリア一覧」を参照し、Air計画 → Dex事前レビュー → CC実装 → Dex事後レビューの完全プロセスを通すこと。
+
+### CC
+
+- コード変更時は `src/main/resources/application.properties` の `app.version` を更新すること。
+- コード変更時は `.\mvnw.cmd -q -DskipTests compile` を実行し、`target/classes/application.properties` の `app.version` が同期していることを確認すること。
+- コミットメッセージの先頭に `[vX.Y.Z]` を付けること。
+- マニュアル・ドキュメントのみの変更（Javaコード・設定ファイル変更なし）ではバージョンアップ不要。
+- P3報告書は `docs/handoff/P3_CC_to_Dex/` に保存すること。
+- Kazumaxへのチャットは短くまとめ、次担当への合図文は必ず単独のコードブロックで出すこと。
+
+### Dex
+
+- P2は `docs/handoff/P2_Dex_to_CC/` に保存する。
+- P4 OKは `docs/handoff/P4_Dex_Review/` に、P4 NGは `docs/handoff/P4_Rollback/` に保存する。
+- 保存処理、DB、Excel出力、金額計算、参加者管理、日付計算を重点レビューする。
+- P4 OK時のKazumax向け最終確認チェックリストは、P1要件を漏れなく含める。
+
 ---
 
 ## 1. 危険ファイル・危険エリア一覧
@@ -43,6 +71,7 @@
 
 - `src/main/resources/templates/` 配下に検証スクリプト（`.py` 等）が混入すると、Mavenビルド時に `target/classes/templates/` へコピーされ、成果物に含まれる。
 - コミット前に `git status` で未追跡ファイルを必ず確認すること。
+- **resources配下の不要ファイル削除・混入対策を行ったサイクルでは、通常compileに加えて `.\mvnw.cmd clean compile`、または `target/` 削除後のcompileを実行すること。**
 
 ---
 
@@ -55,19 +84,6 @@
 
 ---
 
-## 6. Maven Wrapperの既知問題（Dex環境）
-
-Dex（Cursor等）の環境では以下のエラーが発生し、コンパイル実行が不可能な場合がある。
-
-```
-Cannot index into a null array.
-Cannot start maven from wrapper
-```
-
-この場合はCC（またはKazumaxが手動で）`.\mvnw.cmd -q -DskipTests compile` を実行し、結果をP3報告書に記録すること。
-
----
-
-## 7. Kazumax代表からの絶対方針
+## 6. Kazumax代表からの絶対方針
 
 > 「入力が簡単になっても、合算がうまくいってなかったらツールとしては全く意味がなく、正しくない書類を作るゴミツールになってしまう。全体の数値に関する部分は絶対に間違いがあってはならない。」
