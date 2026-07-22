@@ -12,14 +12,18 @@ Cycle 13 旅行雑費の画面表示合算漏れ・legacy preview修正
 ## 現在地
 - **13**: Air(P1) がエアクルーA・Bを活用し、修正計画(Blueprint)を起票完了
 - **13**: Dex(P2) がデクスクルーA・Bを活用して事前監査を完了し、CC(P3)向け最終指示書を作成済み
-- **13**: CC(P3)が実装完了。`v2.4.5`。旅行雑費の画面表示合算漏れ（`ActivityController`/`ExportController`）とlegacy previewの複数Expense集計方式（`Expense.aggregate(...)`をpreview/Excel双方で共有）を修正。Dex(P4)の事後レビュー待ち
+- **13**: CC(P3)が実装完了。`v2.4.5`。旅行雑費の画面表示合算漏れ（`ActivityController`/`ExportController`）とlegacy previewの複数Expense集計方式（`Expense.aggregate(...)`をpreview/Excel双方で共有）を修正。
+- **13**: Dex(P4)レビューで **NG / Take2差し戻し**。金額本体は概ねOKだが、legacy 2-6 previewの期日・受領日が `Expense.aggregate(...)` の非数値踏襲結果ではなく `pd.project.eventDate` を表示しており、Excel側・P3報告と不一致。
+- **13**: CC(P3)がTake2修正完了。`v2.4.6`。2-6 previewの期日・受領日をExpense優先（なければ事業日フォールバック）へ修正し、一時テストデータで優先順位ロジックの両分岐を確認・復元済み。Dex(P4)の再レビュー待ち
 
 ## 次の担当
-**Dex(P4)**: `docs/handoff/P3_CC_to_Dex/cycle_13_travel_misc_preview_totals.md`（CCの実装完了報告・最優先）を読み、事後レビューをお願いします。複数Expenseの実データ検証はmysqlクライアント等が環境になく静的確認で代替した旨を記載しているので、そこも含めて確認してください。
+**Dex(P4)**: `docs/handoff/P3_CC_to_Dex/cycle_13_travel_misc_preview_totals_take2.md`（CCのTake2修正完了報告・最優先）を読み、事後レビューをお願いします。
 
 ## 読むべきファイル
 - `docs/handoff/CURRENT_STATUS.md`（このファイル）
-- `docs/handoff/P3_CC_to_Dex/cycle_13_travel_misc_preview_totals.md`（CCのCycle 13実装完了報告・最優先）
+- `docs/handoff/P3_CC_to_Dex/cycle_13_travel_misc_preview_totals_take2.md`（CCのTake2修正完了報告・最優先）
+- `docs/handoff/P4_Rollback/cycle_13_travel_misc_preview_totals.md`（DexのCycle 13 P4 NGレビュー・CC Take2指示）
+- `docs/handoff/P3_CC_to_Dex/cycle_13_travel_misc_preview_totals.md`（CCのCycle 13 Take1実装完了報告）
 - `docs/handoff/P2_Dex_to_CC/cycle_13_travel_misc_preview_totals_instructions.md`（DexのCycle 13 P2最終指示書）
 - `docs/handoff/P1_Air_Blueprint/cycle_13_travel_misc_preview_totals.md`（AirのCycle 13 Blueprint）
 - `docs/proposals/Dex_cycle_13_travel_misc_preview_totals_fix.md`（Dexによる旅行雑費バグの独立確認・Cycle 13起票案）
@@ -71,7 +75,7 @@ Cycle 13 旅行雑費の画面表示合算漏れ・legacy preview修正
 - DBスキーマ、mapper SQL、Excelテンプレート本体は変更しない
 - 複数Expense対応をpreviewだけに閉じず、Excel出力側の読み込み方針とも金額を一致させる
 
-## Kazumaxが次にコピーする合図文（Dexへの Cycle 13 事後レビュー依頼）
+## Kazumaxが次にコピーする合図文（Dexへの Cycle 13 Take2事後レビュー依頼）
 ```text
 まず AGENTS.md、docs/handoff/WORKFLOW_RULES.md、docs/handoff/CURRENT_STATUS.md を読んで、現在地・次担当・完了時ルールを確認してから作業して。
 このプロジェクトに docs/PROJECT_RULES.md がある場合は、それも読んで危険領域と検証条件を確認して。
@@ -79,10 +83,9 @@ Cycle 13 旅行雑費の画面表示合算漏れ・legacy preview修正
 プラスアルファ提案がある場合は docs/proposals/ にも同じ内容を保存して。
 
 Dexへ：
-CCがCycle 13(旅行雑費の画面表示合算漏れ・legacy previewの複数Expense集計方式統一)を完了しました。v2.4.5です。
-docs/handoff/P3_CC_to_Dex/cycle_13_travel_misc_preview_totals.md を読んで、事後レビュー（P4）をお願いします。
+CCがCycle 13 Take2(legacy 2-6 previewの期日・受領日をExpense優先表示へ修正)を完了しました。v2.4.6です。
+docs/handoff/P3_CC_to_Dex/cycle_13_travel_misc_preview_totals_take2.md を読んで、事後レビュー（P4）をお願いします。
 
 注意点:
-- 複数Expenseの実データ検証は、環境にmysqlクライアント等がなく、静的コード確認と通常データでの画面/Excel一致確認で代替しています。
-- 指示書通り、個人雑費とは別属性（totalTravelMisc / pd.travelMiscTotal）で旅行雑費を表示しています。
+- 一時的にテストデータ（活動ID5の参加者1名の期日）を書き換えて優先順位ロジックの両分岐を確認し、確認後に元へ戻しています。
 ```

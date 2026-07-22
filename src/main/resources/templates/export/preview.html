@@ -200,7 +200,7 @@
                                 <tr th:each="part, stat : ${pd.participants}">
                                     <td th:text="${stat.count}"></td>
                                     <td th:text="${part.memberName}"></td>
-                                    <td th:text="${#temporals.format(pd.project.eventDate, 'M/d')}"></td>
+                                    <td th:text="${part.expense?.expenseDate != null ? #temporals.format(part.expense.expenseDate, 'M/d') : #temporals.format(pd.project.eventDate, 'M/d')}"></td>
                                     <td th:text="${part.expense?.transportMethod}"></td>
                                     <td>
                                         <div th:text="${part.expense?.transportRoute}"></div>
@@ -209,7 +209,7 @@
                                     <td class="text-end" th:text="${part.expense?.transportCost != null ? #numbers.formatInteger(part.expense.transportCost, 1, 'COMMA') : '0'}"></td>
                                     <td class="text-end" th:text="${part.expense?.accommodationCost != null ? #numbers.formatInteger(part.expense.accommodationCost, 1, 'COMMA') : '0'}"></td>
                                     <td class="text-end" th:text="${part.expense?.miscellaneousCost != null ? #numbers.formatInteger(part.expense.miscellaneousCost, 1, 'COMMA') : '0'}"></td>
-                                    <td th:text="${#temporals.format(pd.project.eventDate, 'M/d')}"></td>
+                                    <td th:text="${part.expense?.receiptDate != null ? #temporals.format(part.expense.receiptDate, 'M/d') : #temporals.format(pd.project.eventDate, 'M/d')}"></td>
                                 </tr>
                             </tbody>
                         </table>
