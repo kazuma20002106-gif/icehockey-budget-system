@@ -128,10 +128,41 @@ ON DUPLICATE KEY UPDATE setting_value = setting_value;
 UPDATE expenses SET transport_method = '電車'  WHERE transport_method = '電車・車';
 UPDATE expenses SET transport_method = '航空機' WHERE transport_method = '航空機・バス';
 
--- Cycle 8: 新規カラム追加（IF NOT EXISTS で安全に追加）
-ALTER TABLE projects ADD COLUMN IF NOT EXISTS accommodation_nights INT DEFAULT 0;
-ALTER TABLE project_summary_expenses ADD COLUMN IF NOT EXISTS travel_misc_cost INT DEFAULT 0;
-ALTER TABLE project_summary_expenses ADD COLUMN IF NOT EXISTS travel_misc_days INT DEFAULT 0;
+-- Cycle 8: 新規カラム追加
+-- Cycle 18で修正: 「ADD COLUMN IF NOT EXISTS」はMariaDB固有構文でありMySQL(Oracle版)では非対応のため、
+--       INFORMATION_SCHEMAでの存在確認＋動的SQLで、MySQLでも安全に冪等追加する（is_printedと同じパターン）。
+SET @accommodation_nights_exists = (
+    SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'projects' AND COLUMN_NAME = 'accommodation_nights'
+);
+SET @add_accommodation_nights_sql = IF(@accommodation_nights_exists = 0,
+    'ALTER TABLE projects ADD COLUMN accommodation_nights INT DEFAULT 0',
+    'SELECT 1');
+PREPARE add_accommodation_nights_stmt FROM @add_accommodation_nights_sql;
+EXECUTE add_accommodation_nights_stmt;
+DEALLOCATE PREPARE add_accommodation_nights_stmt;
+
+SET @travel_misc_cost_exists = (
+    SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'project_summary_expenses' AND COLUMN_NAME = 'travel_misc_cost'
+);
+SET @add_travel_misc_cost_sql = IF(@travel_misc_cost_exists = 0,
+    'ALTER TABLE project_summary_expenses ADD COLUMN travel_misc_cost INT DEFAULT 0',
+    'SELECT 1');
+PREPARE add_travel_misc_cost_stmt FROM @add_travel_misc_cost_sql;
+EXECUTE add_travel_misc_cost_stmt;
+DEALLOCATE PREPARE add_travel_misc_cost_stmt;
+
+SET @travel_misc_days_exists = (
+    SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'project_summary_expenses' AND COLUMN_NAME = 'travel_misc_days'
+);
+SET @add_travel_misc_days_sql = IF(@travel_misc_days_exists = 0,
+    'ALTER TABLE project_summary_expenses ADD COLUMN travel_misc_days INT DEFAULT 0',
+    'SELECT 1');
+PREPARE add_travel_misc_days_stmt FROM @add_travel_misc_days_sql;
+EXECUTE add_travel_misc_days_stmt;
+DEALLOCATE PREPARE add_travel_misc_days_stmt;
 
 -- Cycle 12B: 予算管理（内示額）マスタ。決算額は保存せず、既存事業データから都度集計する。
 CREATE TABLE IF NOT EXISTS budget_allocations (
