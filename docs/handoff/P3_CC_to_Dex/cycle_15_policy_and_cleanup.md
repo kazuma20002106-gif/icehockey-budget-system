@@ -159,7 +159,7 @@ D  app_run_latest.pid
 
 ## commit / push
 
-コミット・push実施後、本セクションを更新する。
+コミット `84c7d99` として `origin main` へpush済み。push後の `git status --short --untracked-files=all` は出力なし（working tree clean）。
 
 ## 次への合図
 
