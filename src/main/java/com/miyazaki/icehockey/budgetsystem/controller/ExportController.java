@@ -1,5 +1,6 @@
 package com.miyazaki.icehockey.budgetsystem.controller;
 
+import com.miyazaki.icehockey.budgetsystem.mapper.BudgetTypeMapper;
 import com.miyazaki.icehockey.budgetsystem.mapper.ExpenseMapper;
 import com.miyazaki.icehockey.budgetsystem.mapper.ProjectMapper;
 import com.miyazaki.icehockey.budgetsystem.mapper.ProjectParticipantMapper;
@@ -36,11 +37,70 @@ public class ExportController {
     @Autowired private ProjectParticipantMapper participantMapper;
     @Autowired private ExpenseMapper expenseMapper;
     @Autowired private UserSettingService userSettingService;
+    @Autowired private BudgetTypeMapper budgetTypeMapper;
 
     @GetMapping
-    public String index(Model model) {
-        model.addAttribute("projects", projectMapper.findAll());
+    public String index(@RequestParam(value = "year", required = false) Integer year,
+                        @RequestParam(value = "budgetTypeId", required = false) Integer budgetTypeId,
+                        @RequestParam(value = "month", required = false) Integer month,
+                        @RequestParam(value = "targetCategory", required = false) String targetCategory,
+                        @RequestParam(value = "projectName", required = false) String projectName,
+                        @RequestParam(value = "printedStatus", required = false) String printedStatus,
+                        @RequestParam(value = "error", required = false) String error,
+                        Model model) {
+        if (year == null) year = currentFiscalYear();
+        // printedStatus未指定（初回アクセス）は未印刷のみを既定表示にする。ユーザーが明示的に選んだ値はそのまま維持する
+        boolean printedStatusDefaulted = (printedStatus == null || printedStatus.isBlank());
+        String effectivePrintedStatus = printedStatusDefaulted ? "unprinted" : printedStatus;
+
+        List<Project> projects = projectMapper.findFiltered(year, budgetTypeId, month, targetCategory, projectName, effectivePrintedStatus);
+
+        model.addAttribute("projects", projects);
+        model.addAttribute("budgetTypes", budgetTypeMapper.findAll());
+        model.addAttribute("years", availableFiscalYears());
+        model.addAttribute("selectedYear", year);
+        model.addAttribute("selectedBudgetTypeId", budgetTypeId);
+        model.addAttribute("selectedMonth", month);
+        model.addAttribute("selectedTargetCategory", targetCategory);
+        model.addAttribute("selectedProjectName", projectName);
+        model.addAttribute("selectedPrintedStatus", effectivePrintedStatus);
+        model.addAttribute("error", error);
         return "export/index";
+    }
+
+    // ===== 出力画面での印刷状態一括更新（Cycle 19）。ダウンロード処理からは呼び出さない =====
+    @PostMapping("/bulk/status")
+    public String bulkStatus(@RequestParam(value = "projectIds", required = false) List<Integer> projectIds,
+                             @RequestParam("isPrinted") boolean isPrinted,
+                             @RequestParam(value = "year", required = false) Integer year,
+                             @RequestParam(value = "budgetTypeId", required = false) Integer budgetTypeId,
+                             @RequestParam(value = "month", required = false) Integer month,
+                             @RequestParam(value = "targetCategory", required = false) String targetCategory,
+                             @RequestParam(value = "projectName", required = false) String projectName,
+                             @RequestParam(value = "printedStatus", required = false) String printedStatus) {
+        if (projectIds == null || projectIds.isEmpty()) {
+            return "redirect:" + exportRedirectUrl(year, budgetTypeId, month, targetCategory, projectName, printedStatus, "no_selection");
+        }
+        for (Integer id : projectIds) {
+            if (id != null) projectMapper.updatePrinted(id, isPrinted);
+        }
+        return "redirect:" + exportRedirectUrl(year, budgetTypeId, month, targetCategory, projectName, printedStatus, null);
+    }
+
+    /** 印刷状態更新後、現在の絞り込み条件をできる限り維持したまま /export へ戻るためのURLを組み立てる */
+    private String exportRedirectUrl(Integer year, Integer budgetTypeId, Integer month, String targetCategory,
+            String projectName, String printedStatus, String error) {
+        return org.springframework.web.util.UriComponentsBuilder.fromPath("/export")
+                .queryParamIfPresent("year", java.util.Optional.ofNullable(year))
+                .queryParamIfPresent("budgetTypeId", java.util.Optional.ofNullable(budgetTypeId))
+                .queryParamIfPresent("month", java.util.Optional.ofNullable(month))
+                .queryParamIfPresent("targetCategory", java.util.Optional.ofNullable(targetCategory))
+                .queryParamIfPresent("projectName", java.util.Optional.ofNullable(projectName))
+                .queryParamIfPresent("printedStatus", java.util.Optional.ofNullable(printedStatus))
+                .queryParamIfPresent("error", java.util.Optional.ofNullable(error))
+                .encode(java.nio.charset.StandardCharsets.UTF_8)
+                .build()
+                .toUriString();
     }
 
     @PostMapping("/preview")

@@ -45,9 +45,9 @@ public class ActivityController {
                        Model model) {
         // 年度未指定なら現在の会計年度
         if (year == null) year = currentFiscalYear();
-        // printedStatus未指定（初回アクセス）は未印刷のみを既定表示にする。ユーザーが明示的に選んだ値はそのまま維持する
+        // printedStatus未指定（初回アクセス）は「すべて」を既定表示にする（Cycle 19）。ユーザーが明示的に選んだ値はそのまま維持する
         boolean printedStatusDefaulted = (printedStatus == null || printedStatus.isBlank());
-        String effectivePrintedStatus = printedStatusDefaulted ? "unprinted" : printedStatus;
+        String effectivePrintedStatus = printedStatusDefaulted ? "all" : printedStatus;
 
         List<Project> projects = projectMapper.findFiltered(year, budgetTypeId, month, targetCategory, projectName, effectivePrintedStatus);
 

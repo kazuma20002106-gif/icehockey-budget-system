@@ -6,17 +6,20 @@
 
 ## Current Cycle
 
-- Cycle 18: schema.sql の MySQL互換性（ALTER構文）修正
+- Cycle 19: 入力・出力ページの役割分離と印刷状態導線整理
 
 ## 現在地
 
-- Air(P1): Blueprint作成完了
-- Dex(P2): 事前監査完了。CC(P3)向け最終指示書を作成済み
-- CC(P3): 実装・実機検証（既存DB冪等確認・使い捨てDBでの列欠損検証）・compile確認完了。`docs/handoff/P3_CC_to_Dex/cycle_18_schema_alter_audit.md` に報告書を保存済み
+- Cycle 18: P4 OK。Kazumax確認を経て完了扱い
+- Cycle 19: Air(P1) によるBlueprint（要件と12の必須受入確認・不可触領域設計）の構築が完了。
+- Air(P1): 完了（`docs/handoff/P1_Air_Blueprint/cycle_19_input_output_role_separation.md` に保管済み）
+- Dex(P2): 事前監査完了。Air案の旧年度まとめ説明、旅行雑費固定表現、暗黙印刷フィルタ、hidden/query保持を補正し、CC向け最終指示書を作成済み
+- CC(P3): 実装・検証・CCクルー3観点セルフレビュー完了。app.version=v2.5.1。`docs/handoff/P3_CC_to_Dex/cycle_19_input_output_role_separation.md` に報告書を保存済み
+- Dex(P4): 未着手
 
 ## 次の担当
 
-- **Dex(P4)**: `docs/handoff/P3_CC_to_Dex/cycle_18_schema_alter_audit.md` を読んでDIFFレビューする
+- **Dex(P4)**: `docs/handoff/P3_CC_to_Dex/cycle_19_input_output_role_separation.md` を読んでDIFFレビューする。金額・Excel対象件数、hidden/query、POST更新範囲、既存URL、個人雑費/旅行雑費不干渉を重点確認
 
 ## 今回読むべきファイル
 
@@ -24,16 +27,20 @@
 2. `manuals/STARTUP_CHECKLIST.md`
 3. `docs/PROJECT_RULES.md`
 4. `docs/handoff/WORKFLOW_RULES.md`
-5. `docs/handoff/P2_Dex_to_CC/cycle_18_schema_alter_audit_instructions.md`
-6. `docs/handoff/P1_Air_Blueprint/cycle_18_schema_alter_audit.md`
+5. `manuals/AI_TEAM_WORKFLOW.md`
+6. `manuals/WORKFLOW_RULES.md`
+7. `docs/handoff/P1_Air_Blueprint/cycle_19_input_output_role_separation.md`
+8. `docs/handoff/cycle_19_kazumax_to_air_requirements.md`
+9. `docs/handoff/P2_Dex_to_CC/cycle_19_input_output_role_separation_instructions.md`
 
-## Cycle 18 重要ルール
+## Cycle 19 重要ルール
 
-- `ADD COLUMN IF NOT EXISTS` はMySQL 8で非対応のため削除し、`INFORMATION_SCHEMA`を使った安全な動的SQL（PREPARE構文）に書き換えること。
-- 対象は `accommodation_nights`, `travel_misc_cost`, `travel_misc_days` の3列。
-- 既存のKazumaxローカルDBのデータを破壊しないよう、列が存在しない場合のみ追加すること。
-- Kazumaxの本物DBで `DROP TABLE` / `DROP COLUMN` を実行しないこと。
-- `app.version` は v2.5.0 へ更新する。
+- 活動一覧は入力・編集中心、出力画面は対象選択・プレビュー・Excel出力・印刷状態管理中心にする。
+- Excelダウンロードだけで自動的に印刷済みにしない。実印刷後に利用者が明示操作する。
+- 年度末一括出力は様式2-1〜2-6を従来どおり含み、対象条件と合計を変えない。
+- 個人雑費の画面注記は削除候補だが、DB値・既存値保持・様式2-6・原本Excel欄は削除しない。
+- 旧出力URL・legacy `/export` は即時削除しない。
+- Air(P1) -> Dex(P2) -> CC(P3) -> Dex(P4) の完全プロセスを通す。
 
 ## Stop Conditions
 
