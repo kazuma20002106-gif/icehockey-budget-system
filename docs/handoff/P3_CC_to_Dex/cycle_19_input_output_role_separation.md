@@ -98,7 +98,7 @@ app.version: src/main/resources/application.properties = v2.5.1
 
 ## 10. commit / push
 
-このP3報告書保存後、Cycle 19対象ファイルのみをstageしてcommit・push予定（コミットメッセージ先頭 `[v2.5.1]`）。
+commit hash: `466ad9d`（`[v2.5.1] Cycle 19: 入力・出力ページの役割分離と印刷状態導線整理`）。origin/mainへpush済み（616f13e→466ad9d）。
 
 ## 11. 最終 git status
 
