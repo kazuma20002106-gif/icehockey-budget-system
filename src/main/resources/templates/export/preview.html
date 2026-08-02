@@ -6,7 +6,8 @@
         <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-4 border-bottom">
             <h1 class="h2">出力プレビュー (<span th:text="${exportType}"></span>)</h1>
             <div class="btn-toolbar mb-2 mb-md-0">
-                <a href="/export" class="btn btn-sm btn-outline-secondary me-2">一覧に戻る</a>
+                <a th:href="@{/export(year=${backYear}, budgetTypeId=${backBudgetTypeId}, month=${backMonth}, targetCategory=${backTargetCategory}, projectName=${backProjectName}, printedStatus=${backPrintedStatus})}"
+                   class="btn btn-sm btn-outline-secondary me-2">一覧に戻る</a>
             </div>
         </div>
 

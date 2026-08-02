@@ -15,11 +15,12 @@
 - Air(P1): 完了（`docs/handoff/P1_Air_Blueprint/cycle_19_input_output_role_separation.md` に保管済み）
 - Dex(P2): 事前監査完了。Air案の旧年度まとめ説明、旅行雑費固定表現、暗黙印刷フィルタ、hidden/query保持を補正し、CC向け最終指示書を作成済み
 - CC(P3): 実装・検証・CCクルー3観点セルフレビュー完了。app.version=v2.5.1。`docs/handoff/P3_CC_to_Dex/cycle_19_input_output_role_separation.md` に報告書を保存済み
-- Dex(P4): 未着手
+- Dex(P4): commit `466ad9d` をレビューし、通常preview往復で6検索条件が失われるP1要件漏れを確認。Take2差し戻し
+- CC(P3) Take2: `/export/preview`往復での6条件（year/budgetTypeId/month/targetCategory/projectName/printedStatus）保持を修正。app.version=v2.5.2。CCクルー3観点セルフレビュー完了。`docs/handoff/P3_CC_to_Dex/cycle_19_input_output_role_separation_take2.md` に報告書を保存済み
 
 ## 次の担当
 
-- **Dex(P4)**: `docs/handoff/P3_CC_to_Dex/cycle_19_input_output_role_separation.md` を読んでDIFFレビューする。金額・Excel対象件数、hidden/query、POST更新範囲、既存URL、個人雑費/旅行雑費不干渉を重点確認
+- **Dex(P4) Take2レビュー**: `docs/handoff/P3_CC_to_Dex/cycle_19_input_output_role_separation_take2.md` を読んでDIFFレビューする。6条件のpreview往復、日本語URL、金額・Excel不可触領域、既存URLを重点確認
 
 ## 今回読むべきファイル
 
@@ -32,6 +33,8 @@
 7. `docs/handoff/P1_Air_Blueprint/cycle_19_input_output_role_separation.md`
 8. `docs/handoff/cycle_19_kazumax_to_air_requirements.md`
 9. `docs/handoff/P2_Dex_to_CC/cycle_19_input_output_role_separation_instructions.md`
+10. `docs/handoff/P3_CC_to_Dex/cycle_19_input_output_role_separation.md`
+11. `docs/handoff/P4_Rollback/cycle_19_input_output_role_separation.md`
 
 ## Cycle 19 重要ルール
 

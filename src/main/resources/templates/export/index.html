@@ -121,6 +121,13 @@
             </div>
             <div class="card-body p-2">
                 <form th:action="@{/export/download}" method="post" id="exportForm">
+                    <!-- 通常preview/downloadから /export へ戻った際に現在の検索条件6項目を復元するためのhidden（P4 Take2対応） -->
+                    <input type="hidden" name="year" th:value="${selectedYear}">
+                    <input type="hidden" name="budgetTypeId" th:value="${selectedBudgetTypeId}">
+                    <input type="hidden" name="month" th:value="${selectedMonth}">
+                    <input type="hidden" name="targetCategory" th:value="${selectedTargetCategory}">
+                    <input type="hidden" name="projectName" th:value="${selectedProjectName}">
+                    <input type="hidden" name="printedStatus" th:value="${selectedPrintedStatus}">
                     <div class="table-responsive sticky-table-wrap mb-3">
                         <table class="table table-hover table-striped border mb-0">
                             <thead class="table-light">

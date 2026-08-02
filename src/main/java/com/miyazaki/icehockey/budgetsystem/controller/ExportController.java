@@ -106,14 +106,27 @@ public class ExportController {
     @PostMapping("/preview")
     public String preview(@RequestParam("exportType") String exportType,
                           @RequestParam(value = "projectIds", required = false) List<Integer> projectIds,
+                          @RequestParam(value = "year", required = false) Integer year,
+                          @RequestParam(value = "budgetTypeId", required = false) Integer budgetTypeId,
+                          @RequestParam(value = "month", required = false) Integer month,
+                          @RequestParam(value = "targetCategory", required = false) String targetCategory,
+                          @RequestParam(value = "projectName", required = false) String projectName,
+                          @RequestParam(value = "printedStatus", required = false) String printedStatus,
                           Model model) {
         if (projectIds == null || projectIds.isEmpty()) {
-            return "redirect:/export?error=no_selection";
+            return "redirect:" + exportRedirectUrl(year, budgetTypeId, month, targetCategory, projectName, printedStatus, "no_selection");
         }
 
         model.addAttribute("exportType", exportType);
         model.addAttribute("projectIds", projectIds);
         model.addAttribute("activeUser", userSettingService.getActiveUser());
+        // 通常previewからの「一覧に戻る」で /export の検索条件6項目を復元するために引き継ぐ（P4 Take2対応）
+        model.addAttribute("backYear", year);
+        model.addAttribute("backBudgetTypeId", budgetTypeId);
+        model.addAttribute("backMonth", month);
+        model.addAttribute("backTargetCategory", targetCategory);
+        model.addAttribute("backProjectName", projectName);
+        model.addAttribute("backPrintedStatus", printedStatus);
 
         if ("2-2".equals(exportType)) {
             long totalRental = 0, totalSupplies = 0, totalParking = 0, totalCompensation = 0, totalService = 0;
