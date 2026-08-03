@@ -96,7 +96,7 @@ app.version: src/main/resources/application.properties = v2.6.2
 
 ## 7. commit / push
 
-後述（本報告書保存後にcommit・push、hashを追記）。
+commit hash: `8b8daa8`（`[v2.6.2] Cycle 21 Take3: P1-3事業名/文章欄保存修正 + P1-4 binlog全体照合`）。origin/mainへpush済み（72d27aa→8b8daa8）。
 
 ## 8. 最終git status
 
