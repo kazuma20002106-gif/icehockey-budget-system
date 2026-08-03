@@ -116,7 +116,7 @@ app.version: src/main/resources/application.properties = v2.6.0
 
 ## 6. commit / push
 
-後述（本報告書保存後にcommit・push、hashを追記）。
+commit hash: `a10682b`（`[v2.6.0] Cycle 21: 複数Expense保存ガード・expenses一意制約・印刷状態更新の原子性`）。origin/mainへpush済み（52c1bc4→a10682b）。
 
 ## 7. 最終git status
 
