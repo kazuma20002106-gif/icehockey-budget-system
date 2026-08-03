@@ -126,7 +126,7 @@ app.version: src/main/resources/application.properties = v2.5.4
 
 ## 7. commit / push
 
-後述（本報告書保存後にcommit・push、hashを追記）。
+commit hash: `9668648`（`[v2.5.4] Cycle 20: 年度末Excel完全性修正(2-2-1年度・2-3旧値・2-5/2-6残存値・数式評価)`）。origin/mainへpush済み（3bc4f4a→9668648）。
 
 ## 8. 最終git status
 
