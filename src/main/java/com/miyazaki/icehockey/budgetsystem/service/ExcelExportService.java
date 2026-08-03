@@ -361,11 +361,11 @@ public class ExcelExportService {
                 clearCell(sheet, r, 7 + n);
             }
         }
+        // 参加者が存在しない行は表全体（Col B〜J: index1〜9）が仕様上空欄のため、
+        // 個別列だけでなく範囲全体を値クリアし、結合の裏に残る原本ダミー値(936等)も駆逐する。
+        // 参加者ありの行は上のループで各列を明示的に書込むため、ここでは一切触れない（Cycle 20 Dex P2指示）。
         for (int r = startRow + participants.size(); r <= lastRow; r++) {
-            clearCell(sheet, r, 1);
-            clearCell(sheet, r, 3);
-            clearCell(sheet, r, 6);
-            for (int n = 0; n < 3; n++) clearCell(sheet, r, 7 + n);
+            clearCellRangeValues(sheet, r, r, 1, 9);
         }
 
         // 記入責任者氏名・電話番号 (R37C1, 0-based row=36 col=0)
@@ -421,6 +421,11 @@ public class ExcelExportService {
             int r = startRow + (i * block);
             Expense e = p.getExpense();
 
+            // 3行結合ブロックのうち、名前・期日・金額・受領日は結合の先頭行(r)だけが書込対象。
+            // r+1/r+2は結合の裏に隠れる非表示セルだが、原本テンプレートのダミー値が残る可能性があるため、
+            // 実際に書き込む列(2,9,19,23,27,31)に限定してブロック全高(r〜r+2)を値クリアする。
+            // Dex(P2)指示によりB:AHの一括blank化は不採用。書込列以外には一切触れない。
+            clearColumnsAcrossRows(sheet, r, r + 2, 2, 9, 19, 23, 27, 31);
             writeSafe(sheet, r, 2, p.getMemberName());
 
             // 期日: M/d 形式
@@ -458,13 +463,8 @@ public class ExcelExportService {
         // 余り行のクリア (交通欄も3行結合に統一して空文字で上書き)
         for (int i = validParticipants.size(); i < maxSlots; i++) {
             int r = startRow + (i * block);
-            clearCell(sheet, r, 2);
-            clearCell(sheet, r, 9);
+            clearColumnsAcrossRows(sheet, r, r + 2, 2, 9, 19, 23, 27, 31);
             writeSplitTransportText(sheet, r, "", "");
-            clearCell(sheet, r, 19);
-            clearCell(sheet, r, 23);
-            clearCell(sheet, r, 27);
-            clearCell(sheet, r, 31);
         }
 
         // 合計金額の強制上書き (R40, 0-based row=39)
@@ -850,7 +850,7 @@ public class ExcelExportService {
         Sheet sheet21 = workbook.getSheet(SHEET_21);
         if (sheet21 != null) populateForm21(sheet21, year, submissionInfo, preview.getForm21());
 
-        Map<String, CostTotals> byTypeCategory = populateAnnual221(workbook, allProjects, preview);
+        Map<String, CostTotals> byTypeCategory = populateAnnual221(workbook, allProjects, preview, year);
 
         Sheet sheet23 = workbook.getSheet(SHEET_23);
         if (sheet23 != null) populateForm23(sheet23, year, byTypeCategory, preview.getForm23());
@@ -871,7 +871,7 @@ public class ExcelExportService {
             }
         }
 
-        workbook.setForceFormulaRecalculation(true);
+        evaluateFormulasAndRecalculate(workbook);
         return new AnnualBuildResult(workbook, preview);
     }
 
@@ -1092,7 +1092,11 @@ public class ExcelExportService {
      * 戻り値は "budgetTypeId_targetCategory" をキーとした種別別集計。2-2-1の内訳欄と様式2-3の
      * 両方が同じ集計結果を参照できるよう、ここで一度だけ計算する（Cycle 12B: 集計の二重化を避ける）。
      */
-    private Map<String, CostTotals> populateAnnual221(Workbook workbook, List<Project> allProjects, AnnualPreviewData preview) {
+    private Map<String, CostTotals> populateAnnual221(Workbook workbook, List<Project> allProjects, AnnualPreviewData preview, int fiscalYear) {
+        int rYear = getReiwaYear(fiscalYear);
+        writeSafeNumeric(workbook.getSheet(SHEET_22), 1, 7, rYear); // 選手強化費: H2 (0-indexed r=1, c=7)
+        writeSafeNumeric(workbook.getSheet(SHEET_22_1_TOP), 2, 7, rYear); // トップチーム: H3 (0-indexed r=2, c=7)
+        writeSafeNumeric(workbook.getSheet(SHEET_22_1_FURUSATO), 2, 7, rYear); // ふるさと: H3 (0-indexed r=2, c=7)
         Map<Integer, CostTotals> totalsByType = new LinkedHashMap<>();
         // budgetTypeId_targetCategory 単位の集計。2-2-1内訳欄（選手強化費のみ）と様式2-3（選手強化費・ふるさと）で共用する。
         Map<String, CostTotals> byTypeCategory = new LinkedHashMap<>();
@@ -1312,6 +1316,16 @@ public class ExcelExportService {
             long amount = a.getAllocatedAmount() == null ? 0L : a.getAllocatedAmount();
             allocatedByKey.put(a.getBudgetTypeId() + "_" + a.getTargetCategory(), amount);
         }
+
+        // 様式2-3 下部自動書込セクションの事前クリア（上部1〜23行は不可侵エリアとして完全保護）
+        for (int r = FORM23_TRAINING_ROW_START - 1; r <= FORM23_TRAINING_ROW_END - 1; r++) {
+            clearCell(sheet, r, 10); // K列: 内示額
+            clearCell(sheet, r, 19); // T列: 決算額
+        }
+        clearCell(sheet, FORM23_TRAINING_ROW_START - 1, 28); // AC25: 総額結合セル先頭
+        clearCell(sheet, FORM23_FURUSATO_ROW_START - 1, 10); // K33: 内示額 (原本の605,000等を消去)
+        clearCell(sheet, FORM23_FURUSATO_ROW_START - 1, 19); // T33: 決算額 (原本の750,239等を消去)
+        clearCell(sheet, FORM23_FURUSATO_ROW_START - 1, 28); // AC33: 総額
 
         long trainingSectionTotal = writeForm23Section(sheet, 1, FORM23_TRAINING_ROW_START, FORM23_TRAINING_ROW_END,
                 byTypeCategory, allocatedByKey, previewOut);
@@ -1579,6 +1593,45 @@ public class ExcelExportService {
         cell.setBlank();
     }
 
+    /**
+     * 指定した列群（cols）だけを、startRow〜endRowの全行にわたって値クリアする。
+     * clearCellRangeValues(連続列範囲を丸ごとクリア)と異なり、実際に書込む列だけをピンポイントで
+     * 対象にするため、書込対象外の列にある固定値・式・帳票ラベルを一切壊さない（Cycle 20 Dex P2指示）。
+     */
+    private void clearColumnsAcrossRows(Sheet sheet, int startRow, int endRow, int... cols) {
+        if (sheet == null) return;
+        for (int c : cols) {
+            clearCellRangeValues(sheet, startRow, endRow, c, c);
+        }
+    }
+
+    private void clearCellRangeValues(Sheet sheet, int startRow, int endRow, int startCol, int endCol) {
+        if (sheet == null) return;
+        for (int r = startRow; r <= endRow; r++) {
+            Row row = sheet.getRow(r);
+            if (row == null) continue;
+            for (int c = startCol; c <= endCol; c++) {
+                org.apache.poi.ss.usermodel.Cell cell = row.getCell(c);
+                if (cell != null) {
+                    cell.setBlank();
+                }
+            }
+        }
+    }
+
+    /**
+     * 年度末公式Excelの数式キャッシュを、出力直前にPOIで実評価して書き固める。
+     * 非再計算ビューア（Excel再計算なし・data_only相当の読み取り）でも正しい合計を表示させるための処理。
+     * Cycle 20指示（Dex P2）により、失敗を握りつぶして成功扱いにしてはならない。評価不能な式があれば
+     * 例外をそのまま呼び出し元へ伝播させ、年度末出力そのものを失敗させて異常を可視化する。
+     */
+    private void evaluateFormulasAndRecalculate(Workbook workbook) {
+        if (workbook == null) return;
+        workbook.setForceFormulaRecalculation(true);
+        org.apache.poi.ss.usermodel.FormulaEvaluator evaluator = workbook.getCreationHelper().createFormulaEvaluator();
+        evaluator.evaluateAll();
+    }
+
     private static final int FORM26_TRANSPORT_COL_START = 13; // N列
     private static final int FORM26_TRANSPORT_COL_END   = 18; // S列
 
@@ -1610,6 +1663,7 @@ public class ExcelExportService {
     private void writeSplitTransportText(Sheet sheet, int row, String methodLabel, String route) {
         Workbook wb = sheet.getWorkbook();
         removeMergedRegionsOverlapping(sheet, row, row + 2, FORM26_TRANSPORT_COL_START, FORM26_TRANSPORT_COL_END);
+        clearCellRangeValues(sheet, row, row + 2, FORM26_TRANSPORT_COL_START, FORM26_TRANSPORT_COL_END);
 
         // 上段: row～row+1 結合 → 交通手段
         sheet.addMergedRegion(new CellRangeAddress(row, row + 1, FORM26_TRANSPORT_COL_START, FORM26_TRANSPORT_COL_END));

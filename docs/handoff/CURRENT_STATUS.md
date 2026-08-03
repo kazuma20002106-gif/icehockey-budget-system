@@ -6,7 +6,7 @@
 
 ## Current Cycle
 
-- Cycle 19: 入力・出力ページの役割分離と印刷状態導線整理
+- Cycle 20: 年度末Excel完全監査・年度/原本値/空きセル残存修正
 
 ## 現在地
 
@@ -22,10 +22,13 @@
 - Dex年度末Excel厳密監査: 2026年度公式Excel27シートを実生成。様式2-5は8事業・44名の44/44名で漏れなし、主要支出合計317,568円も一致。一方、2-2-1×3の年度が令和7年度のまま、2-3未対象行に旧金額、2-5/2-6空きセルに原本値936が残るため、Excel修正はCycle 19へ混ぜず次サイクル最優先候補としてバックログ化。
 
 - CC(P3) Take3: `export/index.html`の操作用script/styleをレイアウト取込範囲(`content=~{::div}`が抽出する単一div)内へ移し、旧・簡易年度まとめカードを画面から削除。legacy URL `/activity/export/year`・Controller・Excel処理は無変更。app.version=v2.5.3。実ブラウザで一括選択・印刷済みダイアログ・キャンセル非送信・0件警告・旧カード非表示・legacy URL・6条件preview往復・日本語エンコード・ReferenceErrorなしの10項目を確認。CCクルー3観点セルフレビュー完了。`docs/handoff/P3_CC_to_Dex/cycle_19_input_output_role_separation_take3.md` に報告書を保存済み
+- Dex(P4) Take3: **P4 OK / 実装差し戻し不要**。DIFF、レイアウト展開後HTML、実ブラウザ10項目、legacy Excel応答、選択ID限定更新、compile、app.version=v2.5.3を確認。さらに2026年度8件を開始前記録し、ID 24だけを実DBで未印刷→印刷済へ更新して他7件不変を確認後、同じIDを未印刷へ復元。復元後8件は開始前と完全一致し、実データ残存なし。詳細は`docs/handoff/P4_Dex_Review/cycle_19_input_output_role_separation_take3.md`
+- Cycle 19: **完了**。Kazumaxにしかできない必須確認は残っていない
+- CC(P3) Cycle20: Air試作品を項目ごとに採用/不採用判定して作り直し。占有行/ブロックの広範囲blank化は不採用、書込列限定の`clearColumnsAcrossRows`へ差し替え。`evaluateFormulasAndRecalculate`は年度末公式出力1箇所のみに限定し例外を握りつぶさない構造に変更。`.gemini`等の外部固定パス書出しテストは削除しメモリ内検証へ全面書き直し。実HTTPで2026年度公式Excelを実生成しopenpyxl検証: 27シート、2-5:44名、2-6:10名/交通費21,828円/宿泊費91,300円、AC25=317568円、K33/T33=605000/750239から解消、値936の残存0件、数式エラー0件。DB非更新確認済み。app.version=v2.5.4。CCクルー3観点セルフレビュー完了（軽微指摘1件を次サイクル申し送り）。`docs/handoff/P3_CC_to_Dex/cycle_20_annual_excel_integrity.md` に報告書を保存済み
 
 ## 次の担当
 
-- **Dex(P4) Take3レビュー**: `docs/handoff/P3_CC_to_Dex/cycle_19_input_output_role_separation_take3.md` を読んでDIFFレビュー（実機含む）する。script取込修正、旧カード削除、legacy URL維持、6条件往復を重点確認
+- **Dex(P4)**: `docs/handoff/P3_CC_to_Dex/cycle_20_annual_excel_integrity.md` を読んでDIFFレビューする。Air試作の採用/不採用判定の妥当性、書込列限定クリアの安全性、数式評価の適用範囲・例外方針、936残存0件の実測、DB非更新を重点確認
 
 ## 今回読むべきファイル
 
@@ -35,15 +38,12 @@
 4. `docs/handoff/WORKFLOW_RULES.md`
 5. `manuals/AI_TEAM_WORKFLOW.md`
 6. `manuals/WORKFLOW_RULES.md`
-7. `docs/handoff/P1_Air_Blueprint/cycle_19_input_output_role_separation.md`
-8. `docs/handoff/cycle_19_kazumax_to_air_requirements.md`
-9. `docs/handoff/P2_Dex_to_CC/cycle_19_input_output_role_separation_instructions.md`
-10. `docs/handoff/P3_CC_to_Dex/cycle_19_input_output_role_separation.md`
-11. `docs/handoff/P4_Rollback/cycle_19_input_output_role_separation.md`
-12. `docs/handoff/P3_CC_to_Dex/cycle_19_input_output_role_separation_take2.md`
-13. `docs/handoff/P4_Dex_Review/cycle_19_input_output_role_separation_take2.md`
-14. `docs/handoff/P4_Rollback/cycle_19_input_output_role_separation_take2.md`
-15. `docs/proposals/backlog_ui_ux.md`（年度末Excel監査の実測所見）
+7. `docs/handoff/P4_Rollback/cycle_19_input_output_role_separation_take2.md`（第6〜7章: 実測値・Cycle 20必須範囲）
+8. `docs/proposals/backlog_ui_ux.md`（第3章: 年度末Excel監査の実測所見）
+9. `docs/handoff/P4_Dex_Review/cycle_19_input_output_role_separation_take3.md`（Cycle 19完了記録）
+10. `docs/handoff/cycle_20_kazumax_to_air_requirements.md`（Kazumax確定要件）
+11. `docs/handoff/P1_Air_Blueprint/cycle_20_annual_excel_integrity.md`（Air試作品の設計記録）
+12. `docs/handoff/P2_Dex_to_CC/cycle_20_annual_excel_integrity_instructions.md`（CC向け最終指示書）
 
 ## Cycle 19 重要ルール
 
