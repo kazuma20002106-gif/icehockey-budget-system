@@ -84,7 +84,7 @@ app.version: src/main/resources/application.properties = v2.6.1
 
 ## 9. commit / push
 
-後述（本報告書保存後にcommit・push、hashを追記）。
+commit hash: `11de2e4`（`[v2.6.1] Cycle 21 Take2: P1-1/P1-2修正 + activity id=1データ復旧`）。origin/mainへpush済み（6074130→11de2e4）。
 
 ## 10. 最終git status
 
