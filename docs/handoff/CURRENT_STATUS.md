@@ -17,10 +17,15 @@
 - CC(P3): 実装・検証・CCクルー3観点セルフレビュー完了。app.version=v2.5.1。`docs/handoff/P3_CC_to_Dex/cycle_19_input_output_role_separation.md` に報告書を保存済み
 - Dex(P4): commit `466ad9d` をレビューし、通常preview往復で6検索条件が失われるP1要件漏れを確認。Take2差し戻し
 - CC(P3) Take2: `/export/preview`往復での6条件（year/budgetTypeId/month/targetCategory/projectName/printedStatus）保持を修正。app.version=v2.5.2。CCクルー3観点セルフレビュー完了。`docs/handoff/P3_CC_to_Dex/cycle_19_input_output_role_separation_take2.md` に報告書を保存済み
+- Dex(P4) Take2: 当初DIFFレビューOKとしたが、Kazumax実機確認で一括選択・印刷状態ボタン・旧簡易出力導線の問題が判明したためOKを取り消し。
+- Dex(P4) Take2再監査: **NG / Take3差し戻し**。`export/index.html`の操作用scriptがレイアウト取込範囲外にあり、`toggleAll`/`bulkPrintStatus`がブラウザへ届いていないことを実機再現。旧簡易出力は画面から外しlegacy URLだけ維持する判断。通常previewの6条件往復は合格。
+- Dex年度末Excel厳密監査: 2026年度公式Excel27シートを実生成。様式2-5は8事業・44名の44/44名で漏れなし、主要支出合計317,568円も一致。一方、2-2-1×3の年度が令和7年度のまま、2-3未対象行に旧金額、2-5/2-6空きセルに原本値936が残るため、Excel修正はCycle 19へ混ぜず次サイクル最優先候補としてバックログ化。
+
+- CC(P3) Take3: `export/index.html`の操作用script/styleをレイアウト取込範囲(`content=~{::div}`が抽出する単一div)内へ移し、旧・簡易年度まとめカードを画面から削除。legacy URL `/activity/export/year`・Controller・Excel処理は無変更。app.version=v2.5.3。実ブラウザで一括選択・印刷済みダイアログ・キャンセル非送信・0件警告・旧カード非表示・legacy URL・6条件preview往復・日本語エンコード・ReferenceErrorなしの10項目を確認。CCクルー3観点セルフレビュー完了。`docs/handoff/P3_CC_to_Dex/cycle_19_input_output_role_separation_take3.md` に報告書を保存済み
 
 ## 次の担当
 
-- **Dex(P4) Take2レビュー**: `docs/handoff/P3_CC_to_Dex/cycle_19_input_output_role_separation_take2.md` を読んでDIFFレビューする。6条件のpreview往復、日本語URL、金額・Excel不可触領域、既存URLを重点確認
+- **Dex(P4) Take3レビュー**: `docs/handoff/P3_CC_to_Dex/cycle_19_input_output_role_separation_take3.md` を読んでDIFFレビュー（実機含む）する。script取込修正、旧カード削除、legacy URL維持、6条件往復を重点確認
 
 ## 今回読むべきファイル
 
@@ -35,6 +40,10 @@
 9. `docs/handoff/P2_Dex_to_CC/cycle_19_input_output_role_separation_instructions.md`
 10. `docs/handoff/P3_CC_to_Dex/cycle_19_input_output_role_separation.md`
 11. `docs/handoff/P4_Rollback/cycle_19_input_output_role_separation.md`
+12. `docs/handoff/P3_CC_to_Dex/cycle_19_input_output_role_separation_take2.md`
+13. `docs/handoff/P4_Dex_Review/cycle_19_input_output_role_separation_take2.md`
+14. `docs/handoff/P4_Rollback/cycle_19_input_output_role_separation_take2.md`
+15. `docs/proposals/backlog_ui_ux.md`（年度末Excel監査の実測所見）
 
 ## Cycle 19 重要ルール
 

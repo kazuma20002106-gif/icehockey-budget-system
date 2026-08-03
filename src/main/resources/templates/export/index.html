@@ -2,11 +2,13 @@
 <html xmlns:th="http://www.thymeleaf.org"
       th:replace="~{layout :: html(title='提出データ出力・集計', content=~{::div}, activePage='export')}">
 <body>
+    <div>
+    <!-- ページ固有style。th:replaceのcontent=~{::div}がこのdivのみを取り込むため、
+         レイアウトへ確実に反映させるには<style>/<script>ともこのdiv内に置く必要がある（P4 Take3対応） -->
     <style>
     .sticky-table-wrap { max-height: 55vh; overflow-y: auto; }
     .sticky-table-wrap thead th { position: sticky; top: 0; z-index: 2; background: #f8f9fa; box-shadow: 0 1px 0 #dee2e6; }
     </style>
-    <div>
     <div class="content-narrow-wrap">
         <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
             <h1 class="h2">提出データ出力・集計</h1>
@@ -193,18 +195,7 @@
             </div>
         </div>
 
-        <!-- 旧・簡易年度まとめ（本番の年度末決算ファイルとは別枠。互換維持のため残置） -->
-        <div class="card border-0 mt-3">
-            <div class="card-body py-2">
-                <span class="text-muted small">互換用の簡易出力：</span>
-                <a class="btn btn-outline-secondary btn-sm"
-                   th:href="@{/activity/export/year(year=${selectedYear}, budgetTypeId=${selectedBudgetTypeId}, month=${selectedMonth}, targetCategory=${selectedTargetCategory}, projectName=${selectedProjectName})}">
-                    旧・簡易年度まとめ（2-2＋2-4〜2-6、2-1/2-2-1/2-3なし）
-                </a>
-            </div>
-        </div>
     </div><!-- /.content-narrow-wrap -->
-    </div>
 
     <script th:inline="javascript">
         const EXPORT_CURRENT_FILTERS = {
@@ -278,5 +269,6 @@
             });
         }
     </script>
+    </div>
 </body>
 </html>
