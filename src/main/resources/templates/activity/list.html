@@ -22,6 +22,12 @@
     <div th:if="${error == 'duplicate_multi_expense'}" class="alert alert-warning">
         この活動は1参加者に複数の支出データが登録されているため、安全のため複製できません。
     </div>
+    <div th:if="${error == 'multi_expense_guard'}" class="alert alert-danger">
+        この活動は1人の参加者に対する支出データ（レシート）が複数登録されているため、安全のため編集・保存できません。データを確認してください。
+    </div>
+    <div th:if="${error == 'save_integrity_violation'}" class="alert alert-danger">
+        保存時にデータの整合性チェックで問題が見つかったため、保存を中止しました（変更は反映されていません）。データを確認してから、もう一度お試しください。
+    </div>
 
     <!-- 絞り込み -->
     <form method="get" action="/activity" class="card border-0 shadow-sm p-2 mb-3">

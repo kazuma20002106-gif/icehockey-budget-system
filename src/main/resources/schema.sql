@@ -51,6 +51,8 @@ CREATE TABLE IF NOT EXISTS project_participants (
 );
 
 -- 経費情報（個人ごと）
+-- Cycle 21: 「1参加者・1事業 = 1精算集約行」を新規DBから強制するため、project_participant_idへ
+-- 名前付き一意制約を定義する（既存DB向けの冪等追加は本ファイル末尾のCycle 21セクションを参照）。
 CREATE TABLE IF NOT EXISTS expenses (
     id INT AUTO_INCREMENT PRIMARY KEY,
     project_participant_id INT NOT NULL,
@@ -62,7 +64,8 @@ CREATE TABLE IF NOT EXISTS expenses (
     accommodation_cost INT DEFAULT 0, -- 宿泊費
     miscellaneous_cost INT DEFAULT 0, -- 雑費
     receipt_date DATE, -- 受領日
-    FOREIGN KEY (project_participant_id) REFERENCES project_participants(id) ON DELETE CASCADE
+    FOREIGN KEY (project_participant_id) REFERENCES project_participants(id) ON DELETE CASCADE,
+    UNIQUE KEY uq_expenses_project_participant (project_participant_id)
 );
 
 -- 経費情報（事業全体）
@@ -191,3 +194,28 @@ SET @add_is_printed_sql = IF(@is_printed_exists = 0,
 PREPARE add_is_printed_stmt FROM @add_is_printed_sql;
 EXECUTE add_is_printed_stmt;
 DEALLOCATE PREPARE add_is_printed_stmt;
+
+-- Cycle 21: 既存DBの expenses テーブルに対する一意制約の冪等追加。
+-- 「1参加者・1事業 = 1精算集約行」を守らせるための uq_expenses_project_participant を追加するが、
+-- 既に project_participant_id が重複している行（複数Expense）が1件でもあれば、DDLを実行しない。
+-- データを黙って直したように見せることはせず、アプリ側の保存ガード（ProjectService.hasMultipleExpenses）で
+-- 保護する。このスクリプトは毎回起動時に実行され continue-on-error=true のため、
+-- 「毎回ALTERを試みてエラーを無視する」実装は禁止（Dex P2指示）。実行前に安全条件を必ず確認する。
+SET @expenses_has_duplicates = (
+    SELECT COUNT(*) FROM (
+        SELECT project_participant_id FROM expenses
+        GROUP BY project_participant_id
+        HAVING COUNT(*) > 1
+    ) AS dup
+);
+SET @uq_expenses_exists = (
+    SELECT COUNT(*) FROM INFORMATION_SCHEMA.STATISTICS
+    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'expenses'
+      AND INDEX_NAME = 'uq_expenses_project_participant'
+);
+SET @add_uq_expenses_sql = IF(@expenses_has_duplicates = 0 AND @uq_expenses_exists = 0,
+    'ALTER TABLE expenses ADD UNIQUE KEY uq_expenses_project_participant (project_participant_id)',
+    'SELECT 1');
+PREPARE add_uq_expenses_stmt FROM @add_uq_expenses_sql;
+EXECUTE add_uq_expenses_stmt;
+DEALLOCATE PREPARE add_uq_expenses_stmt;

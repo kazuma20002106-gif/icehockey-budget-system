@@ -17,6 +17,9 @@
         <div th:if="${error == 'no_selection'}" class="alert alert-warning">
             対象の活動が選択されていません。一覧から1件以上選択してから実行してください。
         </div>
+        <div th:if="${error == 'invalid_selection'}" class="alert alert-danger">
+            選択された対象に無効なデータが含まれていたため、印刷状態の更新を中止しました（変更は反映されていません）。画面を再読込してからもう一度お試しください。
+        </div>
 
         <!-- 年度末公式決算ファイル一括出力（最重要・最上部） -->
         <div class="card border-success shadow-sm mb-3">

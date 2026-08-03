@@ -118,6 +118,12 @@ public class ActivityController {
         Project project = projectMapper.findById(id);
         if (project == null) return "redirect:/activity";
 
+        // 1参加者に複数Expenseがある活動は、編集画面が1件目だけを表示し残りを静かに握りつぶすため、
+        // 編集画面自体を開かせない（Cycle 21: 保存時の事故だけでなく閲覧時点で止める）
+        if (projectService.hasMultipleExpenses(id)) {
+            return "redirect:/activity?error=multi_expense_guard";
+        }
+
         ActivityForm form = new ActivityForm();
         form.setProject(project);
 
@@ -145,6 +151,14 @@ public class ActivityController {
     public String save(@ModelAttribute("activityForm") ActivityForm form) {
         Project project = form.getProject();
         boolean isNew = (project.getId() == null);
+
+        // 既存活動の場合、DB上の現在の状態（フォームに載っていない可能性のある実データ）を先に確認する。
+        // 1人でもExpenseが2件以上あれば、projectMapper.update以降の破壊的処理へ一切入らずここで止める
+        // （Cycle 21: 複数Expenseの自動合算・自動削除・自動上書きの絶対禁止）
+        if (!isNew && projectService.hasMultipleExpenses(project.getId())) {
+            return "redirect:/activity?error=multi_expense_guard";
+        }
+
         if (isNew) {
             projectMapper.insert(project);
         } else {
@@ -154,7 +168,13 @@ public class ActivityController {
 
         ProjectSummaryExpense summary = form.getSummary();
         summary.setProjectId(id);
-        projectService.saveProjectData(id, summary, form.getParticipants(), form.getExpenses());
+        try {
+            projectService.saveProjectData(id, summary, form.getParticipants(), form.getExpenses());
+        } catch (org.springframework.dao.DataIntegrityViolationException e) {
+            // expenses.project_participant_id の一意制約違反等。@Transactionalによりここまでの変更は
+            // すべてロールバック済み。成功扱い・部分保存・自動リトライはしない
+            return "redirect:/activity?error=save_integrity_violation";
+        }
 
         // 距離データの自動学習（UPSERT）
         if (form.getExpenses() != null) {
@@ -195,8 +215,12 @@ public class ActivityController {
         if (projectIds == null || projectIds.isEmpty()) {
             return "redirect:" + activityRedirectUrl(year, budgetTypeId, month, targetCategory, projectName, printedStatus, "no_selection");
         }
-        for (Integer id : projectIds) {
-            if (id != null) projectMapper.updatePrinted(id, isPrinted);
+        try {
+            // Service層の@Transactionalメソッドへ移し、1件でも不正なIDが混ざれば全件ロールバックする
+            // （Cycle 21: /export/bulk/status と同じ安全策を互換用エンドポイントにも適用）
+            projectService.updatePrintedStatusAtomic(projectIds, isPrinted);
+        } catch (RuntimeException e) {
+            return "redirect:" + activityRedirectUrl(year, budgetTypeId, month, targetCategory, projectName, printedStatus, "invalid_selection");
         }
         return "redirect:" + activityRedirectUrl(year, budgetTypeId, month, targetCategory, projectName, printedStatus, null);
     }

@@ -34,6 +34,22 @@ public class ProjectService {
     @Autowired
     private MemberMapper memberMapper;
 
+    /**
+     * 対象活動の参加者のうち、1人でもExpenseが2件以上あればtrueを返す（Cycle 21）。
+     * 「1参加者・1事業 = 1精算集約行」の前提が崩れている状態を検出し、
+     * 編集画面が1件目だけを表示して残りを静かに握りつぶす・保存で消してしまう事故を防ぐために使う。
+     * 読み取りのみで、DBは一切変更しない。
+     */
+    public boolean hasMultipleExpenses(int projectId) {
+        List<ProjectParticipant> participants = participantMapper.findByProjectId(projectId);
+        for (ProjectParticipant p : participants) {
+            if (expenseMapper.findByProjectParticipantId(p.getId()).size() > 1) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     @Transactional
     public void saveProjectData(int projectId, ProjectSummaryExpense summary, List<ProjectParticipant> participants, List<Expense> expenses) {
         // Update summary expense
@@ -154,6 +170,35 @@ public class ProjectService {
         }
 
         return newProjectId;
+    }
+
+    /**
+     * 出力画面からの一括印刷状態更新（Cycle 21）。全件更新できる場合だけコミットし、
+     * 1件でも存在しないIDが混ざっていれば例外を投げて全件ロールバックする
+     * （@Transactionalの既定の巻き戻し対象はRuntimeExceptionのため、明示的にRuntimeExceptionを使う）。
+     * 呼び出し元のControllerでforループを回すだけの実装（コミット単位が行ごとになり得る）を避けるため、
+     * このメソッド全体を1トランザクションにする。
+     */
+    @Transactional
+    public void updatePrintedStatusAtomic(List<Integer> projectIds, boolean isPrinted) {
+        if (projectIds == null || projectIds.isEmpty()) {
+            throw new IllegalArgumentException("更新対象が選択されていません。");
+        }
+        java.util.LinkedHashSet<Integer> uniqueIds = new java.util.LinkedHashSet<>();
+        for (Integer id : projectIds) {
+            if (id != null) uniqueIds.add(id);
+        }
+        if (uniqueIds.isEmpty()) {
+            throw new IllegalArgumentException("更新対象が選択されていません。");
+        }
+        for (Integer id : uniqueIds) {
+            if (projectMapper.findById(id) == null) {
+                throw new IllegalStateException("選択された活動(ID=" + id + ")が見つかりません。更新を中止しました。");
+            }
+        }
+        for (Integer id : uniqueIds) {
+            projectMapper.updatePrinted(id, isPrinted);
+        }
     }
 
     private String extractDeparture(Expense e) {

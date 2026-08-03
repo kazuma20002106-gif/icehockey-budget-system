@@ -38,6 +38,7 @@ public class ExportController {
     @Autowired private ExpenseMapper expenseMapper;
     @Autowired private UserSettingService userSettingService;
     @Autowired private BudgetTypeMapper budgetTypeMapper;
+    @Autowired private com.miyazaki.icehockey.budgetsystem.service.ProjectService projectService;
 
     @GetMapping
     public String index(@RequestParam(value = "year", required = false) Integer year,
@@ -81,8 +82,12 @@ public class ExportController {
         if (projectIds == null || projectIds.isEmpty()) {
             return "redirect:" + exportRedirectUrl(year, budgetTypeId, month, targetCategory, projectName, printedStatus, "no_selection");
         }
-        for (Integer id : projectIds) {
-            if (id != null) projectMapper.updatePrinted(id, isPrinted);
+        try {
+            // Service層の@Transactionalメソッドへ移し、1件でも不正なIDが混ざれば全件ロールバックする
+            // （Cycle 21: コントローラのforループだけで終わらせない）
+            projectService.updatePrintedStatusAtomic(projectIds, isPrinted);
+        } catch (RuntimeException e) {
+            return "redirect:" + exportRedirectUrl(year, budgetTypeId, month, targetCategory, projectName, printedStatus, "invalid_selection");
         }
         return "redirect:" + exportRedirectUrl(year, budgetTypeId, month, targetCategory, projectName, printedStatus, null);
     }
