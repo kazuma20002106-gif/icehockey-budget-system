@@ -71,9 +71,9 @@ app.version: src/main/resources/application.properties = v2.5.3
 
 Kazumaxの明示許可がないため、印刷状態の実POST（確認ダイアログで「はい」を押してDBを実際に更新する操作）はTake3でも実施していない。ダイアログ表示とキャンセル時の非送信までを実機確認した。Take3がP4 OKとなった場合、対象1件のみの変化・復元をKazumax確認として依頼したい。
 
-## 7. compile/version と commit
+## 7. commit / push
 
-commit hash: 後述（本報告書保存後にcommit・push）。
+commit hash: `dc3c859`（`[v2.5.3] Cycle 19 Take3: export/indexのJS取込漏れ修正・旧簡易出力カード削除`）。origin/mainへpush済み（821df09→dc3c859）。
 
 ## 8. 最終git status
 
