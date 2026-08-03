@@ -8,14 +8,21 @@ import com.miyazaki.icehockey.budgetsystem.model.Expense;
 import com.miyazaki.icehockey.budgetsystem.model.Member;
 import com.miyazaki.icehockey.budgetsystem.model.Project;
 import com.miyazaki.icehockey.budgetsystem.model.ProjectParticipant;
+import com.miyazaki.icehockey.budgetsystem.model.ProjectSummaryExpense;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.LocalDate;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -34,6 +41,36 @@ class Cycle21SafetyAndTransactionTest {
     @Autowired private ProjectParticipantMapper participantMapper;
     @Autowired private ExpenseMapper expenseMapper;
     @Autowired private MemberMapper memberMapper;
+    @Autowired private PlatformTransactionManager transactionManager;
+
+    /**
+     * saveProject()の@Transactional(REQUIRED)は、テストクラスの外側@Transactionalと同じ物理トランザクションに
+     * 合流するため、例外発生時は「rollback-only」フラグが立つだけで、外側トランザクションが終わるまで
+     * 実際のROLLBACKは発行されない（同一トランザクション内では書込み済みの値がそのまま読める）。
+     * 本番のController呼び出しではsaveProject()自体が最外周のトランザクション境界になるため、
+     * それをテストでも再現するためにPROPAGATION_REQUIRES_NEWで独立した物理トランザクションを作り、
+     * その中で例外が起きたときに本当にROLLBACKされることを検証する。
+     */
+    private void runInNewTransactionExpectingRollback(Runnable action) {
+        TransactionTemplate tt = new TransactionTemplate(transactionManager);
+        tt.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+        tt.execute(status -> {
+            action.run();
+            return null;
+        });
+    }
+
+    /**
+     * 値を返す版。MySQLのREPEATABLE READでは、同一トランザクション内の最初のSELECTでスナップショットが
+     * 固定され、以後のSELECTは他トランザクションの変化（コミット済みでも）を反映しない。
+     * 「セットアップ／実行／検証」の各段階を別々の物理トランザクションにして、
+     * 各段階が常にその時点のコミット済み状態を見るようにするために使う。
+     */
+    private <T> T runInNewTransaction(java.util.function.Supplier<T> action) {
+        TransactionTemplate tt = new TransactionTemplate(transactionManager);
+        tt.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+        return tt.execute(status -> action.get());
+    }
 
     @Test
     void hasMultipleExpenses_isFalse_whenAtMostOnePerParticipant() {
@@ -97,6 +134,156 @@ class Cycle21SafetyAndTransactionTest {
     void updatePrintedStatusAtomic_emptyList_throwsWithoutUpdating() {
         assertThrows(IllegalArgumentException.class,
                 () -> projectService.updatePrintedStatusAtomic(List.of(), true));
+    }
+
+    // ===== P4差戻し P1-1: 保存失敗時、projects本体を含めて全件ロールバックされることの検証 =====
+    //
+    // saveProjectData内のexpensesへの書込みは、参加者を毎回deleteByProjectId→再insertする実装のため、
+    // project_participant_idは常に新規採番され、通常の入力経路ではuq_expenses_project_participant違反を
+    // 自然発生させられない（安全に強制する手段がない）。そのため、実DB・実トランザクションのまま
+    // ExpenseMapperだけをMockito.mockへ一時的に差し替え、insert時に必ずDataIntegrityViolationExceptionを
+    // 投げさせることで「projects本体insert/update成功後に後段が失敗するケース」を確実に再現する。
+    // ProjectServiceは@Serviceのシングルトンのため、差し替えたモックはtry/finallyで必ず元のBeanへ復元する。
+
+    @Test
+    void saveProject_newProject_rollsBackProjectInsert_whenDownstreamFails() {
+        String uniqueName = "Cycle21Rollback-New-" + System.nanoTime();
+        ExpenseMapper failingMapper = failingExpenseMapperMock();
+        ReflectionTestUtils.setField(projectService, "expenseMapper", failingMapper);
+        try {
+            Project newProject = new Project();
+            newProject.setName(uniqueName);
+            newProject.setBudgetTypeId(1);
+            newProject.setTargetCategory("成年男子");
+            newProject.setEventDate(LocalDate.now());
+            newProject.setLocationVenue("テスト会場");
+            newProject.setLocationAccommodation("宿泊なし");
+
+            ProjectParticipant participant = new ProjectParticipant();
+            participant.setMemberName("Cycle21 Rollback Participant");
+            participant.setMemberRole("選手");
+
+            Expense expense = new Expense();
+            expense.setTransportCost(500);
+
+            assertThrows(DataIntegrityViolationException.class, () ->
+                    runInNewTransactionExpectingRollback(() ->
+                            projectService.saveProject(newProject, new ProjectSummaryExpense(),
+                                    List.of(participant), List.of(expense))));
+        } finally {
+            ReflectionTestUtils.setField(projectService, "expenseMapper", expenseMapper);
+        }
+
+        try {
+            long matching = runInNewTransaction(() ->
+                    projectMapper.findAll().stream().filter(p -> uniqueName.equals(p.getName())).count());
+            assertEquals(0, matching,
+                    "後段のExpense保存が失敗した場合、先に成功していたはずのprojects本体のinsertも" +
+                            "ロールバックされ、新規事業が残らないはず（P4 P1-1対応）");
+        } finally {
+            // 万一ロールバックに失敗し行が残った場合でも実DBを汚さないための安全網クリーンアップ
+            runInNewTransaction(() -> {
+                projectMapper.findAll().stream()
+                        .filter(p -> uniqueName.equals(p.getName()))
+                        .forEach(p -> projectMapper.delete(p.getId()));
+                return null;
+            });
+        }
+    }
+
+    @Test
+    void saveProject_existingProject_rollsBackProjectUpdate_whenDownstreamFails() {
+        // セットアップ・検証・クリーンアップは、テストクラス外側の@Transactional(ロールバック専用)
+        // ではなく、それぞれ独立した物理トランザクションでコミットする。MySQLのREPEATABLE READでは
+        // 同一トランザクション内の最初のSELECTでスナップショットが固定されてしまい、
+        // 外側トランザクションのままだと「実際にROLLBACKされたか」を正しく検証できないため
+        // （runInNewTransactionExpectingRollbackのJavadoc参照）。
+        // このテストはコミットを伴うため、finallyで必ずテスト用の行を削除して実DBを汚さない。
+        String uniqueName = "Cycle21Rollback-Existing-" + System.nanoTime();
+        LocalDate originalDate = LocalDate.now();
+
+        int projectId = runInNewTransaction(() -> {
+            Project p = new Project();
+            p.setName(uniqueName);
+            p.setBudgetTypeId(1);
+            p.setTargetCategory("成年男子");
+            p.setEventDate(originalDate);
+            p.setLocationVenue("テスト会場");
+            p.setLocationAccommodation("宿泊なし");
+            projectMapper.insert(p);
+            return p.getId();
+        });
+
+        try {
+            ExpenseMapper failingMapper = failingExpenseMapperMock();
+            ReflectionTestUtils.setField(projectService, "expenseMapper", failingMapper);
+            try {
+                Project updated = new Project();
+                updated.setId(projectId);
+                updated.setName("CHANGED NAME - must not persist");
+                updated.setBudgetTypeId(1);
+                updated.setTargetCategory("成年男子");
+                updated.setEventDate(originalDate.plusDays(1));
+                updated.setLocationVenue("変更後会場");
+                updated.setLocationAccommodation("宿泊なし");
+
+                ProjectParticipant participant = new ProjectParticipant();
+                participant.setMemberName("Cycle21 Rollback Participant 2");
+                participant.setMemberRole("選手");
+
+                Expense expense = new Expense();
+                expense.setTransportCost(500);
+
+                assertThrows(DataIntegrityViolationException.class, () ->
+                        runInNewTransactionExpectingRollback(() ->
+                                projectService.saveProject(updated, new ProjectSummaryExpense(),
+                                        List.of(participant), List.of(expense))));
+            } finally {
+                ReflectionTestUtils.setField(projectService, "expenseMapper", expenseMapper);
+            }
+
+            Project after = runInNewTransaction(() -> projectMapper.findById(projectId));
+            assertEquals(uniqueName, after.getName(),
+                    "後段のExpense保存が失敗した場合、既に成功していたはずのprojects本体のupdateも" +
+                            "ロールバックされ、事業名が変更前のまま残るはず（P4 P1-1対応）");
+            assertEquals(originalDate, after.getEventDate());
+        } finally {
+            runInNewTransaction(() -> {
+                projectMapper.delete(projectId);
+                return null;
+            });
+        }
+    }
+
+    /** insert呼び出しで必ずDataIntegrityViolationExceptionを投げる、後段失敗を模擬するモック */
+    private ExpenseMapper failingExpenseMapperMock() {
+        ExpenseMapper mock = Mockito.mock(ExpenseMapper.class);
+        Mockito.when(mock.insert(Mockito.any(Expense.class)))
+                .thenThrow(new DataIntegrityViolationException("simulated downstream failure for Cycle21 test"));
+        Mockito.when(mock.findByProjectParticipantId(Mockito.anyInt())).thenReturn(Collections.emptyList());
+        return mock;
+    }
+
+    // ===== P4差戻し P1-2: 印刷状態更新の件数不一致を例外扱いすることの検証 =====
+
+    @Test
+    void updatePrintedStatusAtomic_updateCountMismatch_throwsAndStopsWithoutSilentSuccess() {
+        // 存在確認(findById)は通過するが、実際のUPDATE(updatePrinted)が0件しか更新できなかった
+        // 状況（存在確認直後に対象が削除された等の競合）を、ProjectMapperをモック化して再現する。
+        ProjectMapper mockMapper = Mockito.mock(ProjectMapper.class);
+        Project fake = new Project();
+        fake.setId(777);
+        Mockito.when(mockMapper.findById(777)).thenReturn(fake);
+        Mockito.when(mockMapper.updatePrinted(777, true)).thenReturn(0); // 想定外の更新件数
+
+        ReflectionTestUtils.setField(projectService, "projectMapper", mockMapper);
+        try {
+            assertThrows(IllegalStateException.class,
+                    () -> projectService.updatePrintedStatusAtomic(List.of(777), true),
+                    "updatePrinted()の戻り値(更新件数)が1でない場合、黙って成功扱いにせず例外を投げるはず");
+        } finally {
+            ReflectionTestUtils.setField(projectService, "projectMapper", projectMapper);
+        }
     }
 
     // ===== ヘルパー（テストトランザクション内でのみ有効。ロールバックされるためDBは汚さない） =====

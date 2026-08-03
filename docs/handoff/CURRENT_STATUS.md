@@ -1,10 +1,10 @@
 # CURRENT STATUS
 
-## Cycle 21 P2完了（2026-08-03）
+## Cycle 21 Take2（2026-08-03）
 
-- **判定:** P2 GO。複数Expenseの自動修復禁止、既存DB対応の冪等UNIQUE移行、保存前ガード、印刷状態の全件ロールバックをCC必須条件として固定。
-- **CC指示書:** `docs/handoff/P2_Dex_to_CC/cycle_21_comprehensive_safety_and_ui_instructions.md`
-- **次担当:** CC(P3)。上記指示書の範囲だけを実装・検証し、実DB更新を伴う確認は元状態へ復元してP3報告へ記録する。
+- **事故と復旧:** CCの実機確認中に`projects.id=1`が誤更新されたが、Dexセカンドオピニオンの条件付きSQLをKazumax承認後に1回実行し、`name`/`schedule_content`/`project_outcome`を復元済み。関連テーブル・他プロジェクトへの影響なしを確認。詳細は`docs/handoff/INCIDENT_cycle21_take2_project1_data_loss.md`。
+- **P1-1/P1-2修正:** `ProjectService.saveProject()`でprojects本体insert/updateと参加者/Expense保存を単一トランザクションに統合（P1-1）。`updatePrintedStatusAtomic()`に更新件数チェックを追加（P1-2）。テスト14件成功。app.version=v2.6.1。
+- **次担当:** Dex(P4) Take2レビュー。`docs/handoff/P3_CC_to_Dex/cycle_21_comprehensive_safety_and_ui_take2.md`を確認。
 
 > [!CAUTION]
 > **Kazumax代表からの全体絶対ルール**

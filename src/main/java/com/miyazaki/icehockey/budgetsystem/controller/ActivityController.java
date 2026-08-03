@@ -150,29 +150,18 @@ public class ActivityController {
     @PostMapping("/save")
     public String save(@ModelAttribute("activityForm") ActivityForm form) {
         Project project = form.getProject();
-        boolean isNew = (project.getId() == null);
 
-        // 既存活動の場合、DB上の現在の状態（フォームに載っていない可能性のある実データ）を先に確認する。
-        // 1人でもExpenseが2件以上あれば、projectMapper.update以降の破壊的処理へ一切入らずここで止める
-        // （Cycle 21: 複数Expenseの自動合算・自動削除・自動上書きの絶対禁止）
-        if (!isNew && projectService.hasMultipleExpenses(project.getId())) {
-            return "redirect:/activity?error=multi_expense_guard";
-        }
-
-        if (isNew) {
-            projectMapper.insert(project);
-        } else {
-            projectMapper.update(project);
-        }
-        int id = project.getId();
-
-        ProjectSummaryExpense summary = form.getSummary();
-        summary.setProjectId(id);
+        // projects本体のinsert/updateと、複数Expenseガード・参加者/Expense再作成のすべてを
+        // ProjectService.saveProject()内の単一トランザクションで行う。Controller側で
+        // projectMapper.insert/updateを先に（別トランザクションで）呼ばない
+        // （Cycle 21 P4差戻し P1-1対応: 後段の失敗でprojects本体だけが部分保存される事故を防ぐ）
         try {
-            projectService.saveProjectData(id, summary, form.getParticipants(), form.getExpenses());
+            projectService.saveProject(project, form.getSummary(), form.getParticipants(), form.getExpenses());
+        } catch (com.miyazaki.icehockey.budgetsystem.service.MultiExpenseGuardException e) {
+            return "redirect:/activity?error=multi_expense_guard";
         } catch (org.springframework.dao.DataIntegrityViolationException e) {
             // expenses.project_participant_id の一意制約違反等。@Transactionalによりここまでの変更は
-            // すべてロールバック済み。成功扱い・部分保存・自動リトライはしない
+            // projects本体を含めてすべてロールバック済み。成功扱い・部分保存・自動リトライはしない
             return "redirect:/activity?error=save_integrity_violation";
         }
 

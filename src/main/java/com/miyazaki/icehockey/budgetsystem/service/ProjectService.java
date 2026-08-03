@@ -50,6 +50,34 @@ public class ProjectService {
         return false;
     }
 
+    /**
+     * 活動の保存（新規・編集共通）を1トランザクションで行う（Cycle 21 P4 P1-1対応）。
+     * 以前は Controller が projects の insert/update を先に（別トランザクションで）実行し、
+     * 参加者・Expenseの保存だけを本Service内の@Transactionalに任せていたため、後段で失敗しても
+     * projects本体だけがコミット済みのまま残り得た（新規なら空の事業、既存なら明細と矛盾した
+     * 事業情報だけが残る部分保存）。既存活動のガード確認・projects保存・参加者/Expense再作成の
+     * すべてをこのメソッド1つの中で行い、途中で例外が起きればprojectsを含めて全件ロールバックする。
+     */
+    @Transactional
+    public int saveProject(Project project, ProjectSummaryExpense summary, List<ProjectParticipant> participants, List<Expense> expenses) {
+        boolean isNew = (project.getId() == null);
+        if (!isNew && hasMultipleExpenses(project.getId())) {
+            throw new MultiExpenseGuardException(
+                    "この活動は1人の参加者に対する支出データ（レシート）が複数登録されているため、安全のため保存できません。");
+        }
+
+        if (isNew) {
+            projectMapper.insert(project);
+        } else {
+            projectMapper.update(project);
+        }
+        int projectId = project.getId();
+
+        summary.setProjectId(projectId);
+        saveProjectData(projectId, summary, participants, expenses);
+        return projectId;
+    }
+
     @Transactional
     public void saveProjectData(int projectId, ProjectSummaryExpense summary, List<ProjectParticipant> participants, List<Expense> expenses) {
         // Update summary expense
@@ -197,7 +225,13 @@ public class ProjectService {
             }
         }
         for (Integer id : uniqueIds) {
-            projectMapper.updatePrinted(id, isPrinted);
+            int updated = projectMapper.updatePrinted(id, isPrinted);
+            if (updated != 1) {
+                // 存在確認後・更新前に対象が削除される等で更新件数が1以外になった場合、
+                // 黙って先へ進めず例外を投げて全件ロールバックする（Cycle 21 P4 P1-2対応）
+                throw new IllegalStateException(
+                        "活動(ID=" + id + ")の印刷状態更新が想定件数(1件)と一致しませんでした。更新を中止しました。");
+            }
         }
     }
 
