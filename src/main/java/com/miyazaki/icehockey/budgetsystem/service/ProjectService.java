@@ -61,6 +61,15 @@ public class ProjectService {
     @Transactional
     public int saveProject(Project project, ProjectSummaryExpense summary, List<ProjectParticipant> participants, List<Expense> expenses) {
         boolean isNew = (project.getId() == null);
+        // HTMLのtextareaは「未入力」を空文字でしか表現できないため、無編集で保存しても
+        // DBのNULLが空文字へ変わってしまう。空白のみの入力はNULLへ正規化し、既存のNULLを
+        // 保存のたびに書き換えない（Cycle 21 Take3 P1-3対応）。
+        if (project.getScheduleContent() != null && project.getScheduleContent().isBlank()) {
+            project.setScheduleContent(null);
+        }
+        if (project.getProjectOutcome() != null && project.getProjectOutcome().isBlank()) {
+            project.setProjectOutcome(null);
+        }
         if (!isNew && hasMultipleExpenses(project.getId())) {
             throw new MultiExpenseGuardException(
                     "この活動は1人の参加者に対する支出データ（レシート）が複数登録されているため、安全のため保存できません。");

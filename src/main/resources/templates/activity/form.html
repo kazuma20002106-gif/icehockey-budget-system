@@ -74,6 +74,13 @@
                             <option value="">-- 選択 --</option>
                             <option th:each="n : ${ {'強化練習','遠征試合'} }" th:value="${n}" th:text="${n}"
                                     th:selected="${n == activityForm.project.name}"></option>
+                            <!-- Cycle 21 Take3 P1-3: 既存活動の事業名が固定候補(強化練習/遠征試合)以外の
+                                 場合、未選択のまま表示されて保存時に空文字で上書きされる事故を防ぐため、
+                                 実際の値をそのまま選択済みの追加候補として表示する -->
+                            <option th:if="${activityForm.project.name != null and !#strings.isEmpty(activityForm.project.name)
+                                             and activityForm.project.name != '強化練習' and activityForm.project.name != '遠征試合'}"
+                                    th:value="${activityForm.project.name}" th:text="${activityForm.project.name}"
+                                    selected></option>
                         </select>
                     </div>
                     <div class="col-md-3">
@@ -333,8 +340,13 @@
                 </div>
                 <div>
                     <label class="form-label">事業の成果</label>
+                    <!-- Cycle 21 Take3 P1-3: 旧実装はDBがNULLの場合に既定文言をtextareaの実値として
+                         書き込んでいたため、既存活動を無編集で保存しただけでNULLが既定文言へ
+                         上書きされる事故があった。placeholder（未入力時のヒント表示のみ）へ変更し、
+                         実際の値（NULLなら空）だけをth:textで表示する -->
                     <textarea class="form-control" name="project.projectOutcome" rows="3"
-                              th:text="${activityForm.project.projectOutcome != null and !#strings.isEmpty(activityForm.project.projectOutcome)} ? ${activityForm.project.projectOutcome} : '技術力・チーム連携の向上'"></textarea>
+                              placeholder="例：技術力・チーム連携の向上"
+                              th:text="${activityForm.project.projectOutcome}"></textarea>
                 </div>
             </div>
         </div>

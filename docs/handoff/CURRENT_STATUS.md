@@ -1,10 +1,11 @@
 # CURRENT STATUS
 
-## Cycle 21 Take2（2026-08-03）
+## Cycle 21 Take3（2026-08-03）
 
-- **事故と復旧:** CCの実機確認中に`projects.id=1`が誤更新されたが、Dexセカンドオピニオンの条件付きSQLをKazumax承認後に1回実行し、`name`/`schedule_content`/`project_outcome`を復元済み。関連テーブル・他プロジェクトへの影響なしを確認。詳細は`docs/handoff/INCIDENT_cycle21_take2_project1_data_loss.md`。
-- **P1-1/P1-2修正:** `ProjectService.saveProject()`でprojects本体insert/updateと参加者/Expense保存を単一トランザクションに統合（P1-1）。`updatePrintedStatusAtomic()`に更新件数チェックを追加（P1-2）。テスト14件成功。app.version=v2.6.1。
-- **次担当:** Dex(P4) Take2レビュー。`docs/handoff/P3_CC_to_Dex/cycle_21_comprehensive_safety_and_ui_take2.md`を確認。
+- **P1-3修正:** `activity/form.html`の事業名selectへ候補外値の追加option(選択済み)を実装し、無編集保存で空文字化しないよう修正。`project.projectOutcome`のtextareaはth:textの既定文言埋め込みをplaceholder化。`ProjectService.saveProject()`にscheduleContent/projectOutcomeの空白→NULL正規化を追加。テスト専用の新規活動(id=90、削除済み)で実機確認済み。
+- **P1-4調査:** binlogで事故トランザクション(Xid=21283)全体をBEGIN〜COMMITまで解析。expensesへのDELETEは無く、旧参加者(id=1,2)は元々Expense0件だったため実質的な金額損失なし。project_summary_expenses/membersは無変更。Expense総数45→46の差はCC自身の一時テストデータ作成が原因と特定(CCクルーBが独立確認、テストデータは削除済み)。
+- テスト12件成功。app.version=v2.6.2。CCクルー3観点セルフレビュー完了。
+- **次担当:** Dex(P4) Take3レビュー。`docs/handoff/P3_CC_to_Dex/cycle_21_comprehensive_safety_and_ui_take3.md`を確認。
 
 > [!CAUTION]
 > **Kazumax代表からの全体絶対ルール**

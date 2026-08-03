@@ -136,6 +136,51 @@ class Cycle21SafetyAndTransactionTest {
                 () -> projectService.updatePrintedStatusAtomic(List.of(), true));
     }
 
+    // ===== P4差戻し(Take3) P1-3: 候補外の事業名・NULL文章欄が無編集保存で壊れないことの検証 =====
+
+    @Test
+    void saveProject_blankScheduleAndOutcome_normalizedToNull_notEmptyString() {
+        int projectId = createProject();
+
+        // 1回目保存: schedule_content/project_outcomeへ実際の値を設定
+        Project p1 = new Project();
+        p1.setId(projectId);
+        p1.setName("【テスト出力】候補外の事業名");
+        p1.setBudgetTypeId(1);
+        p1.setTargetCategory("成年男子");
+        p1.setEventDate(LocalDate.now());
+        p1.setLocationVenue("テスト会場");
+        p1.setLocationAccommodation("宿泊なし");
+        p1.setScheduleContent("テスト日程");
+        p1.setProjectOutcome("テスト成果");
+        projectService.saveProject(p1, new ProjectSummaryExpense(), List.of(), List.of());
+
+        Project afterFirstSave = projectMapper.findById(projectId);
+        assertEquals("テスト日程", afterFirstSave.getScheduleContent());
+        assertEquals("テスト成果", afterFirstSave.getProjectOutcome());
+
+        // 2回目保存: フォームのtextareaを何も入力しない状態を模擬（空文字が送信される）
+        Project p2 = new Project();
+        p2.setId(projectId);
+        p2.setName("【テスト出力】候補外の事業名"); // 事業名は無編集のまま
+        p2.setBudgetTypeId(1);
+        p2.setTargetCategory("成年男子");
+        p2.setEventDate(p1.getEventDate());
+        p2.setLocationVenue("テスト会場");
+        p2.setLocationAccommodation("宿泊なし");
+        p2.setScheduleContent("");
+        p2.setProjectOutcome("   "); // 空白のみの入力も同様にNULL化されるべき
+        projectService.saveProject(p2, new ProjectSummaryExpense(), List.of(), List.of());
+
+        Project afterSecondSave = projectMapper.findById(projectId);
+        assertEquals("【テスト出力】候補外の事業名", afterSecondSave.getName(),
+                "固定候補外の事業名は無編集保存でも変わらないはず（P4 Take3 P1-3対応）");
+        assertNull(afterSecondSave.getScheduleContent(),
+                "空文字送信はNULLへ正規化され、空文字のまま保存されないはず（P4 Take3 P1-3対応）");
+        assertNull(afterSecondSave.getProjectOutcome(),
+                "空白のみの送信もNULLへ正規化されるはず（P4 Take3 P1-3対応）");
+    }
+
     // ===== P4差戻し P1-1: 保存失敗時、projects本体を含めて全件ロールバックされることの検証 =====
     //
     // saveProjectData内のexpensesへの書込みは、参加者を毎回deleteByProjectId→再insertする実装のため、
