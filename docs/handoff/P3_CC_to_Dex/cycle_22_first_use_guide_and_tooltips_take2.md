@@ -68,4 +68,4 @@ Take2でも、CC環境のブラウザプレビューツールがdevサーバー�
 
 ## 5. commit / push
 
-（コミット後に追記）
+commit hash: `a3cf8d6`（`[v2.6.2] Cycle 22 Take2: P4差し戻し4点修正(出力dropdown HTML破損/label内button/ガイドカード崩れ/360px非表示ヘルプ)`）。
