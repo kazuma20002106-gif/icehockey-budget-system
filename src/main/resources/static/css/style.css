@@ -211,8 +211,11 @@ select.form-select {
     color: #0b8fae;
 }
 
-/* Cycle 22 Take2: 360px幅でナビ右側(？使い方・操作ユーザーヘルプ・操作ユーザー)が
-   横あふれしないよう、狭い幅だけ折り返しを許可する（既存のナビ表示方式・リンクは変更しない）。 */
+/* Cycle 22 Take2/Take3: 360px幅でナビ右側(？使い方・操作ユーザーヘルプ・操作ユーザー)が
+   横あふれ・見切れしないよう、狭い幅だけ右側グループを次行へ折り返す（既存のナビ表示方式・リンクは変更しない）。
+   Take2時点ではflex-wrapのみで対応していたが、実機確認でブランド行と同じ行を奪い合い、
+   操作ユーザーdropdownが画面右で見切れる不具合があったため、Take3で右側グループを
+   flex-basis:100%により強制的に独立した行へ折り返す方式へ修正した。 */
 @media (max-width: 575.98px) {
     .navbar > .container-fluid {
         flex-wrap: wrap;
@@ -220,5 +223,9 @@ select.form-select {
     }
     .navbar-brand {
         font-size: 0.95rem;
+    }
+    .header-right-group {
+        flex-basis: 100%;
+        justify-content: flex-end;
     }
 }
