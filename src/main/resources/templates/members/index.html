@@ -11,9 +11,9 @@
     <div class="d-flex justify-content-between align-items-center mb-2">
         <h3 class="fw-bold mb-0">
             名簿管理
-            <i class="text-info" style="cursor:help; font-style:normal;"
-               data-bs-toggle="tooltip" data-bs-html="true"
-               title="活動日入力で新しい氏名を入力して保存すると、ここに自動で登録されます。<br>登録済みの人は年齢・出発地点が変わると保存時に自動で上書きされます。<br>この画面で直接編集した内容は、欄を変更した時点で<b>自動保存</b>されます（更新ボタンは不要）。">&#9432;</i>
+            <button type="button" class="help-tip-btn" tabindex="0" aria-label="ヘルプ: 名簿管理"
+                    data-bs-toggle="tooltip" data-bs-html="true" data-bs-trigger="hover focus click"
+                    title="ここは次の活動入力で使う共通名簿です。氏名を選ぶと年齢・主な出発地の入力を助けます。過去に保存した活動の内容をさかのぼって書き換える画面ではありません。<br>この画面で直接編集した内容は、欄を変更した時点で<b>自動保存</b>されます（更新ボタンは不要）。">&#9432;</button>
         </h3>
     </div>
 
@@ -42,7 +42,11 @@
                     </select>
                 </div>
                 <div class="col-auto" style="width:175px;">
-                    <label class="form-label small mb-1">主な出発地点</label>
+                    <label class="form-label small mb-1">主な出発地点
+                        <button type="button" class="help-tip-btn" tabindex="0" aria-label="ヘルプ: 主な出発地点"
+                                data-bs-toggle="tooltip" data-bs-trigger="hover focus click"
+                                title="活動入力で交通区間・距離を入れる時の候補になります。実際の出発地が異なる活動では、その活動の入力内容を確認してください。">&#9432;</button>
+                    </label>
                     <input type="text" name="departurePoint" class="form-control form-control-sm" placeholder="例：宮崎西">
                 </div>
                 <div class="col-auto">
@@ -68,7 +72,11 @@
                             <th>氏名</th>
                             <th style="width:85px;">年齢</th>
                             <th style="width:100px;">種別</th>
-                            <th>主な出発地点</th>
+                            <th>主な出発地点
+                                <button type="button" class="help-tip-btn" tabindex="0" aria-label="ヘルプ: 主な出発地点"
+                                        data-bs-toggle="tooltip" data-bs-trigger="hover focus click"
+                                        title="活動入力で交通区間・距離を入れる時の候補になります。実際の出発地が異なる活動では、その活動の入力内容を確認してください。">&#9432;</button>
+                            </th>
                             <th class="text-end" style="width:120px;">操作</th>
                         </tr>
                     </thead>
@@ -150,12 +158,7 @@
                     .catch(() => {});
             });
         }
-        // ===== ツールチップ初期化（bootstrapバンドル読込後に実行） =====
-        window.addEventListener('load', function () {
-            if (window.bootstrap) {
-                document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el => new bootstrap.Tooltip(el));
-            }
-        });
+        // ツールチップ初期化はCycle 22よりlayout.htmlの共通初期化へ統一済み（二重初期化防止のため個別初期化は行わない）
     </script>
 </div>
 </body>

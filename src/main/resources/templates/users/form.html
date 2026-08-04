@@ -3,7 +3,8 @@
       th:replace="~{layout :: html(title='操作ユーザー設定', content=~{::div}, activePage='')}">
 <body>
 <div>
-    <h4 class="fw-bold mb-3" th:text="${user.id == null} ? '操作ユーザー 新規登録' : '操作ユーザー 編集'">操作ユーザー</h4>
+    <h4 class="fw-bold mb-1" th:text="${user.id == null} ? '操作ユーザー 新規登録' : '操作ユーザー 編集'">操作ユーザー</h4>
+    <p class="text-muted small mb-3">登録した氏名・電話番号は、提出書類の記入責任者情報として使います。</p>
 
     <div class="card border-0 shadow-sm" style="max-width:480px;">
         <div class="card-body">

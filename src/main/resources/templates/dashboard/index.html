@@ -27,7 +27,11 @@
         <div class="col-6 col-md-3">
             <div class="card border-0 shadow-sm h-100">
                 <div class="card-body text-center">
-                    <div class="text-muted small">未印刷 / 印刷済</div>
+                    <div class="text-muted small">未印刷 / 印刷済
+                        <button type="button" class="help-tip-btn" tabindex="0" aria-label="ヘルプ: 未印刷/印刷済"
+                                data-bs-toggle="tooltip" data-bs-trigger="hover focus click"
+                                title="紙での印刷確認の進み具合です。Excelをダウンロードしただけでは印刷済みになりません。">&#9432;</button>
+                    </div>
                     <div class="fs-3 fw-bold">
                         <span class="text-warning" th:text="${unprintedCount}">0</span> /
                         <span class="text-success" th:text="${printedCount}">0</span>
@@ -47,7 +51,11 @@
 
     <!-- 予算配分ごとの使用状況 -->
     <div class="card border-0 shadow-sm mb-3">
-        <div class="card-header bg-white fw-bold">予算配分ごとの使用状況</div>
+        <div class="card-header bg-white fw-bold">予算配分ごとの使用状況
+            <button type="button" class="help-tip-btn" tabindex="0" aria-label="ヘルプ: 予算配分ごとの使用状況"
+                    data-bs-toggle="tooltip" data-bs-trigger="hover focus click"
+                    title="使用額は保存済みの活動から自動計算します。予算額は「予算管理」の内示額で、残額はその差です。ここでは金額を編集できません。">&#9432;</button>
+        </div>
         <div class="table-responsive">
             <table class="table table-hover align-middle mb-0">
                 <thead class="text-muted">

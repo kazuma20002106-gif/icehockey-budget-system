@@ -14,7 +14,11 @@
 
     <form method="post" action="/export/year/preview">
         <div class="card shadow-sm mb-3">
-            <div class="card-header bg-white"><strong>1. 対象事業の絞り込み</strong></div>
+            <div class="card-header bg-white"><strong>1. 対象事業の絞り込み
+                <button type="button" class="help-tip-btn" tabindex="0" aria-label="ヘルプ: 対象事業の絞り込み"
+                        data-bs-toggle="tooltip" data-bs-trigger="hover focus click"
+                        title="条件に一致する活動がすべて年度末ファイルに入ります。作成前に年度・補助金区分・種別・月・事業名を確認してください。">&#9432;</button>
+            </strong></div>
             <div class="card-body">
                 <div class="row g-2">
                     <div class="col-auto">
@@ -65,7 +69,11 @@
         </div>
 
         <div class="card shadow-sm mb-3">
-            <div class="card-header bg-white"><strong>2. 提出情報（様式2-1の表紙に反映されます）</strong></div>
+            <div class="card-header bg-white"><strong>2. 提出情報（様式2-1の表紙に反映されます）
+                <button type="button" class="help-tip-btn" tabindex="0" aria-label="ヘルプ: 提出情報"
+                        data-bs-toggle="tooltip" data-bs-trigger="hover focus click"
+                        title="ここで入れた提出日・団体名・代表者名は様式2-1の表紙に反映されます。活動ごとの金額や参加者情報は変わりません。">&#9432;</button>
+            </strong></div>
             <div class="card-body">
                 <div class="row g-2 align-items-end mb-3">
                     <div class="col-auto">
@@ -110,6 +118,7 @@
             <button type="submit" class="btn btn-lg btn-primary shadow-sm px-5">
                 プレビューへ進む
             </button>
+            <p class="text-muted small mt-2 mb-0">まずプレビューで対象件数と表紙の記載を確認してからExcelを作成します。</p>
         </div>
     </form>
 </div>

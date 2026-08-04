@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{layout :: html(title='使い方ガイド', content=~{::div}, activePage='guide')}">
+<body>
+<div>
+<div class="content-narrow-wrap" style="max-width: 980px;">
+    <div class="mb-4">
+        <h3 class="fw-bold mb-1">📖 使い方ガイド</h3>
+        <p class="text-muted mb-0">初めて使う方向けの作業の流れと注意点をまとめています。順番に進めれば迷わず入力できます。</p>
+    </div>
+
+    <!-- 5ステップカード -->
+    <div class="row g-3 mb-5">
+        <div class="col-6 col-md-4" style="flex:1 1 20%; max-width:20%;">
+            <a href="/users/new" class="text-decoration-none">
+                <div class="card border-0 shadow-sm h-100">
+                    <div class="card-body text-center p-2">
+                        <div class="fs-4">①</div>
+                        <div class="fw-bold small">最初に設定する</div>
+                        <div class="text-muted" style="font-size:0.78rem;">操作責任者登録</div>
+                    </div>
+                </div>
+            </a>
+        </div>
+        <div class="col-6 col-md-4" style="flex:1 1 20%; max-width:20%;">
+            <a href="/members" class="text-decoration-none">
+                <div class="card border-0 shadow-sm h-100">
+                    <div class="card-body text-center p-2">
+                        <div class="fs-4">②</div>
+                        <div class="fw-bold small">名簿と予算準備</div>
+                        <div class="text-muted" style="font-size:0.78rem;">名簿・内示額マスタ</div>
+                    </div>
+                </div>
+            </a>
+        </div>
+        <div class="col-6 col-md-4" style="flex:1 1 20%; max-width:20%;">
+            <a href="/activity" class="text-decoration-none">
+                <div class="card border-0 shadow-sm h-100">
+                    <div class="card-body text-center p-2">
+                        <div class="fs-4">③</div>
+                        <div class="fw-bold small">活動を入力する</div>
+                        <div class="text-muted" style="font-size:0.78rem;">日々の明細と合算</div>
+                    </div>
+                </div>
+            </a>
+        </div>
+        <div class="col-6 col-md-4" style="flex:1 1 20%; max-width:20%;">
+            <a href="/export" class="text-decoration-none">
+                <div class="card border-0 shadow-sm h-100">
+                    <div class="card-body text-center p-2">
+                        <div class="fs-4">④</div>
+                        <div class="fw-bold small">帳票出力・印刷</div>
+                        <div class="text-muted" style="font-size:0.78rem;">確認後、手動印刷済</div>
+                    </div>
+                </div>
+            </a>
+        </div>
+        <div class="col-6 col-md-4" style="flex:1 1 20%; max-width:20%;">
+            <a href="/export" class="text-decoration-none">
+                <div class="card border-0 shadow-sm h-100">
+                    <div class="card-body text-center p-2">
+                        <div class="fs-4">⑤</div>
+                        <div class="fw-bold small">年度末のまとめ</div>
+                        <div class="text-muted" style="font-size:0.78rem;">様式2-1〜6一括DL</div>
+                    </div>
+                </div>
+            </a>
+        </div>
+    </div>
+
+    <!-- 詳細解説 -->
+    <div class="card border-0 shadow-sm mb-3">
+        <div class="card-header bg-white fw-bold">① 最初に設定する（操作責任者登録）</div>
+        <div class="card-body">
+            <p>画面右上の「操作: 氏名」から操作ユーザーを登録・選択します。ここで選んだ氏名・電話番号は、Excelの記入責任者・作成者欄に自動反映されます。</p>
+            <div class="alert alert-warning py-2 px-3 small mb-0">⚠️ 名簿を書き換えても、過去に保存した活動データは勝手に変わりません。</div>
+        </div>
+    </div>
+
+    <div class="card border-0 shadow-sm mb-3">
+        <div class="card-header bg-white fw-bold">② 名簿と予算を準備する</div>
+        <div class="card-body">
+            <p>「<a href="/members">名簿マスタ管理</a>」で氏名・年齢・主な出発地点を登録し、「<a href="/budget-allocations">予算管理</a>」で協会からの内示額（ダッシュボード基準額）を入力します。</p>
+        </div>
+    </div>
+
+    <div class="card border-0 shadow-sm mb-3">
+        <div class="card-header bg-white fw-bold">③ 活動を入力する</div>
+        <div class="card-body">
+            <p>「<a href="/activity">活動一覧・入力</a>」から新規入力または編集を行います。基本情報、参加者名簿、個人別支出、施設・その他経費を入力して保存します。</p>
+            <div class="alert alert-danger py-2 px-3 small mb-2">🚨 1人の参加者に複数の領収書（電車代・宿泊費など）がある場合でも、金額はお手元で合算して1行に入力してください。領収書自体は手元で保管します。</div>
+            <div class="alert alert-warning py-2 px-3 small mb-0">⚠️ 旅行雑費は必須項目ではありません。使わない活動では0のままで問題ありません。</div>
+            <div class="alert alert-info py-2 px-3 small mt-2 mb-0">💡 「複製」ボタンを使うと、参加者構成や会場を引き継いだ金額0円の新規ひな形をすぐに作成できます。ただし、複製後は日付・会場・金額を必ず確認してから保存してください。</div>
+        </div>
+    </div>
+
+    <div class="card border-0 shadow-sm mb-3">
+        <div class="card-header bg-white fw-bold">④ 帳票を確認・印刷する</div>
+        <div class="card-body">
+            <p>「<a href="/export">提出データ出力・集計</a>」で対象の活動を選び、様式を選択してプレビューまたはExcelダウンロードを行います。</p>
+            <div class="alert alert-danger py-2 px-3 small mb-0">🚨 Excelをダウンロードしただけでは印刷済みになりません。実際に紙で印刷・確認した後、出力画面で手動で印刷状態を更新してください。</div>
+        </div>
+    </div>
+
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-header bg-white fw-bold">⑤ 年度末にまとめる</div>
+        <div class="card-body">
+            <p>「<a href="/export">提出データ出力・集計</a>」の「年度末決算ファイル一括出力」から、対象の年度・条件と提出情報（提出日・団体名・代表者名）を入力し、様式2-1〜2-6をまとめた提出用ブックを作成します。</p>
+        </div>
+    </div>
+
+    <!-- FAQ -->
+    <h4 class="fw-bold mb-3">よくある質問</h4>
+    <div class="accordion mb-5" id="guideFaq">
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq1">
+                    Q. 氏名と電話番号はどこで出力されますか？
+                </button>
+            </h2>
+            <div id="faq1" class="accordion-collapse collapse" data-bs-parent="#guideFaq">
+                <div class="accordion-body">A. 右上で選択中の操作ユーザー情報が、Excelの記入責任者・作成者欄へ反映されます。プレビューでもご確認いただけます。</div>
+            </div>
+        </div>
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq2">
+                    Q. 1人で領収書が2枚以上（電車代や宿泊費複数など）あります。
+                </button>
+            </h2>
+            <div id="faq2" class="accordion-collapse collapse" data-bs-parent="#guideFaq">
+                <div class="accordion-body">A. システムには「1参加者につき1行」で、金額をお手元で合算してご入力ください。領収書自体は手元で保管します。</div>
+            </div>
+        </div>
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq3">
+                    Q. 旅行雑費の欄は毎回絶対に埋めるべきですか？
+                </button>
+            </h2>
+            <div id="faq3" class="accordion-collapse collapse" data-bs-parent="#guideFaq">
+                <div class="accordion-body">A. いいえ、必要なイベント活動の時のみ入力します。使わない場合は0のままで正常です。</div>
+            </div>
+        </div>
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq4">
+                    Q. Excelファイルをダウンロードすれば自動で「印刷済」に変わりますか？
+                </button>
+            </h2>
+            <div id="faq4" class="accordion-collapse collapse" data-bs-parent="#guideFaq">
+                <div class="accordion-body">A. 変わりません。実際の紙の印刷・チェック作業が終わった後、出力画面で手動更新をポチッと押す安全な運用です。</div>
+            </div>
+        </div>
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq5">
+                    Q. 年度末決算ファイル一括出力には何が入るのですか？
+                </button>
+            </h2>
+            <div id="faq5" class="accordion-collapse collapse" data-bs-parent="#guideFaq">
+                <div class="accordion-body">A. 指定した年度等の絞り込み条件に合う全活動の明細および計算が、様式2-1〜2-6をまとめた公式提出用ブックとして作成されます。</div>
+            </div>
+        </div>
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq6">
+                    Q. 「複製」ボタンで作ったデータはそのまま印刷して出せますか？
+                </button>
+            </h2>
+            <div id="faq6" class="accordion-collapse collapse" data-bs-parent="#guideFaq">
+                <div class="accordion-body">A. 出せません。「金額や進捗がすべてクリアされたひな形」です。必ず日付や開催会場、今回の諸金額を入力し直して保存してください。</div>
+            </div>
+        </div>
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq7">
+                    Q. ちょっとテストや検証で入力して遊びたい時はどうすればいいですか？
+                </button>
+            </h2>
+            <div id="faq7" class="accordion-collapse collapse" data-bs-parent="#guideFaq">
+                <div class="accordion-body">A. 実績の正式な活動データは上書きテストに使わず、テスト専用のダミー活動を新しく作るか、検証環境をご活用ください。</div>
+            </div>
+        </div>
+    </div>
+</div>
+</div>
+</body>
+</html>

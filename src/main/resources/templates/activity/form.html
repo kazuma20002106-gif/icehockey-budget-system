@@ -198,15 +198,24 @@
         <!-- ===== 個人別支出（様式2-6） ===== -->
         <div class="card card-section border-0 shadow-sm mb-3">
             <div class="card-header hdr-expense d-flex justify-content-between align-items-center">
-                <span>個人別支出（様式２－６）</span>
+                <span>個人別支出（様式２－６）
+                    <button type="button" class="help-tip-btn text-white" tabindex="0" aria-label="ヘルプ: 個人別支出"
+                            data-bs-toggle="tooltip" data-bs-trigger="hover focus click"
+                            title="1参加者につき入力は1行です。同じ人の交通・宿泊など複数の領収書は、手元で合算して1行に入力し、領収書そのものは保管してください。">&#9432;</button>
+                </span>
                 <div class="d-flex align-items-center gap-3">
                     <div class="d-flex align-items-center gap-1">
-                        <label class="form-label mb-0 text-white small fw-normal">交通費単価（円/km）</label>
+                        <label class="form-label mb-0 text-white small fw-normal">交通費単価（円/km）
+                            <button type="button" class="help-tip-btn text-white" tabindex="0" aria-label="ヘルプ: 交通費単価"
+                                    data-bs-toggle="tooltip" data-bs-trigger="hover focus click"
+                                    title="自家用車の交通費を計算するための単価です。公共交通機関や航空機などは、実際にかかった金額を入力します。">&#9432;</button>
+                        </label>
                         <input type="number" id="transportRate" class="form-control form-control-sm text-end" value="17" style="width:80px;" oninput="recalculateTransportCosts()">
                     </div>
                 </div>
             </div>
             <div class="card-body p-2">
+                <div class="alert alert-danger py-2 px-3 small mb-2">🚨 1参加者につき入力は1行です。同じ人の交通・宿泊など複数の領収書は、手元で合算して1行に入力し、領収書そのものは保管してください。</div>
                 <div class="table-responsive p-0" style="max-height: 350px; overflow-y: auto;">
                     <table class="table table-bordered align-middle mb-2" id="expenseTable" style="min-width:1100px;">
                         <thead class="table-light text-center text-nowrap">
@@ -275,7 +284,11 @@
 
         <!-- ===== 施設・その他経費 ===== -->
         <div class="card card-section border-0 shadow-sm mb-3">
-            <div class="card-header hdr-facility">施設・その他経費</div>
+            <div class="card-header hdr-facility">施設・その他経費
+                <button type="button" class="help-tip-btn text-dark" tabindex="0" aria-label="ヘルプ: 施設・その他経費"
+                        data-bs-toggle="tooltip" data-bs-trigger="hover focus click"
+                        title="会場借上、消耗品、役務、駐車場など、参加者個人ではない活動経費を入力します。迷った時は領収書の内容と提出先のルールを確認してください。">&#9432;</button>
+            </div>
             <div class="card-body p-2">
                 <div class="row g-3">
                     <div class="col-md-3">
@@ -303,7 +316,11 @@
                                onclick="openDigitSpinner(this)" onfocus="openDigitSpinner(this)">
                     </div>
                     <div class="col-12">
-                        <label class="form-label">旅行雑費</label>
+                        <label class="form-label">旅行雑費
+                            <button type="button" class="help-tip-btn" tabindex="0" aria-label="ヘルプ: 旅行雑費"
+                                    data-bs-toggle="tooltip" data-bs-trigger="hover focus click"
+                                    title="必要な活動だけ入力します。使わない場合は0のままで問題ありません。金額を固定で入れる項目ではありません。">&#9432;</button>
+                        </label>
                         <div class="input-group">
                             <input type="number" id="travelMiscCost" name="summary.travelMiscCost" class="form-control text-end" min="0"
                                    th:value="${activityForm.summary.travelMiscCost != null ? activityForm.summary.travelMiscCost : 0}"
@@ -780,12 +797,7 @@
             });
         });
 
-        // ===== ツールチップ初期化（bootstrapバンドル読込後に実行） =====
-        window.addEventListener('load', function () {
-            if (window.bootstrap) {
-                document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el => new bootstrap.Tooltip(el));
-            }
-        });
+        // ツールチップ初期化はCycle 22よりlayout.htmlの共通初期化へ統一済み（二重初期化防止のため個別初期化は行わない）
 
         document.addEventListener('keydown', function(event) { if (event.key === 'Enter' && event.target.tagName !== 'TEXTAREA' && event.target.tagName !== 'BUTTON') { event.preventDefault(); } });
 

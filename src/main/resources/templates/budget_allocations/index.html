@@ -4,7 +4,11 @@
 <body>
 <div>
     <div class="d-flex justify-content-between align-items-center mb-3">
-        <h3 class="fw-bold mb-0">予算管理（内示額）</h3>
+        <h3 class="fw-bold mb-0">予算管理（内示額）
+            <button type="button" class="help-tip-btn" tabindex="0" aria-label="ヘルプ: 予算管理（内示額）"
+                    data-bs-toggle="tooltip" data-bs-trigger="hover focus click"
+                    title="ここに入れるのは見込み・内示の予算額です。保存済み活動の使用額と残額はダッシュボードに自動反映されます。決算額をここへ入力する画面ではありません。">&#9432;</button>
+        </h3>
     </div>
 
     <div th:if="${saved}" class="alert alert-success">

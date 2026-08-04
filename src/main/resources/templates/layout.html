@@ -8,7 +8,7 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <!-- Bootstrap Icons -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
-    <link href="/css/style.css?v=3" rel="stylesheet">
+    <link href="/css/style.css?v=4" rel="stylesheet">
 </head>
 <body>
     <nav class="navbar navbar-dark fixed-top">
@@ -31,8 +31,18 @@
                 <li class="nav-item">
                     <a class="nav-link px-2" th:classappend="${activePage == 'budget'} ? 'active fw-bold text-white' : 'text-white-50'" href="/budget-allocations">💰 予算管理</a>
                 </li>
+                <li class="nav-item">
+                    <a class="nav-link px-2" th:classappend="${activePage == 'guide'} ? 'active fw-bold text-white' : 'text-white-50'" href="/guide">📖 使い方</a>
+                </li>
             </ul>
 
+            <!-- 狭い幅ではデスクトップ用ナビ(d-md-flex)が非表示になるため、独立した到達導線を確保する -->
+            <a class="btn btn-outline-light btn-sm d-md-none ms-auto me-2" href="/guide">？ 使い方</a>
+
+            <button type="button" class="help-tip-btn text-white-50 d-none d-sm-inline-block"
+                    tabindex="0" aria-label="ヘルプ: 操作ユーザー"
+                    data-bs-toggle="tooltip" data-bs-trigger="hover focus click"
+                    title="ここで選んだ氏名・電話番号は、Excelの記入責任者・作成者欄に自動反映されます。出力前に担当者が正しいか確認してください。">&#9432;</button>
             <div class="dropdown ms-auto me-2">
                 <button class="btn btn-outline-light btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown">
                     <span th:text="${activeUser != null ? '操作: ' + activeUser.name : '操作ユーザー未設定'}">操作ユーザー</span>
@@ -71,6 +81,17 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <!-- SweetAlert2 -->
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <!-- Cycle 22: ツールチップ共通初期化（各ページ個別初期化は廃止し、ここで一度だけ行う。
+         html設定はJSで強制せず、各要素のdata-bs-html属性を尊重する） -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(function (el) {
+                if (!bootstrap.Tooltip.getInstance(el)) {
+                    new bootstrap.Tooltip(el, { trigger: 'hover focus click' });
+                }
+            });
+        });
+    </script>
     <div class="position-fixed bottom-0 end-0 p-2 text-muted fw-bold" style="font-size: 0.8rem; z-index: 1050; pointer-events: none; opacity: 0.6;">Miyazaki IceHockey <span th:text="${@environment.getProperty('app.version')}">vX.X.X</span></div>
 </body>
 </html>
