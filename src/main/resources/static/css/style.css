@@ -211,21 +211,31 @@ select.form-select {
     color: #0b8fae;
 }
 
-/* Cycle 22 Take2/Take3: 360px幅でナビ右側(？使い方・操作ユーザーヘルプ・操作ユーザー)が
-   横あふれ・見切れしないよう、狭い幅だけ右側グループを次行へ折り返す（既存のナビ表示方式・リンクは変更しない）。
-   Take2時点ではflex-wrapのみで対応していたが、実機確認でブランド行と同じ行を奪い合い、
-   操作ユーザーdropdownが画面右で見切れる不具合があったため、Take3で右側グループを
-   flex-basis:100%により強制的に独立した行へ折り返す方式へ修正した。 */
+/* Cycle 22 Take2/Take3/Take4: 360px幅でナビ右側(？使い方・操作ユーザーヘルプ・操作ユーザー)が
+   横あふれ・見切れしないよう、狭い幅だけブランドと右側グループの両方を明示的にコンテナ幅へ収める
+   （既存のナビ表示方式・リンクは変更しない）。
+   Take2はflex-wrapのみ、Take3はheader-right-groupのflex-basis:100%のみで対応していたが、
+   親flex内で長いブランド名が幅を押し広げ、header-right-groupに残るms-autoが狭幅での基準幅を
+   不安定にしていたため、Take4でブランド・右側グループの両方に flex: 0 0 100% を明示し、
+   ブランドは省略記号(ellipsis)で収め、右側操作を切らないことを優先した。 */
 @media (max-width: 575.98px) {
     .navbar > .container-fluid {
         flex-wrap: wrap;
         row-gap: 4px;
     }
     .navbar-brand {
+        flex: 0 0 100%;
+        max-width: 100%;
+        margin-right: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
         font-size: 0.95rem;
     }
     .header-right-group {
-        flex-basis: 100%;
+        flex: 0 0 100%;
+        width: 100%;
+        margin-left: 0 !important;
         justify-content: flex-end;
     }
 }

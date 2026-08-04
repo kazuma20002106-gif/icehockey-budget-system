@@ -1,20 +1,20 @@
 # CURRENT STATUS
 
-## Cycle 22 Take3 P4待ち: 360pxヘッダー横あふれ修正完了（2026-08-04）
+## Cycle 22 Take4 P4待ち: 360pxヘッダー幅修正・実画面確認は未確認（2026-08-04）
 
-- **Take3修正内容**: `？使い方`・操作ユーザーヘルプ・操作ユーザーdropdownの3要素を1つの`header-right-group`にまとめ、狭い幅では`flex-basis:100%`で独立した行へ強制折り返し。操作ユーザーdropdownのbuttonに`text-truncate`+`max-width:150px`を追加し、長い氏名でも横あふれしないようにした。
-- **検証**: `mvnw -q -DskipTests compile`成功、`mvnw -q test`成功（13件、exit 0）。禁止ファイル差分なし、`app.version=v2.6.2`維持。ユーザー切替POST・hidden input・`/users/new`等のリンクは無変更。
-- **未実施事項**: 360px/PC幅での実画面確認は、CC環境のブラウザプレビューが`ERR_CONNECTION_REFUSED`で接続できず、Take3も未実施（`read_network_requests`で確認済み）。詳細は `docs/handoff/P3_CC_to_Dex/cycle_22_first_use_guide_and_tooltips_take3.md` を参照。
-- **次担当**: Dex(P4)。上記Take3報告を読みDIFFレビューし、実機で360px幅の操作ユーザーdropdown見切れが解消したかを重点確認してOK/NGを判定する。
+- **Take4修正内容**: Dex提示のCSSをそのまま適用。狭幅で`.navbar-brand`と`.header-right-group`の両方に`flex: 0 0 100%`を明示し、ブランドは省略記号、右側3要素（？使い方・ヘルプ・操作ユーザー）を優先表示。`layout.html`はCSSバージョンクエリ（`?v=7`）のみ変更。
+- **検証**: `mvnw -q -DskipTests compile`成功、`mvnw -q test`成功（13件、exit 0）。禁止ファイル差分なし、`app.version=v2.6.2`維持。
+- **重要: 実画面確認が今回も未実施（理由が前回までと異なる）**: Browser pane・Claude in Chromeともに接続不可（Browser paneは`navigate`/`tabs_create`/`screenshot`すべて失敗、Claude in Chromeは拡張機能未接続）。開発サーバー自体はポート8080で起動しHTTP 200を返すこと、配信CSSに正しいTake4修正が含まれていることは`curl`で確認済みだが、**360px/1280pxでの実際のレイアウト・操作ユーザーdropdown展開の目視確認はCC側で実施不能だった。**詳細は `docs/handoff/P3_CC_to_Dex/cycle_22_first_use_guide_and_tooltips_take4.md` を参照。
+- **次担当**: Dex(P4)。上記Take4報告を読み、実機（headlessブラウザ等）で360px/1280pxの最終確認を行いOK/NGを判定する。
 - **完全不動規約**: DB、保存、金額、Excel、Mapper、既存URL、hidden input、POST先、`app.version` は変更禁止（維持確認済み）。
 
 ## Current Cycle
 
-- Cycle 22: 初見利用者向けガイド・ツールチップ統合改善 (P4 Take3レビュー待ち)
+- Cycle 22: 初見利用者向けガイド・ツールチップ統合改善 (P4 Take4レビュー待ち・実画面確認はDex側に依存)
 
 ## 次の担当
 
-- **Dex(P4)**: `docs/handoff/P3_CC_to_Dex/cycle_22_first_use_guide_and_tooltips_take3.md` を読み、360px幅で操作ユーザーdropdownの見切れが解消したかを実機確認し、OK（`docs/handoff/P4_Dex_Review/`）またはNG（`docs/handoff/P4_Rollback/`）を判定すること。
+- **Dex(P4)**: `docs/handoff/P3_CC_to_Dex/cycle_22_first_use_guide_and_tooltips_take4.md` を読み、360px幅で操作ユーザーdropdownが完全表示・操作可能か、1280pxで既存表示が維持されているかを実機確認し、OK（`docs/handoff/P4_Dex_Review/`）またはNG（`docs/handoff/P4_Rollback/`）を判定すること。
 
 ## 今回読むべきファイル
 
@@ -24,8 +24,8 @@
 4. `docs/handoff/WORKFLOW_RULES.md`
 5. `manuals/AI_TEAM_WORKFLOW.md`
 6. `manuals/WORKFLOW_RULES.md`
-7. `docs/handoff/P4_Rollback/cycle_22_first_use_guide_and_tooltips_take2.md`
-8. `docs/handoff/P3_CC_to_Dex/cycle_22_first_use_guide_and_tooltips_take3.md`
+7. `docs/handoff/P4_Rollback/cycle_22_first_use_guide_and_tooltips_take3.md`
+8. `docs/handoff/P3_CC_to_Dex/cycle_22_first_use_guide_and_tooltips_take4.md`
 
 ## Stop Conditions
 
