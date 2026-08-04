@@ -93,4 +93,4 @@ CSSの修正自体はDexが提示した内容をそのまま適用しており�
 
 ## 8. commit / push
 
-（コミット後に追記）
+commit hash: `980467a`（`[v2.6.2] Cycle 22 Take4: 360pxヘッダーCSS確定修正(brand/header-right-groupをflex:0 0 100%で明示、実画面確認は未実施)`）。
