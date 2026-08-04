@@ -1,0 +1,38 @@
+# Cycle 23: build contextから除外する。pom.xml と src/main はビルドに必要なので除外しない。
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# 秘密情報
+.env
+.env.*
+!.env.example
+
+# ビルド成果物
+target/
+
+# 一時ファイル・ログ
+tmp/
+tmp*/
+test_unzip/
+logs/
+*.log
+app_run*
+
+# ドキュメント（imageに不要）
+docs/
+manuals/
+*.md
+
+# エージェント・IDE設定
+.claude/
+.agents/
+.cursorrules
+.idea/
+.vscode/
+*.iml
+
+# Docker build中はテストを実行しないため、build contextから除外する
+src/test/

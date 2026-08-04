@@ -37,6 +37,14 @@ app_run.log
 app_run_latest.pid
 *.log
 
+# 共通マニュアル同期時の安全バックアップ（コミット対象外）
+docs/manual_legacy/
+
+# Docker試運転用の秘密情報（Cycle 23。実値を含むためコミット対象外）
+.env
+.env.*
+!.env.example
+
 # Maestro Runner runtime files
 docs/handoff/maestro/*.log
 docs/handoff/maestro/*.txt

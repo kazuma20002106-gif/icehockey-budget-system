@@ -1,0 +1,54 @@
+# Cycle 23: ローカル試運転用 Docker Compose 構成
+# - アプリとMySQLを専用networkで隔離し、ホストの本物MySQLへは一切接続しない
+# - MySQLの3306はhostへ公開しない。アプリは127.0.0.1のみへ公開する
+# - 必須の秘密値は .env から与える。欠落時は起動させず失敗させる
+
+services:
+  db:
+    image: mysql:8.4.11
+    environment:
+      MYSQL_DATABASE: ${MYSQL_DATABASE:?MYSQL_DATABASE is required (see .env.example)}
+      MYSQL_USER: ${MYSQL_USER:?MYSQL_USER is required (see .env.example)}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?MYSQL_PASSWORD is required (see .env.example)}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?MYSQL_ROOT_PASSWORD is required (see .env.example)}
+    volumes:
+      - db-pilot-data:/var/lib/mysql
+    networks:
+      - pilot-net
+    # ports は書かない（3306をhostへ公開しない）
+    healthcheck:
+      # CMD(exec形式)では $$VAR が展開されずリテラル文字列が渡るため、CMD-SHELLを使う。
+      # これにより「サーバ応答」だけでなく専用ユーザーでの認証成功まで確認する。
+      test:
+        - CMD-SHELL
+        - mysqladmin ping -h localhost -u "$$MYSQL_USER" --password="$$MYSQL_PASSWORD" --silent
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 40s
+    restart: unless-stopped
+
+  app:
+    build: .
+    environment:
+      # 接続先は必ずCompose内の db サービス。localhost / host.docker.internal / ホストIPは使わない
+      SPRING_DATASOURCE_URL: jdbc:mysql://db:3306/${MYSQL_DATABASE:?MYSQL_DATABASE is required}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Tokyo&characterEncoding=UTF-8
+      # rootではなく専用ユーザーで接続する
+      SPRING_DATASOURCE_USERNAME: ${MYSQL_USER:?MYSQL_USER is required}
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_PASSWORD:?MYSQL_PASSWORD is required}
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:${APP_PORT:-18080}:8080"
+    networks:
+      - pilot-net
+    restart: unless-stopped
+
+networks:
+  pilot-net:
+    name: budget-pilot-net
+
+volumes:
+  db-pilot-data:
+    name: budget-pilot-db-data

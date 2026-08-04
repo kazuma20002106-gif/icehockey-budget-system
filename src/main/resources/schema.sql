@@ -1,5 +1,9 @@
-CREATE DATABASE IF NOT EXISTS budget_system CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-USE budget_system;
+-- ============================================================
+-- Cycle 23: 固定DB名の CREATE DATABASE / USE は削除した。
+--       接続先DBは接続URL側（Dockerでは MYSQL_DATABASE でMySQLが作成済み）で決まり、
+--       このスクリプトは「接続済みのDBへ」テーブルを作る責任だけを持つ。
+--       これにより、DB作成権限を持たない専用ユーザーでも初回起動が成功する。
+-- ============================================================
 
 -- ============================================================
 -- 注意: このスクリプトは毎回起動時に実行される（spring.sql.init.mode=always）。
