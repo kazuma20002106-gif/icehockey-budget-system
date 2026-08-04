@@ -1,11 +1,11 @@
 # CURRENT STATUS
 
-## Cycle 21 Take3（2026-08-03）
+## Cycle 21 Take4（2026-08-04）
 
-- **P1-3修正:** `activity/form.html`の事業名selectへ候補外値の追加option(選択済み)を実装し、無編集保存で空文字化しないよう修正。`project.projectOutcome`のtextareaはth:textの既定文言埋め込みをplaceholder化。`ProjectService.saveProject()`にscheduleContent/projectOutcomeの空白→NULL正規化を追加。テスト専用の新規活動(id=90、削除済み)で実機確認済み。
-- **P1-4調査:** binlogで事故トランザクション(Xid=21283)全体をBEGIN〜COMMITまで解析。expensesへのDELETEは無く、旧参加者(id=1,2)は元々Expense0件だったため実質的な金額損失なし。project_summary_expenses/membersは無変更。Expense総数45→46の差はCC自身の一時テストデータ作成が原因と特定(CCクルーBが独立確認、テストデータは削除済み)。
-- テスト12件成功。app.version=v2.6.2。CCクルー3観点セルフレビュー完了。
-- **次担当:** Dex(P4) Take3レビュー。`docs/handoff/P3_CC_to_Dex/cycle_21_comprehensive_safety_and_ui_take3.md`を確認。
+- **調査結果（DB書換なし）:** 保持されている全binlog(000006/007/011/014/016/022)を完全走査したが、旧participant(id=1,2)を参照するexpenses INSERT/UPDATE/DELETEは0件。最古の保持binlog(000006)は2026-06-24開始だが、`projects.id=1`のcreated_atは2026-06-11でbinlog保持期間より前のため、当時の記録は既にローテーションで失われている可能性が高い。他の記録（docs/handoff等）にも実額の記録なし。
+- **結論（訂正）:** 旧participant id=1/2に事故前Expenseがあったか・金額は**未確定**。Take3の「損失なし」という断定は撤回。`docs/handoff/INCIDENT_cycle21_take2_project1_data_loss.md`にTake4訂正章として記録済み。projects本体・summary・membersは事故前値と一致(確定)。CCクルーが独立検証し一致を確認。
+- **P3報告:** `docs/handoff/P3_CC_to_Dex/cycle_21_comprehensive_safety_and_ui_take4.md`。コード変更なし、app.versionはv2.6.2のまま。
+- **次担当:** Dex(P4) Take4レビュー、またはKazumaxが未確定を踏まえた復元要否の判断。
 
 > [!CAUTION]
 > **Kazumax代表からの全体絶対ルール**

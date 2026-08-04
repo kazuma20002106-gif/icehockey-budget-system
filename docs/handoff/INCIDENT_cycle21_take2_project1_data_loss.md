@@ -1,6 +1,12 @@
-[C21 Take2: CC(P3) ⇒ Dex — 緊急インシデント報告・要判断]
+[C21 Take2/Take3/Take4: CC(P3) ⇒ Dex — 緊急インシデント報告・要判断・訂正]
 
 # インシデント報告: activity id=1 の実データ破壊（Cycle 21 Take2 実機確認中）
+
+> **Take4での重要な訂正（本ファイル末尾「Take4訂正」章を参照）**: 本報告のTake3章にあった
+> 「事故トランザクション単体で実質的な金額データの損失はない」という結論は、MySQL 8系のInnoDB
+> 外部キー連鎖DELETEがROW形式binlogに子行の削除として記録されないという技術的事実を見落としていたため
+> **誤りだった（Dex P4指摘・CC是認）**。旧participant(id=1, id=2)に事故前Expenseがあったかどうかは、
+> 現時点で**証拠不十分により未確定**である。詳細はTake4訂正章を参照。
 
 ## 発生状況
 
@@ -139,3 +145,35 @@ WHERE句が`id`（PRIMARY KEY）＋事故直後の状態と完全一致する3�
 ###   @11=0
 ###   @12=0
 ```
+
+## Take4訂正: 「Expense損失なし」という結論の撤回と未確定化
+
+### Dex(P4)からの指摘（Take3差し戻し）
+
+Take3のP3報告は「事故トランザクションに`expenses`のDELETEイベントが存在しない」ことを根拠に「旧participant(id=1, id=2)は事故前からExpenseが0件だった＝実質的な金額データの損失なし」と結論していた。
+
+Dex(P4)はこの根拠が誤りであると指摘した: **MySQL 8系のInnoDBでは、外部キー制約（`ON DELETE CASCADE`）による親行削除に伴う子行の連鎖削除は、ストレージエンジン内部で処理され、ROW形式のbinlogには子行（`expenses`）自身のDELETEイベントとして記録されない。** そのため「`expenses`のDELETEイベントが無い」ことは「旧Expenseが0件だった」ことの証拠にはならない。（参考: Oracle公式ブログ「No More Hidden Changes: How MySQL 9.6 Transforms Foreign Key Management」が、MySQL 9.6以前のInnoDB cascadeがROW binlogに現れないことを明記している。）
+
+### Take4調査（DBを書き換えない読取専用調査）
+
+現在保持されているすべてのbinlogファイル（`MSI-bin.000006`, `000007`, `000011`, `000014`, `000016`, `000022`。他は180バイトのローテーションのみで実データなし）を`mysqlbinlog -vv --read-from-remote-server`で完全ダンプし、`expenses`テーブルへのINSERT/UPDATE/DELETEイベントのうち`project_participant_id`（列位置@2）が旧participant id（1または2）であるものを全件走査したが、**該当イベントは1件も見つからなかった**。
+
+この「見つからない」ことの意味を確認するため、以下も調査した:
+
+- `binlog_expire_logs_seconds` = 2592000（30日）。
+- 現在保持されている最古のbinlogファイル（`MSI-bin.000006`）の先頭イベントは **2026-06-24 20:34:56**。
+- `projects.id=1`の`created_at`は**2026-06-11 13:00:31**（本ファイル上部のUPDATE解析で復元済みの値）であり、**保持されているbinlogの範囲（2026-06-24以降）より前**。
+
+つまり、project 1・旧participant（id=1, id=2、いずれも参加者テーブルの中でも最若番のID）が作成された時期は、現在保持されているbinlogの範囲より確実に古い。当時Expenseが実際にINSERTされていたとしても、その記録はログローテーションで既に失われている可能性が高い。`docs/handoff/`配下の過去記録も検索したが、project 1の当時のExpense実額を記録した資料は見つからなかった。
+
+CCクルーによる独立検証でも、上記のファイル一覧・タイムスタンプ・`created_at`・全件走査結果がすべて再現・確認された。
+
+### 結論（訂正後）
+
+**旧participant(id=1, id=2)に事故前Expenseがあったかどうか、あったとしてその金額は、現時点で入手可能な証拠からは未確定である。** 「損失なし」と断定した従来の記述は撤回する。復元が必要かどうかは、この未確定性を踏まえてKazumaxが判断すべき事項であり、CC(P3)が自動的に何かを復元することはしない（Dex指示どおり）。
+
+### 実際に確定している事実（変更なし）
+
+- `projects.id=1`本体（name/schedule_content/project_outcome）は復旧済みで、他9列を含め事故前の値と一致することは確定している。
+- `project_summary_expenses`（project_id=1、rental_cost=15,000円等）と`members`（id=1, id=4）は、事故トランザクション内で一切変更されていないことはbinlogで確定している。
+- 現在のproject 1の参加者2名（id=167, 168、member_id=1, 4、is_accommodated=false）は、削除された旧participant（id=1, 2、同じmember_id・is_accommodated）と内容が完全一致しており、**参加者の氏名・宿泊有無などの基本情報は失われていない**。未確定なのは、その2名に紐づくExpense（交通費・宿泊費・雑費）が事故前に実際に入力されていたかどうかのみである。
