@@ -248,4 +248,6 @@ P2指示書5.4およびTake3の指示どおり、`mvnw test`は**実行してい
 
 ## 11. commit / push
 
-（コミット後に追記）
+commit hash: `a943356`（`[v2.7.0] Cycle 23: Dockerローカル試運転環境(app+MySQL隔離/非root/DB接続の環境変数化)`）
+
+`git add .`は使用せず、対象10ファイル（許可8ファイル＋`CURRENT_STATUS.md`＋本報告書）のみを個別指定してstageした。`.env`が誤ってstageされていないことをcommit前に確認済み（PASS）。他AI/ユーザーの未コミット差分7ファイルと未追跡文書には触れていない。
