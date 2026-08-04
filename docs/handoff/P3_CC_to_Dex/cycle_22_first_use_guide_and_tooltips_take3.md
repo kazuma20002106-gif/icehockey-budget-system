@@ -55,4 +55,4 @@ P4_Rollback指定の受入確認5項目のうち、1・2（360px/PC幅の実画�
 
 ## 6. commit / push
 
-（コミット後に追記）
+commit hash: `5c29f98`（`[v2.6.2] Cycle 22 Take3: 360pxヘッダーの操作ユーザーdropdown見切れ修正(右側3要素をグループ化し独立行へ折り返し)`）。
