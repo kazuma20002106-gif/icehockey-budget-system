@@ -210,3 +210,15 @@ select.form-select {
 .help-tip-btn:focus {
     color: #0b8fae;
 }
+
+/* Cycle 22 Take2: 360px幅でナビ右側(？使い方・操作ユーザーヘルプ・操作ユーザー)が
+   横あふれしないよう、狭い幅だけ折り返しを許可する（既存のナビ表示方式・リンクは変更しない）。 */
+@media (max-width: 575.98px) {
+    .navbar > .container-fluid {
+        flex-wrap: wrap;
+        row-gap: 4px;
+    }
+    .navbar-brand {
+        font-size: 0.95rem;
+    }
+}

@@ -1,21 +1,20 @@
 # CURRENT STATUS
 
-## Cycle 22 P4待ち: 初見利用者ガイド・ツールチップ実装完了（2026-08-04）
+## Cycle 22 Take2 P4待ち: 初見利用者ガイド・ツールチップ修正完了（2026-08-04）
 
-- **目的**: Docker配布前の最終UX改善。初見利用者が迷わず安全に作業できる `？ 使い方`（`/guide`）と、要所のツールチップ・常時注意文を追加する。
-- **P3実装結果**: `docs/handoff/P2_Dex_to_CC/cycle_22_first_use_guide_and_tooltips_instructions.md` の許可範囲どおり実装完了。`/guide`新設（GET専用、Service/Repository/Mapper不使用）、layout.htmlへのツールチップ共通初期化統一、P1確定文言のツールチップ・常時注意文を各画面へ追加。DB・保存・金額・Excel・Mapper・既存URL・`app.version`(v2.6.2のまま)への差分なし。
-- **検証**: `mvnw -q -DskipTests compile` 成功、`mvnw -q test` 成功（既存12件+新規GuideControllerTest 1件、DB不要スライステスト）。**実UI画面でのブラウザ確認はKazumax判断により今回未実施**（ローカルポート競合のトラブルのため）。詳細は `docs/handoff/P3_CC_to_Dex/cycle_22_first_use_guide_and_tooltips.md` を参照。
-- **次担当**: Dex(P4)。上記P3報告を読みDIFFレビューし、OK/NGを判定する。実UI確認が未実施のため、狭い幅到達性・tooltip動作はコードレビューで重点確認するか、Kazumaxの実機確認を軽い確認として依頼すること。
-- **完全不動規約**: DB、保存処理、金額計算、Excelロジック・帳票セル・式、Mapper、既存URL（`DO NOT DELETE /export` 等）、`app.version` は変更禁止（維持確認済み）。
-- **配布について**: Docker化・配布は全機能の最終検証後の別工程。本Cycleでは行わない。
+- **Take2修正内容**: P4差し戻し4点を修正。(1)活動一覧「出力」ボタンの閉じタグ・表示文字欠落を復元、(2)`交通費単価`/`旅行雑費`/`主な出発地点`のヘルプbuttonをlabel外へ分離、(3)ガイド5カードのinline flex/max-widthを削除しBootstrap標準の`row-cols-2 row-cols-md-5`へ置換、(4)操作ユーザーヘルプの`d-none d-sm-inline-block`を削除し360pxでも表示、狭幅では横あふれ時に折り返すCSSを追加。
+- **検証**: `mvnw -q -DskipTests compile`成功、`mvnw -q test`成功（13件、exit 0）。禁止ファイル差分なし、`app.version=v2.6.2`維持。
+- **未実施事項**: 360px/PC幅での実画面確認は、CC環境のブラウザプレビューツールの接続失敗（ポート競合起因）が再発したため今回も未実施。詳細は `docs/handoff/P3_CC_to_Dex/cycle_22_first_use_guide_and_tooltips_take2.md` を参照。
+- **次担当**: Dex(P4)。上記Take2報告を読みDIFFレビューし、OK/NGを判定する。実画面確認（360px/PC幅）はDexまたはKazumaxでの実施を検討すること。
+- **完全不動規約**: DB、保存、金額、Excel、Mapper、既存URL、hidden input、POST先、`app.version` は変更禁止（維持確認済み）。
 
 ## Current Cycle
 
-- Cycle 22: 初見利用者向けガイド・ツールチップ統合改善 (P4レビュー待ち)
+- Cycle 22: 初見利用者向けガイド・ツールチップ統合改善 (P4 Take2レビュー待ち)
 
 ## 次の担当
 
-- **Dex(P4)**: `docs/handoff/P3_CC_to_Dex/cycle_22_first_use_guide_and_tooltips.md` を読み、差分が許可範囲内か、`/guide`がGET専用か、tooltip二重初期化がないか等をレビューし、OK（`docs/handoff/P4_Dex_Review/`）またはNG（`docs/handoff/P4_Rollback/`）を判定すること。
+- **Dex(P4)**: `docs/handoff/P3_CC_to_Dex/cycle_22_first_use_guide_and_tooltips_take2.md` を読み、4点の修正が受入確認を満たすかレビューし、OK（`docs/handoff/P4_Dex_Review/`）またはNG（`docs/handoff/P4_Rollback/`）を判定すること。
 
 ## 今回読むべきファイル
 
@@ -25,8 +24,8 @@
 4. `docs/handoff/WORKFLOW_RULES.md`
 5. `manuals/AI_TEAM_WORKFLOW.md`
 6. `manuals/WORKFLOW_RULES.md`
-7. `docs/handoff/P2_Dex_to_CC/cycle_22_first_use_guide_and_tooltips_instructions.md`
-8. `docs/handoff/P3_CC_to_Dex/cycle_22_first_use_guide_and_tooltips.md`
+7. `docs/handoff/P4_Rollback/cycle_22_first_use_guide_and_tooltips.md`
+8. `docs/handoff/P3_CC_to_Dex/cycle_22_first_use_guide_and_tooltips_take2.md`
 
 ## Stop Conditions
 
