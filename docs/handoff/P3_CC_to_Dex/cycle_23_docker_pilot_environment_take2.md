@@ -26,7 +26,7 @@ binlog調査の手順説明としての意味は保持している（コマン�
 - CCクルー観点Aが独立に再検索（tracked＋未追跡の`docs/`・`manuals/`・`src/`・ルート直下・`.claude/`まで走査）→ **0件（PASS）**
 - 今回の差分に旧実値の**追加行(+)は0件**。削除行(-)のみ（＝値を除去したことを示すdiff）。
 
-push後の`origin/main` snapshotでの0件確認は、本報告のcommit後に実施し「6. commit / push」へ記載する。
+push後の`origin/main` snapshotでの0件確認結果は「6. commit / push」に記載した（**0件・PASS**）。
 
 新旧いずれのパスワードも本報告書には記載していない。
 
@@ -166,4 +166,24 @@ CCクルー観点Aも「マスクだけでは露出は解消せず、push済み�
 
 ## 6. commit / push
 
-（コミット後に追記）
+commit hash: `cade0a7`（`[v2.7.1] Cycle 23 Take2: 秘密値マスク・DB healthcheckの認証確認・PATH未登録時の案内`）
+
+`git add .`は使用せず、Take2許可範囲の6ファイル（`compose.yaml` / `DOCKER_QUICKSTART.md` / `application.properties` / `cycle_21_..._take4.md` / 本報告書 / `CURRENT_STATUS.md`）のみを個別指定してstageした。commit前に`.env`が未ステージであること、ステージ内容に旧実値の**追加行が0件**（削除行2件のみ）であることを確認済み。
+
+**push後の`origin/main`現在snapshot検証（受入条件2）:**
+
+```
+git fetch origin
+git grep -I -F -- '<旧実値>' origin/main -- .
+=> 該当ファイル数 0   ← PASS
+```
+
+`origin/main`の現在snapshotに旧実値が存在しないことを確認した。ただしcommit履歴（`33640e1`, `5451304`, `a943356`）には依然として残るため、**パスワードローテーションが本質的対処である点は変わらない**（4.参照）。
+
+他AI/ユーザーの未コミット差分7ファイル（`.cursorrules`, `AGENTS.md`, `CLAUDE.md`, `docs/PROJECT_RULES.md`, `docs/handoff/WORKFLOW_RULES.md`, `manuals/AI_TEAM_WORKFLOW.md`, `manuals/WORKFLOW_RULES.md`）と未追跡文書には一切触れていない。
+
+## 7. Dex(P4)への申し送り
+
+1. **受入条件1（ローテーション完了の合図）が未達**のまま提出している。Dexレビューと並行してKazumaxの作業を待つ形とし、**本人手渡しはP4 OKとローテーション完了の両方が揃ってから**としたい。
+2. CCクルー観点Bの任意提案「`-p"$MYSQL_PASSWORD"`はコンテナ内`ps`に平文で載るため`MYSQL_PWD`環境変数経由がより堅い」は、P4差し戻し4.が`mysql --protocol=TCP ... -e "SELECT 1"`相当を指定しているためP4仕様に忠実な実装を維持した。採用が望ましい場合はTake3で対応する。
+3. Git履歴の書換え・force pushは実行していない（P4差し戻し3.のとおり別途明示承認が必要なため）。
