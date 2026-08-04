@@ -61,7 +61,7 @@ CCクルーの所見: 「CC結論『証拠不十分により未確定』は断�
 
 ## 7. commit / push
 
-後述（本報告書保存後にcommit・push、hashを追記）。
+commit hash: `5451304`（`Cycle 21 Take4: expenses損失なし結論を撤回し「未確定」へ訂正(binlog全履歴照合)`）。origin/mainへpush済み（c772914→5451304）。
 
 ## 8. 最終git status
 
