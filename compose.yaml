@@ -17,11 +17,12 @@ services:
       - pilot-net
     # ports は書かない（3306をhostへ公開しない）
     healthcheck:
-      # CMD(exec形式)では $$VAR が展開されずリテラル文字列が渡るため、CMD-SHELLを使う。
-      # これにより「サーバ応答」だけでなく専用ユーザーでの認証成功まで確認する。
+      # mysqladmin ping は誤ったパスワードでもサーバが生きていれば exit 0 を返すため使わない。
+      # 専用ユーザーで対象DBへ実際にクエリを通し、認証成功まで確認する。
+      # 秘密値はコンテナ内の環境変数から参照し、composeやログへ展開しない。
       test:
         - CMD-SHELL
-        - mysqladmin ping -h localhost -u "$$MYSQL_USER" --password="$$MYSQL_PASSWORD" --silent
+        - mysql --protocol=TCP -h 127.0.0.1 -u "$$MYSQL_USER" -p"$$MYSQL_PASSWORD" "$$MYSQL_DATABASE" -N -e "SELECT 1" > /dev/null 2>&1
       interval: 10s
       timeout: 5s
       retries: 12

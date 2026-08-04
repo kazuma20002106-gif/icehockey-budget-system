@@ -14,15 +14,42 @@ Docker Desktop を起動してから、次を実行します。
 docker version
 ```
 
-`Client` と `Server` の両方が表示されればOKです。`Server` が出ない場合は Docker Desktop がまだ起動中です。
+`Client` と `Server` の両方が表示されればOKです。`Server` が出ない場合は Docker Desktop がまだ起動中なので、少し待ってから再実行してください。
 
 ```bash
 docker compose version
 ```
 
+### `docker` コマンドが見つからない場合（Windows）
+
+`docker : 用語 'docker' は…認識されません` のように出る場合は、DockerがPATHに登録されていません。次の順で対処します。
+
+**手順1: 新しいターミナルを開いて再確認する**
+
+Docker Desktop のインストール直後はPATHが反映されていないことがあります。PowerShell を一度閉じて開き直し、もう一度確認してください。
+
+```powershell
+docker version
+```
+
+**手順2: それでも見つからない場合、そのPowerShellセッションだけPATHへ追加する**
+
+```powershell
+$env:PATH = "$env:LOCALAPPDATA\Programs\DockerDesktop\resources\bin;" + $env:PATH
+docker version
+```
+
+この方法は**今開いているPowerShellウィンドウの中だけ**で有効です。ウィンドウを閉じると元に戻ります。以降の `docker compose ...` も同じウィンドウで実行してください。
+
+> Windowsのユーザー環境変数・システム環境変数（設定画面のPATH）は、この手順では変更しません。恒久的に登録したい場合は Docker Desktop の再インストールか、Windowsの設定から本人の判断で行ってください。
+
+なお、Docker Desktop の場所が上記と異なる場合は、`Docker Desktop.exe` があるフォルダ配下の `resources\bin` を指定してください。
+
 ## 2. 設定ファイルを用意する（初回だけ）
 
-```bash
+Windows の PowerShell / コマンドプロンプトでは次を実行します。
+
+```powershell
 copy .env.example .env
 ```
 

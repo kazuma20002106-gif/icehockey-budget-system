@@ -15,11 +15,11 @@ Take3のP3報告は「事故トランザクションに`expenses`のDELETEイベ
 ### 3.1 保持されている全binlogファイルの完全走査
 
 ```
-mysql -u root -pKazuma0307 -e "SHOW BINARY LOGS;"
+mysql -u root -p[REDACTED] -e "SHOW BINARY LOGS;"
 ```
 実データを含むファイル: `MSI-bin.000006`(61,912B), `000007`(10,616B), `000011`(170,602B), `000014`(14,574B), `000016`(130,554B), `000022`(210,170B)。他は180バイトのローテーションのみで実データなし。
 
-上記6ファイルすべてを`mysqlbinlog -vv --read-from-remote-server -h127.0.0.1 -uroot -pKazuma0307`で完全ダンプし、`expenses`テーブルへのすべてのINSERT/UPDATE/DELETEイベントを走査。`project_participant_id`（列位置@2）が旧participant id（**1**または**2**）であるイベントを検索したが、**該当は0件**だった。
+上記6ファイルすべてを`mysqlbinlog -vv --read-from-remote-server -h127.0.0.1 -uroot -p[REDACTED]`で完全ダンプし、`expenses`テーブルへのすべてのINSERT/UPDATE/DELETEイベントを走査。`project_participant_id`（列位置@2）が旧participant id（**1**または**2**）であるイベントを検索したが、**該当は0件**だった。
 
 ### 3.2 「見つからない」ことの意味を確認するための追加調査
 
